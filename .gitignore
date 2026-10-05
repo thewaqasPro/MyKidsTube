@@ -43,3 +43,9 @@ server/data/
 .venv/
 env/
 venv/
+
+# Secrets & Keys
+VPS/
+*.key
+*.pem
+*.pub
