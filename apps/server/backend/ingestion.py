@@ -97,9 +97,18 @@ class IngestionManager:
             output_template = str(VIDEOS_DIR / f"{video_id}.%(ext)s")
 
             ydl_opts = {
-                'format': f'bestvideo[height<={max_height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={max_height}][ext=mp4]/best[height<={max_height}]/best',
+                # 1. Prioritize H.264 (avc1) + AAC (m4a) to enable instant stream copy without CPU transcoding
+                'format': (
+                    f'bestvideo[vcodec^=avc1][height<={max_height}]+bestaudio[acodec^=mp4a]/'
+                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
+                    f'best[ext=mp4][height<={max_height}]/'
+                    f'bestvideo[height<={max_height}]+bestaudio/'
+                    f'best[height<={max_height}]/best'
+                ),
                 'outtmpl': output_template,
                 'merge_output_format': 'mp4',
+                'concurrent_fragment_downloads': 1,
+                'buffersize': 1024 * 1024,  # Cap internal buffer to 1MB to prevent RAM spikes on 1GB VPS
                 'postprocessors': [
                     {
                         'key': 'FFmpegVideoConvertor',
@@ -110,14 +119,25 @@ class IngestionManager:
                         'format': 'webp',
                     }
                 ],
-                'postprocessor_args': [
-                    '-movflags', '+faststart',
-                    '-c:v', 'libx264',
-                    '-crf', '24',
-                    '-preset', 'fast',
-                    '-c:a', 'aac',
-                    '-b:a', '128k'
-                ],
+                'postprocessor_args': {
+                    # Stream copy when merging pre-encoded H264+AAC (takes ~2 seconds, zero CPU re-encoding)
+                    'Merger': [
+                        '-c:v', 'copy',
+                        '-c:a', 'copy',
+                        '-movflags', '+faststart',
+                        '-threads', '1',
+                    ],
+                    # If transcode is strictly unavoidable (e.g. raw VP9/WebM), use ultrafast 1-thread mode
+                    'VideoConvertor': [
+                        '-c:v', 'libx264',
+                        '-preset', 'ultrafast',
+                        '-crf', '26',
+                        '-threads', '1',
+                        '-c:a', 'aac',
+                        '-b:a', '96k',
+                        '-movflags', '+faststart',
+                    ],
+                },
                 'writethumbnail': True,
                 'progress_hooks': [progress_hook],
                 'noplaylist': True,

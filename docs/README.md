@@ -17,3 +17,6 @@ Welcome to the technical documentation for KidsTube.
 
 4. **[Monorepo Structure Analysis](monorepo-structure-plan.md)**
    - Review of current hybrid layout vs. clean monorepo (`apps/mobile` + `apps/server`), trade-offs, and migration steps.
+
+5. **[1 GB RAM / 1 Core VPS Optimization Guide](vps-optimization-1gb.md)**
+   - OS configuration (2GB swap, swappiness, Docker log rotation), zero-CPU stream remuxing, single-thread queues, and memory constraints.

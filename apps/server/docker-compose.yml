@@ -3,6 +3,13 @@ services:
     image: nginx:alpine
     container_name: safekids_nginx
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.15
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "8080:80"
     volumes:
@@ -16,12 +23,19 @@ services:
     build: ./backend
     container_name: safekids_backend
     restart: unless-stopped
+    mem_limit: 650m
+    cpus: 0.85
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       - PORT=8000
       - DATA_DIR=/data
       - MEDIA_DIR=/data/media
-      - DEFAULT_QUALITY=720p
-      - MAX_CONCURRENT_DOWNLOADS=2
+      - DEFAULT_QUALITY=480p
+      - MAX_CONCURRENT_DOWNLOADS=1
       - PARENT_PIN=1234
     volumes:
       - ./data:/data

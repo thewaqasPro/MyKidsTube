@@ -7,12 +7,15 @@ from datetime import datetime
 from config import DB_PATH
 
 def get_db():
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA cache_size = -2000;")  # Caps memory cache to ~2MB
     return conn
 
 def init_db():
     conn = get_db()
+    conn.execute("PRAGMA journal_mode = WAL;")
     cursor = conn.cursor()
 
     # 1. Families (Tenants)
