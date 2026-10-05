@@ -711,7 +711,8 @@
           document.getElementById('videoUrl').value = '';
           loadTasks();
         } else {
-          alert('Failed to enqueue video');
+          const errData = await res.json().catch(() => ({}));
+          alert(errData.detail || 'Failed to enqueue video');
         }
       } finally {
         submitBtn.disabled = false;

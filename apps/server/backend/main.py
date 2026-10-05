@@ -160,7 +160,7 @@ def delete_profile(profile_id: str):
 
 # --- Video Ingestion & Management ---
 @app.post("/api/v1/ingest")
-def ingest_video(req: IngestRequest):
+async def ingest_video(req: IngestRequest):
     if not req.url or not req.url.strip():
         raise HTTPException(status_code=400, detail="Video URL is required")
     

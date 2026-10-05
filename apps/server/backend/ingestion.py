@@ -43,8 +43,14 @@ class IngestionTask:
 class IngestionManager:
     def __init__(self):
         self.tasks: Dict[str, IngestionTask] = {}
-        self.queue: asyncio.Queue = asyncio.Queue()
+        self._queue: Optional[asyncio.Queue] = None
         self._worker_running = False
+
+    @property
+    def queue(self) -> asyncio.Queue:
+        if self._queue is None:
+            self._queue = asyncio.Queue()
+        return self._queue
 
     def enqueue(self, url: str, category_id: str, quality: str = DEFAULT_QUALITY, allowed_profile_ids: Optional[list] = None) -> IngestionTask:
         task_id = str(uuid.uuid4())[:8]
@@ -52,7 +58,11 @@ class IngestionManager:
         self.tasks[task_id] = task
         self.queue.put_nowait(task)
         if not self._worker_running:
-            asyncio.create_task(self._process_queue())
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._process_queue())
+            except RuntimeError:
+                pass
         return task
 
     def get_task(self, task_id: str) -> Optional[IngestionTask]:
@@ -72,7 +82,7 @@ class IngestionManager:
             self._worker_running = False
 
     async def _run_download(self, task: IngestionTask):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         task.status = "downloading"
 
         def progress_hook(d):
