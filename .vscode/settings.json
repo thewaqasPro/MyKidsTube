@@ -1,0 +1,17 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "Dart-Code.dart-code",
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "dart.previewFlutterUiGuides": true,
+  "dart.openDevTools": "flutter",
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/.dart_tool": false
+  }
+}

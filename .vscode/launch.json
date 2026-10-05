@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "KidsTube (Debug - Emulator / Device)",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "KidsTube (Profile Mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "KidsTube (Release Mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
+    }
+  ]
+}

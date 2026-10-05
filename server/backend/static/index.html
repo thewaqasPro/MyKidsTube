@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KidsTube Media Server - Parent Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 20px;
+      color: #fff;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 500;
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    @media(min-width: 768px) {
+      .grid-2 {
+        grid-template-columns: 380px 1fr;
+      }
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--primary);
+    }
+    button.btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--primary);
+      color: #0f172a;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.btn-primary:hover {
+      background: var(--primary-hover);
+      color: #fff;
+    }
+    .task-item {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .task-url {
+      font-weight: 600;
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .progress-bar-bg {
+      height: 8px;
+      background: var(--border);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+    .task-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .video-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .thumb-wrap {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #1e293b;
+      position: relative;
+    }
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .duration-tag {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .video-info {
+      padding: 12px;
+    }
+    .video-title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .video-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .btn-delete:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .info-box {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 10px;
+      font-size: 12px;
+      color: #bae6fd;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-icon">▶</div>
+        <div>
+          <h1>KidsTube Media Server</h1>
+          <p style="font-size: 13px; color: var(--text-muted);">Parent Ingestion & Catalog Dashboard</p>
+        </div>
+      </div>
+      <div class="badge">
+        <div class="dot"></div>
+        Server Online
+      </div>
+    </header>
+
+    <div class="grid grid-2">
+      <!-- Ingestion Form & Task Queue -->
+      <div>
+        <div class="card">
+          <div class="card-title">Add Video by Link</div>
+          <form id="ingestForm">
+            <div>
+              <label for="videoUrl">Video URL</label>
+              <input type="url" id="videoUrl" placeholder="https://youtube.com/watch?v=... or TikTok/Vimeo" required />
+            </div>
+            <div>
+              <label for="categorySelect">Category</label>
+              <select id="categorySelect">
+                <!-- Dynamically loaded -->
+              </select>
+            </div>
+            <div>
+              <label for="qualitySelect">Quality Preset</label>
+              <select id="qualitySelect">
+                <option value="720p" selected>720p HD (Moderate - Recommended)</option>
+                <option value="480p">480p SD (Compact - Saves 50% Space)</option>
+              </select>
+            </div>
+            <button type="submit" id="submitBtn" class="btn-primary">Download to Media Server</button>
+          </form>
+
+          <div class="info-box">
+            <strong>Supported Providers:</strong> YouTube, Vimeo, Dailymotion, TikTok, and direct MP4 streams. Automatically transcoded to H.264 MP4 with fast-start.
+          </div>
+        </div>
+
+        <!-- Ingestion Tasks / Progress -->
+        <div class="card" style="margin-top: 24px;">
+          <div class="card-title">
+            <span>Download Queue</span>
+            <span id="taskCount" style="font-size: 12px; color: var(--text-muted);">0 active</span>
+          </div>
+          <div id="taskList">
+            <div class="empty-state">No active downloads</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Catalog Overview -->
+      <div>
+        <div class="card">
+          <div class="card-title">
+            <span>Media Library (<span id="totalVideos">0</span>)</span>
+            <button onclick="loadCatalog()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;">Refresh</button>
+          </div>
+          <div id="catalogContainer">
+            <div class="empty-state">Loading library...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/v1/categories');
+        const data = await res.json();
+        const select = document.getElementById('categorySelect');
+        select.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      } catch (e) {
+        console.error('Failed to load categories', e);
+      }
+    }
+
+    async function loadCatalog() {
+      try {
+        const res = await fetch('/api/v1/catalog');
+        const data = await res.json();
+        document.getElementById('totalVideos').textContent = data.total_videos || 0;
+        const container = document.getElementById('catalogContainer');
+        
+        if (!data.all_videos || data.all_videos.length === 0) {
+          container.innerHTML = '<div class="empty-state">No videos in catalog yet. Paste a link on the left to start!</div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="video-grid">
+            ${data.all_videos.map(v => `
+              <div class="video-card">
+                <div class="thumb-wrap">
+                  <img src="${v.thumbnail_url}" alt="${v.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'><rect fill=\\'%231e293b\\' width=\\'100\\' height=\\'100\\'/></svg>'">
+                  <span class="duration-tag">${v.duration_formatted}</span>
+                </div>
+                <div class="video-info">
+                  <div class="video-title" title="${v.title}">${v.title}</div>
+                  <div class="video-meta">
+                    <span>${(v.file_size_bytes / (1024*1024)).toFixed(1)} MB</span>
+                    <button class="btn-delete" onclick="deleteVideo('${v.id}')">Delete</button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (e) {
+        console.error('Failed to load catalog', e);
+      }
+    }
+
+    async function loadTasks() {
+      try {
+        const res = await fetch('/api/v1/tasks');
+        const tasks = await res.json();
+        const active = tasks.filter(t => t.status === 'downloading' || t.status === 'processing' || t.status === 'queued');
+        document.getElementById('taskCount').textContent = `${active.length} active`;
+
+        const list = document.getElementById('taskList');
+        if (!tasks || tasks.length === 0) {
+          list.innerHTML = '<div class="empty-state">No active downloads</div>';
+          return;
+        }
+
+        list.innerHTML = tasks.slice(0, 5).map(t => {
+          const isDone = t.status === 'completed';
+          const isFail = t.status === 'failed';
+          const statusColor = isDone ? 'var(--success)' : (isFail ? 'var(--danger)' : 'var(--primary)');
+          return `
+            <div class="task-item">
+              <div class="task-header">
+                <span class="task-url">${t.title || t.url}</span>
+                <span style="color: ${statusColor}; font-weight: 600;">${t.status.toUpperCase()}</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width: ${t.progress}%; background: ${statusColor};"></div>
+              </div>
+              <div class="task-footer">
+                <span>${t.progress}% ${t.speed ? '· ' + t.speed : ''}</span>
+                <span>${t.eta ? 'ETA: ' + t.eta : (isFail ? t.error_message : '')}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error('Failed to load tasks', e);
+      }
+    }
+
+    async function deleteVideo(id) {
+      if (!confirm('Are you sure you want to delete this video from the server?')) return;
+      try {
+        await fetch(`/api/v1/videos/${id}`, { method: 'DELETE' });
+        loadCatalog();
+      } catch (e) {
+        alert('Failed to delete video: ' + e);
+      }
+    }
+
+    document.getElementById('ingestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const urlInput = document.getElementById('videoUrl');
+      const categorySelect = document.getElementById('categorySelect');
+      const qualitySelect = document.getElementById('qualitySelect');
+      const submitBtn = document.getElementById('submitBtn');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Enqueuing...';
+
+      try {
+        const res = await fetch('/api/v1/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: urlInput.value.trim(),
+            category_id: categorySelect.value,
+            quality: qualitySelect.value
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          urlInput.value = '';
+          loadTasks();
+        } else {
+          alert('Error: ' + (data.detail || 'Failed to enqueue'));
+        }
+      } catch (err) {
+        alert('Error communicating with server: ' + err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Download to Media Server';
+      }
+    });
+
+    loadCategories();
+    loadCatalog();
+    loadTasks();
+    setInterval(loadTasks, 3000);
+    setInterval(loadCatalog, 15000);
+  </script>
+</body>
+</html>

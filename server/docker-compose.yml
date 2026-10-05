@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: safekids_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data/media/videos:/var/www/media/videos:ro
+      - ./data/media/thumbs:/var/www/media/thumbs:ro
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    container_name: safekids_backend
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+      - DATA_DIR=/data
+      - MEDIA_DIR=/data/media
+      - DEFAULT_QUALITY=720p
+      - MAX_CONCURRENT_DOWNLOADS=2
+      - PARENT_PIN=1234
+    volumes:
+      - ./data:/data
+      - ./data/media/videos:/data/media/videos
+      - ./data/media/thumbs:/data/media/thumbs
