@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 from config import DB_PATH, VIDEOS_DIR, THUMBS_DIR, PARENT_PIN
 import database
@@ -18,12 +18,11 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="KidsTube Media Server & Ingestion API",
-    version="1.0.0",
+    title="KidsTube Multi-User Media Server & Ingestion API",
+    version="2.0.0",
     lifespan=lifespan
 )
 
-# Enable CORS for Flutter mobile clients and web browsers
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,17 +31,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ingest Request Model
+# Request Models
 class IngestRequest(BaseModel):
     url: str
     category_id: str = "cartoons"
     quality: Optional[str] = "720p"
+    allowed_profile_ids: Optional[List[str]] = None
 
 class CategoryCreateRequest(BaseModel):
     id: str
     name: str
     icon: Optional[str] = "category"
     display_order: Optional[int] = 0
+
+class DeviceRegisterRequest(BaseModel):
+    device_name: str
+
+class DevicePairRequest(BaseModel):
+    pairing_code: str
+    profile_id: Optional[str] = None
+    family_id: Optional[str] = "default_family"
+
+class ProfileCreateRequest(BaseModel):
+    name: str
+    avatar_icon: Optional[str] = "bear"
+    age_bracket: Optional[str] = "all"
+    family_id: Optional[str] = "default_family"
 
 # Helper to construct absolute media URLs
 def enrich_video_urls(video: dict, base_url: str) -> dict:
@@ -53,12 +67,13 @@ def enrich_video_urls(video: dict, base_url: str) -> dict:
 
 @app.get("/api/v1/health")
 def health():
-    return {"status": "ok", "service": "KidsTube Media Server"}
+    return {"status": "ok", "service": "KidsTube Multi-User Media Server"}
 
+# --- Catalog API (Per Profile or Full) ---
 @app.get("/api/v1/catalog")
-def get_catalog(request: Request):
+def get_catalog(request: Request, profile_id: Optional[str] = None):
     base_url = str(request.base_url)
-    raw_catalog = database.get_catalog()
+    raw_catalog = database.get_profile_catalog(profile_id)
     
     sections = []
     for sec in raw_catalog["sections"]:
@@ -72,17 +87,89 @@ def get_catalog(request: Request):
 
     return {
         "server_time": database.datetime.utcnow().isoformat(),
+        "profile_id": raw_catalog["profile_id"],
         "total_videos": raw_catalog["total_videos"],
         "sections": sections,
         "all_videos": all_enriched
     }
 
+# --- Device Pairing Endpoints (6-Digit Code) ---
+@app.post("/api/v1/devices/register")
+def register_device_endpoint(req: DeviceRegisterRequest):
+    return database.register_device(req.device_name)
+
+@app.get("/api/v1/devices/status/{pairing_code}")
+def check_device_status(pairing_code: str):
+    device = database.get_device_by_code(pairing_code)
+    if not device:
+        raise HTTPException(status_code=404, detail="Invalid pairing code")
+    
+    profile = None
+    if device.get("profile_id"):
+        conn = database.get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM child_profiles WHERE id = ?", (device["profile_id"],))
+        p_row = cursor.fetchone()
+        conn.close()
+        if p_row:
+            profile = dict(p_row)
+
+    return {
+        "device_id": device["id"],
+        "device_name": device["device_name"],
+        "status": device["status"],
+        "pairing_code": device["pairing_code"],
+        "auth_token": device.get("auth_token"),
+        "family_id": device.get("family_id"),
+        "profile": profile
+    }
+
+@app.post("/api/v1/devices/pair")
+def pair_device(req: DevicePairRequest):
+    device = database.confirm_device_pairing(
+        req.pairing_code,
+        req.family_id or "default_family",
+        req.profile_id
+    )
+    if not device:
+        raise HTTPException(status_code=400, detail="Pairing failed. Invalid or expired code.")
+    return {"status": "paired", "device": device}
+
+@app.get("/api/v1/devices")
+def list_devices(family_id: str = "default_family"):
+    return database.get_all_paired_devices(family_id)
+
+# --- Child Profiles ---
+@app.get("/api/v1/profiles")
+def list_profiles(family_id: str = "default_family"):
+    return database.get_child_profiles(family_id)
+
+@app.post("/api/v1/profiles")
+def create_profile(req: ProfileCreateRequest):
+    return database.create_child_profile(
+        req.family_id or "default_family",
+        req.name,
+        req.avatar_icon or "bear",
+        req.age_bracket or "all"
+    )
+
+@app.delete("/api/v1/profiles/{profile_id}")
+def delete_profile(profile_id: str):
+    database.delete_child_profile(profile_id)
+    return {"status": "deleted", "profile_id": profile_id}
+
+# --- Video Ingestion & Management ---
 @app.post("/api/v1/ingest")
 def ingest_video(req: IngestRequest):
     if not req.url or not req.url.strip():
         raise HTTPException(status_code=400, detail="Video URL is required")
     
-    task = manager.enqueue(req.url.strip(), req.category_id, req.quality or "720p")
+    task = manager.enqueue(
+        req.url.strip(),
+        req.category_id,
+        req.quality or "720p",
+        allowed_profile_ids=req.allowed_profile_ids
+    )
     return {
         "status": "queued",
         "task_id": task.task_id,
@@ -107,7 +194,6 @@ def delete_video(video_id: str):
     if not record:
         raise HTTPException(status_code=404, detail="Video not found")
     
-    # Remove files from disk
     v_file = VIDEOS_DIR / record["video_file"]
     t_file = THUMBS_DIR / record["thumbnail_file"]
     if v_file.exists():
@@ -117,11 +203,10 @@ def delete_video(video_id: str):
         
     return {"status": "deleted", "video_id": video_id}
 
-# Direct media serving (fallback when running outside Nginx)
+# Static file mounts
 app.mount("/media/videos", StaticFiles(directory=str(VIDEOS_DIR)), name="media_videos")
 app.mount("/media/thumbs", StaticFiles(directory=str(THUMBS_DIR)), name="media_thumbs")
 
-# Static files for parent dashboard
 STATIC_DIR = Path(__file__).parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

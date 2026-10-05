@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/kid_home_screen.dart';
+import 'screens/device_pairing_screen.dart';
 import 'utils/constants.dart';
 
 void main() async {
@@ -35,7 +36,14 @@ class KidsTubeApp extends StatelessWidget {
       title: 'KidsTube',
       debugShowCheckedModeBanner: false,
       theme: KidTheme.darkTheme,
-      home: const KidHomeScreen(),
+      home: Consumer<AppProvider>(
+        builder: (context, provider, _) {
+          if (!provider.isDevicePaired) {
+            return const DevicePairingScreen();
+          }
+          return const KidHomeScreen();
+        },
+      ),
     );
   }
 }

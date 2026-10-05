@@ -14,6 +14,7 @@
       --border: #334155;
       --primary: #38bdf8;
       --primary-hover: #0284c7;
+      --accent: #f97316;
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --success: #22c55e;
@@ -33,14 +34,14 @@
       padding: 24px;
     }
     .container {
-      max-width: 1100px;
+      max-width: 1200px;
       margin: 0 auto;
     }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
     }
@@ -83,14 +84,35 @@
       border-radius: 50%;
       background: var(--success);
     }
-    .grid {
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #0f172a;
+      border-color: var(--primary);
+    }
+    .grid-2 {
       display: grid;
       grid-template-columns: 1fr;
       gap: 24px;
     }
-    @media(min-width: 768px) {
+    @media(min-width: 900px) {
       .grid-2 {
-        grid-template-columns: 380px 1fr;
+        grid-template-columns: 420px 1fr;
       }
     }
     .card {
@@ -98,6 +120,7 @@
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 24px;
+      margin-bottom: 24px;
     }
     .card-title {
       font-size: 17px;
@@ -248,8 +271,50 @@
       padding: 4px 6px;
       border-radius: 4px;
     }
-    .btn-delete:hover {
-      background: rgba(239, 68, 68, 0.1);
+    .profile-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 14px 18px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .profile-avatar {
+      font-size: 26px;
+      margin-right: 14px;
+    }
+    .profile-info {
+      flex: 1;
+    }
+    .profile-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .profile-bracket {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .device-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 14px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .pairing-code-badge {
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: 700;
+      background: #0284c7;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 8px;
+      letter-spacing: 2px;
     }
     .empty-state {
       text-align: center;
@@ -257,15 +322,19 @@
       color: var(--text-muted);
       font-size: 14px;
     }
-    .info-box {
-      margin-top: 16px;
-      padding: 12px;
-      background: rgba(56, 189, 248, 0.08);
-      border: 1px solid rgba(56, 189, 248, 0.2);
-      border-radius: 10px;
-      font-size: 12px;
-      color: #bae6fd;
-      line-height: 1.5;
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text);
     }
   </style>
 </head>
@@ -276,7 +345,7 @@
         <div class="brand-icon">▶</div>
         <div>
           <h1>KidsTube Media Server</h1>
-          <p style="font-size: 13px; color: var(--text-muted);">Parent Ingestion & Catalog Dashboard</p>
+          <p style="font-size: 13px; color: var(--text-muted);">Multi-User & Family Media Center</p>
         </div>
       </div>
       <div class="badge">
@@ -285,58 +354,152 @@
       </div>
     </header>
 
-    <div class="grid grid-2">
-      <!-- Ingestion Form & Task Queue -->
-      <div>
-        <div class="card">
-          <div class="card-title">Add Video by Link</div>
-          <form id="ingestForm">
-            <div>
-              <label for="videoUrl">Video URL</label>
-              <input type="url" id="videoUrl" placeholder="https://youtube.com/watch?v=... or TikTok/Vimeo" required />
-            </div>
-            <div>
-              <label for="categorySelect">Category</label>
-              <select id="categorySelect">
-                <!-- Dynamically loaded -->
-              </select>
-            </div>
-            <div>
-              <label for="qualitySelect">Quality Preset</label>
-              <select id="qualitySelect">
-                <option value="720p" selected>720p HD (Moderate - Recommended)</option>
-                <option value="480p">480p SD (Compact - Saves 50% Space)</option>
-              </select>
-            </div>
-            <button type="submit" id="submitBtn" class="btn-primary">Download to Media Server</button>
-          </form>
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('videos')">Videos & Ingestion</button>
+      <button class="tab-btn" onclick="switchTab('profiles')">Child Profiles</button>
+      <button class="tab-btn" onclick="switchTab('devices')">Pair Devices (6-Digit Code)</button>
+    </div>
 
-          <div class="info-box">
-            <strong>Supported Providers:</strong> YouTube, Vimeo, Dailymotion, TikTok, and direct MP4 streams. Automatically transcoded to H.264 MP4 with fast-start.
+    <!-- TAB 1: VIDEOS & INGESTION -->
+    <div id="tab-videos" class="tab-content">
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-title">Add Video by Link</div>
+            <form id="ingestForm">
+              <div>
+                <label for="videoUrl">Video URL</label>
+                <input type="url" id="videoUrl" placeholder="https://youtube.com/watch?v=... or TikTok/Vimeo" required />
+              </div>
+              <div>
+                <label for="categorySelect">Category</label>
+                <select id="categorySelect"></select>
+              </div>
+              <div>
+                <label for="qualitySelect">Quality Preset</label>
+                <select id="qualitySelect">
+                  <option value="720p" selected>720p HD (Moderate - Recommended)</option>
+                  <option value="480p">480p SD (Compact - Saves 50% Space)</option>
+                </select>
+              </div>
+
+              <!-- Assign to Child Profiles -->
+              <div>
+                <label>Allow for Children</label>
+                <div id="profileCheckboxes" class="checkbox-group">
+                  <!-- Dynamically populated -->
+                </div>
+              </div>
+
+              <button type="submit" id="submitBtn" class="btn-primary">Download to Media Server</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Download Queue</span>
+              <span id="taskCount" style="font-size: 12px; color: var(--text-muted);">0 active</span>
+            </div>
+            <div id="taskList">
+              <div class="empty-state">No active downloads</div>
+            </div>
           </div>
         </div>
 
-        <!-- Ingestion Tasks / Progress -->
-        <div class="card" style="margin-top: 24px;">
-          <div class="card-title">
-            <span>Download Queue</span>
-            <span id="taskCount" style="font-size: 12px; color: var(--text-muted);">0 active</span>
-          </div>
-          <div id="taskList">
-            <div class="empty-state">No active downloads</div>
+        <div>
+          <div class="card">
+            <div class="card-title">
+              <span>Media Library (<span id="totalVideos">0</span>)</span>
+              <button onclick="loadCatalog()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;">Refresh</button>
+            </div>
+            <div id="catalogContainer">
+              <div class="empty-state">Loading library...</div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Catalog Overview -->
-      <div>
-        <div class="card">
-          <div class="card-title">
-            <span>Media Library (<span id="totalVideos">0</span>)</span>
-            <button onclick="loadCatalog()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;">Refresh</button>
+    <!-- TAB 2: CHILD PROFILES -->
+    <div id="tab-profiles" class="tab-content" style="display: none;">
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-title">Create Child Profile</div>
+            <form id="profileForm">
+              <div>
+                <label for="childName">Child Name</label>
+                <input type="text" id="childName" placeholder="e.g. Maya, Noah, Leo" required />
+              </div>
+              <div>
+                <label for="avatarSelect">Avatar Icon</label>
+                <select id="avatarSelect">
+                  <option value="bear">🐻 Little Bear</option>
+                  <option value="rocket">🚀 Space Rocket</option>
+                  <option value="lion">🦁 Brave Lion</option>
+                  <option value="unicorn">🦄 Magic Unicorn</option>
+                  <option value="panda">🐼 Cozy Panda</option>
+                  <option value="star">⭐ Shining Star</option>
+                </select>
+              </div>
+              <div>
+                <label for="ageBracket">Age Group</label>
+                <select id="ageBracket">
+                  <option value="all">All Ages</option>
+                  <option value="toddler">Toddler (0-4 years)</option>
+                  <option value="early">Early Reader (5-7 years)</option>
+                  <option value="big_kid">Big Kid (8+ years)</option>
+                </select>
+              </div>
+              <button type="submit" class="btn-primary">Add Child Profile</button>
+            </form>
           </div>
-          <div id="catalogContainer">
-            <div class="empty-state">Loading library...</div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Active Child Profiles</div>
+            <div id="profileList">
+              <div class="empty-state">Loading profiles...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: PAIR DEVICES (6-DIGIT CODE) -->
+    <div id="tab-devices" class="tab-content" style="display: none;">
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-title">Pair a Phone or Tablet</div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+              When you open the KidsTube app on a new device, it displays a 6-digit code. Enter that code here to instantly pair it to your family.
+            </p>
+            <form id="pairForm">
+              <div>
+                <label for="pairingCodeInput">6-Digit Pairing Code</label>
+                <input type="text" id="pairingCodeInput" placeholder="e.g. KID-482" style="font-family: monospace; font-size: 18px; letter-spacing: 2px;" required />
+              </div>
+              <div>
+                <label for="pairProfileSelect">Assign to Child</label>
+                <select id="pairProfileSelect">
+                  <option value="">Shared Tablet (Shows Profile Selector)</option>
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
+              <button type="submit" class="btn-primary">Pair & Authorize Device</button>
+            </form>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Paired Devices</div>
+            <div id="deviceList">
+              <div class="empty-state">No devices paired yet</div>
+            </div>
           </div>
         </div>
       </div>
@@ -344,6 +507,19 @@
   </div>
 
   <script>
+    let currentProfiles = [];
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabId).style.display = 'block';
+
+      if (tabId === 'profiles') loadProfiles();
+      if (tabId === 'devices') loadDevices();
+    }
+
     async function loadCategories() {
       try {
         const res = await fetch('/api/v1/categories');
@@ -351,7 +527,74 @@
         const select = document.getElementById('categorySelect');
         select.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
       } catch (e) {
-        console.error('Failed to load categories', e);
+        console.error(e);
+      }
+    }
+
+    async function loadProfiles() {
+      try {
+        const res = await fetch('/api/v1/profiles');
+        currentProfiles = await res.json();
+
+        // 1. Populate profile checkboxes for video ingestion
+        const checkWrap = document.getElementById('profileCheckboxes');
+        checkWrap.innerHTML = currentProfiles.map(p => `
+          <label class="checkbox-label">
+            <input type="checkbox" name="profile_id" value="${p.id}" checked>
+            <span>${p.name}</span>
+          </label>
+        `).join('');
+
+        // 2. Populate profile select for device pairing
+        const pairSelect = document.getElementById('pairProfileSelect');
+        pairSelect.innerHTML = '<option value="">Shared Tablet (Shows Profile Selector)</option>' +
+          currentProfiles.map(p => `<option value="${p.id}">${p.name} (Dedicated Phone)</option>`).join('');
+
+        // 3. Render Profile List
+        const list = document.getElementById('profileList');
+        if (currentProfiles.length === 0) {
+          list.innerHTML = '<div class="empty-state">No profiles created yet.</div>';
+          return;
+        }
+
+        const avatarMap = { bear: '🐻', rocket: '🚀', lion: '🦁', unicorn: '🦄', panda: '🐼', star: '⭐', stars: '⭐', teddy: '🧸' };
+        list.innerHTML = currentProfiles.map(p => `
+          <div class="profile-card">
+            <div class="profile-avatar">${avatarMap[p.avatar_icon] || '🐻'}</div>
+            <div class="profile-info">
+              <div class="profile-name">${p.name}</div>
+              <div class="profile-bracket">Group: ${p.age_bracket.toUpperCase()}</div>
+            </div>
+            <button class="btn-delete" onclick="deleteProfile('${p.id}')">Remove</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function loadDevices() {
+      try {
+        const res = await fetch('/api/v1/devices');
+        const devices = await res.json();
+        const list = document.getElementById('deviceList');
+        if (devices.length === 0) {
+          list.innerHTML = '<div class="empty-state">No devices paired yet. Open the app on a tablet to get a pairing code!</div>';
+          return;
+        }
+        list.innerHTML = devices.map(d => `
+          <div class="device-card">
+            <div>
+              <div style="font-weight: 600; font-size: 15px;">${d.device_name}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">
+                Assigned to: <strong style="color: var(--primary);">${d.profile_name || 'Shared (All Profiles)'}</strong>
+              </div>
+            </div>
+            <span class="badge">Paired</span>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
       }
     }
 
@@ -387,7 +630,7 @@
           </div>
         `;
       } catch (e) {
-        console.error('Failed to load catalog', e);
+        console.error(e);
       }
     }
 
@@ -425,27 +668,31 @@
           `;
         }).join('');
       } catch (e) {
-        console.error('Failed to load tasks', e);
+        console.error(e);
       }
     }
 
     async function deleteVideo(id) {
-      if (!confirm('Are you sure you want to delete this video from the server?')) return;
-      try {
-        await fetch(`/api/v1/videos/${id}`, { method: 'DELETE' });
-        loadCatalog();
-      } catch (e) {
-        alert('Failed to delete video: ' + e);
-      }
+      if (!confirm('Are you sure you want to delete this video?')) return;
+      await fetch(`/api/v1/videos/${id}`, { method: 'DELETE' });
+      loadCatalog();
     }
 
+    async function deleteProfile(id) {
+      if (!confirm('Remove this child profile?')) return;
+      await fetch(`/api/v1/profiles/${id}`, { method: 'DELETE' });
+      loadProfiles();
+    }
+
+    // Ingest submit
     document.getElementById('ingestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const urlInput = document.getElementById('videoUrl');
-      const categorySelect = document.getElementById('categorySelect');
-      const qualitySelect = document.getElementById('qualitySelect');
-      const submitBtn = document.getElementById('submitBtn');
+      const url = document.getElementById('videoUrl').value.trim();
+      const cat = document.getElementById('categorySelect').value;
+      const qual = document.getElementById('qualitySelect').value;
+      const checkedBoxes = Array.from(document.querySelectorAll('input[name="profile_id"]:checked')).map(cb => cb.value);
 
+      const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
       submitBtn.textContent = 'Enqueuing...';
 
@@ -454,27 +701,63 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            url: urlInput.value.trim(),
-            category_id: categorySelect.value,
-            quality: qualitySelect.value
+            url: url,
+            category_id: cat,
+            quality: qual,
+            allowed_profile_ids: checkedBoxes
           })
         });
-        const data = await res.json();
         if (res.ok) {
-          urlInput.value = '';
+          document.getElementById('videoUrl').value = '';
           loadTasks();
         } else {
-          alert('Error: ' + (data.detail || 'Failed to enqueue'));
+          alert('Failed to enqueue video');
         }
-      } catch (err) {
-        alert('Error communicating with server: ' + err);
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Download to Media Server';
       }
     });
 
+    // Profile create submit
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('childName').value.trim();
+      const avatar = document.getElementById('avatarSelect').value;
+      const bracket = document.getElementById('ageBracket').value;
+
+      await fetch('/api/v1/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, avatar_icon: avatar, age_bracket: bracket })
+      });
+      document.getElementById('childName').value = '';
+      loadProfiles();
+    });
+
+    // Device pair submit
+    document.getElementById('pairForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('pairingCodeInput').value.trim();
+      const profile = document.getElementById('pairProfileSelect').value || null;
+
+      const res = await fetch('/api/v1/devices/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pairing_code: code, profile_id: profile })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Device successfully paired!');
+        document.getElementById('pairingCodeInput').value = '';
+        loadDevices();
+      } else {
+        alert('Pairing error: ' + (data.detail || 'Invalid code'));
+      }
+    });
+
     loadCategories();
+    loadProfiles();
     loadCatalog();
     loadTasks();
     setInterval(loadTasks, 3000);

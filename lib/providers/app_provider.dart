@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/video_item.dart';
 import '../models/category_item.dart';
+import '../models/child_profile.dart';
 import '../services/database_service.dart';
 import '../services/vps_api_service.dart';
 import '../services/download_service.dart';
@@ -12,6 +13,13 @@ class AppProvider extends ChangeNotifier {
 
   String _vpsUrl = 'http://10.0.2.2:8080';
   String _parentPin = '1234';
+  String _deviceName = 'Kids Tablet';
+
+  // Multi-User state
+  ChildProfile? _activeProfile;
+  List<ChildProfile> _availableProfiles = [];
+  String? _pairingCode;
+  bool _isDevicePaired = false;
 
   List<CategoryItem> _categories = [];
   List<VideoItem> _allVideos = [];
@@ -27,6 +35,12 @@ class AppProvider extends ChangeNotifier {
   // Getters
   String get vpsUrl => _vpsUrl;
   String get parentPin => _parentPin;
+  String get deviceName => _deviceName;
+  ChildProfile? get activeProfile => _activeProfile;
+  List<ChildProfile> get availableProfiles => _availableProfiles;
+  String? get pairingCode => _pairingCode;
+  bool get isDevicePaired => _isDevicePaired;
+
   List<CategoryItem> get categories => _categories;
   List<VideoItem> get allVideos => _isOfflineOnly ? _downloadedVideos : _allVideos;
   List<VideoItem> get downloadedVideos => _downloadedVideos;
@@ -47,6 +61,20 @@ class AppProvider extends ChangeNotifier {
 
     final savedPin = await _db.getSetting('parent_pin');
     if (savedPin != null && savedPin.isNotEmpty) _parentPin = savedPin;
+
+    final pairedSetting = await _db.getSetting('is_device_paired');
+    _isDevicePaired = pairedSetting == 'true';
+
+    final savedProfileId = await _db.getSetting('current_profile_id');
+    final savedProfileName = await _db.getSetting('current_profile_name');
+    final savedProfileAvatar = await _db.getSetting('current_profile_avatar');
+    if (savedProfileId != null) {
+      _activeProfile = ChildProfile(
+        id: savedProfileId,
+        name: savedProfileName ?? 'Kid',
+        avatarIcon: savedProfileAvatar ?? 'bear',
+      );
+    }
 
     // 2. Load cached local database
     await _loadFromLocalDb();
@@ -72,7 +100,11 @@ class AppProvider extends ChangeNotifier {
 
     _isServerOnline = await _api.checkHealth(_vpsUrl);
     if (_isServerOnline) {
-      final catalogData = await _api.fetchCatalog(_vpsUrl);
+      // Sync profiles
+      _availableProfiles = await _api.fetchProfiles(_vpsUrl);
+
+      // Fetch curated catalog for active profile
+      final catalogData = await _api.fetchCatalog(_vpsUrl, profileId: _activeProfile?.id);
       if (catalogData != null && catalogData['sections'] is List) {
         final sections = catalogData['sections'] as List;
 
@@ -100,6 +132,54 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Device Pairing Flow (6-Digit Code) ---
+  Future<String?> requestDevicePairing({String name = 'Kids Tablet'}) async {
+    _deviceName = name;
+    final res = await _api.registerDevice(_vpsUrl, name);
+    if (res != null && res['pairing_code'] != null) {
+      _pairingCode = res['pairing_code'];
+      notifyListeners();
+      return _pairingCode;
+    }
+    return null;
+  }
+
+  Future<bool> checkPairingStatus() async {
+    if (_pairingCode == null) return false;
+    final res = await _api.checkDeviceStatus(_vpsUrl, _pairingCode!);
+    if (res != null && res['status'] == 'paired') {
+      _isDevicePaired = true;
+      await _db.setSetting('is_device_paired', 'true');
+
+      if (res['profile'] != null) {
+        final profJson = res['profile'];
+        _activeProfile = ChildProfile.fromMap(profJson);
+        await _db.setSetting('current_profile_id', _activeProfile!.id);
+        await _db.setSetting('current_profile_name', _activeProfile!.name);
+        await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+      }
+
+      notifyListeners();
+      await syncCatalog();
+      return true;
+    }
+    return false;
+  }
+
+  void skipPairingForDev() {
+    _isDevicePaired = true;
+    notifyListeners();
+  }
+
+  Future<void> switchProfile(ChildProfile profile) async {
+    _activeProfile = profile;
+    await _db.setSetting('current_profile_id', profile.id);
+    await _db.setSetting('current_profile_name', profile.name);
+    await _db.setSetting('current_profile_avatar', profile.avatarIcon);
+    notifyListeners();
+    await syncCatalog();
+  }
+
   List<VideoItem> getVideosForCategory(String categoryId) {
     return allVideos.where((v) => v.categoryId == categoryId).toList();
   }
@@ -108,7 +188,7 @@ class AppProvider extends ChangeNotifier {
     _downloadProgress[video.id] = 0.01;
     notifyListeners();
 
-    final success = await _downloader.downloadVideo(
+    await _downloader.downloadVideo(
       video,
       onProgress: (id, progress) {
         _downloadProgress[id] = progress;
@@ -136,10 +216,20 @@ class AppProvider extends ChangeNotifier {
     await _loadFromLocalDb();
   }
 
-  Future<bool> submitUrlForIngestion(String url, String categoryId, {String quality = '720p'}) async {
-    final success = await _api.ingestUrl(_vpsUrl, url, categoryId: categoryId, quality: quality);
+  Future<bool> submitUrlForIngestion(
+    String url,
+    String categoryId, {
+    String quality = '720p',
+    List<String>? allowedProfileIds,
+  }) async {
+    final success = await _api.ingestUrl(
+      _vpsUrl,
+      url,
+      categoryId: categoryId,
+      quality: quality,
+      allowedProfileIds: allowedProfileIds,
+    );
     if (success) {
-      // Trigger a delayed sync to fetch the newly processed item
       Future.delayed(const Duration(seconds: 4), () => syncCatalog());
     }
     return success;

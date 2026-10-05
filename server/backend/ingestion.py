@@ -11,11 +11,12 @@ logger = logging.getLogger("ingestion")
 logging.basicConfig(level=logging.INFO)
 
 class IngestionTask:
-    def __init__(self, task_id: str, url: str, category_id: str, quality: str = "720p"):
+    def __init__(self, task_id: str, url: str, category_id: str, quality: str = "720p", allowed_profile_ids: Optional[list] = None):
         self.task_id = task_id
         self.url = url
         self.category_id = category_id
         self.quality = quality
+        self.allowed_profile_ids = allowed_profile_ids
         self.status = "queued"  # queued, downloading, processing, completed, failed
         self.progress = 0.0
         self.speed_str = ""
@@ -45,9 +46,9 @@ class IngestionManager:
         self.queue: asyncio.Queue = asyncio.Queue()
         self._worker_running = False
 
-    def enqueue(self, url: str, category_id: str, quality: str = DEFAULT_QUALITY) -> IngestionTask:
+    def enqueue(self, url: str, category_id: str, quality: str = DEFAULT_QUALITY, allowed_profile_ids: Optional[list] = None) -> IngestionTask:
         task_id = str(uuid.uuid4())[:8]
-        task = IngestionTask(task_id, url, category_id, quality)
+        task = IngestionTask(task_id, url, category_id, quality, allowed_profile_ids)
         self.tasks[task_id] = task
         self.queue.put_nowait(task)
         if not self._worker_running:
@@ -168,7 +169,7 @@ class IngestionManager:
                     "quality": f"{max_height}p"
                 }
 
-                database.insert_or_update_video(video_record)
+                database.insert_or_update_video(video_record, task.allowed_profile_ids)
                 return video_record
 
         try:

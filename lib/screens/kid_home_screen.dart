@@ -7,6 +7,7 @@ import '../utils/constants.dart';
 import '../widgets/video_tile.dart';
 import 'kid_player_screen.dart';
 import 'parent_gate_dialog.dart';
+import 'profile_selector_dialog.dart';
 
 class KidHomeScreen extends StatelessWidget {
   const KidHomeScreen({super.key});
@@ -38,7 +39,38 @@ class KidHomeScreen extends StatelessWidget {
                 ),
               ],
             ),
-            actions: [
+              // Active Child Profile Switcher (e.g. 🐻 Maya)
+              if (provider.availableProfiles.isNotEmpty)
+                GestureDetector(
+                  onTap: () => ProfileSelectorDialog.show(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: KidColors.cardDark,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: KidColors.borderDark),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          provider.activeProfile?.emojiAvatar ?? '🐻',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          provider.activeProfile?.name ?? 'Kids',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
               // Offline toggle button
               IconButton(
                 tooltip: provider.isOfflineOnly ? 'Show All' : 'Offline Only',

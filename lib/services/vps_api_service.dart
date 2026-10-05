@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../models/video_item.dart';
 import '../models/category_item.dart';
+import '../models/child_profile.dart';
 
 class VpsApiService {
   final Dio _dio = Dio(BaseOptions(
@@ -18,10 +19,58 @@ class VpsApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchCatalog(String baseUrl) async {
+  // --- Device Registration & Pairing (6-Digit Code) ---
+  Future<Map<String, dynamic>?> registerDevice(String baseUrl, String deviceName) async {
     try {
       final cleanUrl = _normalizeUrl(baseUrl);
-      final res = await _dio.get('$cleanUrl/api/v1/catalog');
+      final res = await _dio.post(
+        '$cleanUrl/api/v1/devices/register',
+        data: {'device_name': deviceName},
+      );
+      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
+        return res.data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> checkDeviceStatus(String baseUrl, String pairingCode) async {
+    try {
+      final cleanUrl = _normalizeUrl(baseUrl);
+      final res = await _dio.get('$cleanUrl/api/v1/devices/status/$pairingCode');
+      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
+        return res.data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // --- Profiles & Curated Catalog ---
+  Future<List<ChildProfile>> fetchProfiles(String baseUrl) async {
+    try {
+      final cleanUrl = _normalizeUrl(baseUrl);
+      final res = await _dio.get('$cleanUrl/api/v1/profiles');
+      if (res.statusCode == 200 && res.data is List) {
+        return (res.data as List).map((p) => ChildProfile.fromMap(p)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchCatalog(String baseUrl, {String? profileId}) async {
+    try {
+      final cleanUrl = _normalizeUrl(baseUrl);
+      var endpoint = '$cleanUrl/api/v1/catalog';
+      if (profileId != null && profileId.isNotEmpty) {
+        endpoint += '?profile_id=$profileId';
+      }
+      final res = await _dio.get(endpoint);
       if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
         return res.data as Map<String, dynamic>;
       }
@@ -31,7 +80,13 @@ class VpsApiService {
     }
   }
 
-  Future<bool> ingestUrl(String baseUrl, String url, {String categoryId = 'cartoons', String quality = '720p'}) async {
+  Future<bool> ingestUrl(
+    String baseUrl,
+    String url, {
+    String categoryId = 'cartoons',
+    String quality = '720p',
+    List<String>? allowedProfileIds,
+  }) async {
     try {
       final cleanUrl = _normalizeUrl(baseUrl);
       final res = await _dio.post(
@@ -40,6 +95,7 @@ class VpsApiService {
           'url': url,
           'category_id': categoryId,
           'quality': quality,
+          'allowed_profile_ids': allowedProfileIds,
         },
       );
       return res.statusCode == 200;
