@@ -1,0 +1,2 @@
+include:
+  - apps/server/docker-compose.yml

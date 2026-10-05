@@ -1,0 +1,30 @@
+{
+  "folders": [
+    {
+      "name": "📱 Mobile App (Flutter)",
+      "path": "apps/mobile"
+    },
+    {
+      "name": "🖥️ Media Server (Docker / Python)",
+      "path": "apps/server"
+    },
+    {
+      "name": "📚 Documentation",
+      "path": "docs"
+    },
+    {
+      "name": "⚙️ Root Repository",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "dart.flutterSdkPath": null,
+    "dart.previewFlutterUiGuides": true,
+    "files.exclude": {
+      "**/.git": true,
+      "**/.DS_Store": true,
+      "**/__pycache__": true
+    }
+  }
+}
