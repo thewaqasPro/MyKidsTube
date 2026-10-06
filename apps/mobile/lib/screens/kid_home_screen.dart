@@ -21,18 +21,20 @@ class KidHomeScreen extends StatelessWidget {
             title: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [KidColors.primary, KidColors.accent]),
-                    borderRadius: BorderRadius.circular(10),
+                    color: KidColors.primary,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
                 ),
                 const SizedBox(width: 10),
                 const Text(
                   'KidsTube',
                   style: TextStyle(
+                    fontFamily: 'Roboto',
                     fontWeight: FontWeight.w800,
+                    fontSize: 20,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -44,10 +46,10 @@ class KidHomeScreen extends StatelessWidget {
                 GestureDetector(
                   onTap: () => ProfileSelectorDialog.show(context),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: KidColors.cardDark,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: KidColors.borderDark),
                     ),
                     child: Row(
@@ -166,32 +168,22 @@ class KidHomeScreen extends StatelessWidget {
               );
             },
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [KidColors.primary, Color(0xFF8B5CF6), KidColors.accent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: KidColors.primary.withOpacity(0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+                color: KidColors.cardDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: KidColors.borderDark, width: 1.0),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.22),
-                      shape: BoxShape.circle,
+                      color: KidColors.primary,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.bolt_rounded, color: KidColors.yellow, size: 34),
+                    child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -201,25 +193,27 @@ class KidHomeScreen extends StatelessWidget {
                         const Text(
                           'Watch Kids Shorts & Reels',
                           style: TextStyle(
+                            fontFamily: 'Roboto',
                             color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Text(
-                          'Swipe up for ${provider.allVideos.length} fun videos!',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                          'Swipe up for ${provider.allVideos.length} fun videos',
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            color: KidColors.textMuted,
                             fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 20),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: KidColors.textMuted, size: 16),
                 ],
               ),
             ),

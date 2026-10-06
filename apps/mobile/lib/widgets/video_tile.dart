@@ -30,8 +30,8 @@ class VideoTile extends StatelessWidget {
         margin: const EdgeInsets.only(right: 14),
         decoration: BoxDecoration(
           color: KidColors.cardDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: KidColors.borderDark, width: 1.2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KidColors.borderDark, width: 1.0),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(

@@ -90,17 +90,18 @@ class ShortsActionRail extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.55),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white24, width: 1.2),
+              border: Border.all(color: Colors.white24, width: 1.0),
             ),
-            child: Icon(icon, color: color, size: 26),
+            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: const TextStyle(
+              fontFamily: 'Roboto',
               color: Colors.white,
               fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
             ),
           ),

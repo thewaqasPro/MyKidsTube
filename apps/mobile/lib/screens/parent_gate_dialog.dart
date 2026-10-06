@@ -65,7 +65,10 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: KidColors.cardDark,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: KidColors.borderDark, width: 1.0),
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -76,6 +79,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
             const Text(
               'Grown-Ups Only',
               style: TextStyle(
+                fontFamily: 'Roboto',
                 color: KidColors.textLight,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -85,7 +89,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
             Text(
               'Please solve this problem or enter PIN to continue:',
               textAlign: TextAlign.center,
-              style: TextStyle(color: KidColors.textMuted, fontSize: 13),
+              style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 13),
             ),
             const SizedBox(height: 20),
             Container(
@@ -98,6 +102,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
               child: Text(
                 '$_num1 × $_num2 = ?',
                 style: const TextStyle(
+                  fontFamily: 'Roboto',
                   color: KidColors.accent,
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -111,7 +116,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
               keyboardType: TextInputType.number,
               autofocus: true,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: const TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 18),
               decoration: InputDecoration(
                 hintText: 'Answer or PIN',
                 hintStyle: const TextStyle(color: KidColors.textMuted),
@@ -132,7 +137,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
               const SizedBox(height: 10),
               Text(
                 _errorMessage,
-                style: const TextStyle(color: KidColors.red, fontSize: 12),
+                style: const TextStyle(fontFamily: 'Roboto', color: KidColors.red, fontSize: 12),
               ),
             ],
             const SizedBox(height: 20),
@@ -141,7 +146,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
                 Expanded(
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel', style: TextStyle(color: KidColors.textMuted)),
+                    child: const Text('Cancel', style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -149,13 +154,13 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: KidColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: _verify,
                     child: const Text(
                       'Enter',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontFamily: 'Roboto', color: Colors.white, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

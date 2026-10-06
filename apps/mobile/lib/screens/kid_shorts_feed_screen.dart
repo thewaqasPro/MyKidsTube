@@ -335,7 +335,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.55),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: Colors.white24),
                     ),
                     child: Row(
@@ -345,7 +345,12 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                         const SizedBox(width: 4),
                         Text(
                           '${index + 1} / ${widget.videos.length}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
@@ -398,12 +403,13 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [KidColors.primary, KidColors.accent]),
-                      borderRadius: BorderRadius.circular(10),
+                      color: KidColors.primary,
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: Text(
                       video.title.contains('•') ? video.title.split('•').first.trim() : 'Kids Shorts',
                       style: const TextStyle(
+                        fontFamily: 'Roboto',
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

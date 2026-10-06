@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
 
+/// YouTube Modern Design System tokens (DESIGN.md)
 class KidColors {
-  static const Color primary = Color(0xFF0284C7);      // Sky Blue
-  static const Color accent = Color(0xFFF97316);       // Sunset Coral
-  static const Color yellow = Color(0xFFF59E0B);       // Sunny Yellow
-  static const Color green = Color(0xFF10B981);        // Mint Green
-  static const Color purple = Color(0xFF8B5CF6);       // Lavender Purple
-  static const Color red = Color(0xFFEF4444);          // Playful Red
+  // Primary YouTube Red
+  static const Color primary = Color(0xFFFF0000);
 
-  static const Color bgDark = Color(0xFF0B132B);       // Deep Night Sky
-  static const Color cardDark = Color(0xFF1C2541);     // Navy Card
-  static const Color surfaceDark = Color(0xFF3A506B);  // Muted Slate
-  static const Color borderDark = Color(0xFF2E3856);
+  // Backgrounds & Surfaces
+  static const Color bgDark = Color(0xFF0F0F0F);       // Deep Black (#0f0f0f)
+  static const Color surfaceDark = Color(0xFF272727);  // Card/Button Grey (#272727)
+  static const Color cardDark = Color(0xFF272727);     // Card/Button Grey (#272727)
+  static const Color borderDark = Color(0xFF3F3F3F);   // Subtle cinematic divider
 
-  static const Color textLight = Color(0xFFFFFFFF);
-  static const Color textMuted = Color(0xFF94A3B8);
+  // Typography
+  static const Color textLight = Color(0xFFFFFFFF);    // Primary White (#ffffff)
+  static const Color textMuted = Color(0xFFAAAAAA);    // Secondary Metadata (#aaaaaa)
+
+  // Accents
+  static const Color accent = Color(0xFFFF0000);       // YouTube Red
+  static const Color yellow = Color(0xFFF59E0B);       // Star Gold
+  static const Color green = Color(0xFF2BA640);        // Download Green
+  static const Color purple = Color(0xFF8B5CF6);
+  static const Color red = Color(0xFFFF0000);
 }
 
 class KidTheme {
   static ThemeData get darkTheme => ThemeData(
         brightness: Brightness.dark,
+        fontFamily: 'Roboto',
         scaffoldBackgroundColor: KidColors.bgDark,
         primaryColor: KidColors.primary,
         colorScheme: const ColorScheme.dark(
@@ -35,15 +42,17 @@ class KidTheme {
           scrolledUnderElevation: 0,
           titleTextStyle: TextStyle(
             color: KidColors.textLight,
-            fontSize: 22,
+            fontFamily: 'Roboto',
+            fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
         ),
         cardTheme: CardThemeData(
           color: KidColors.cardDark,
-          elevation: 2,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: KidColors.borderDark, width: 1.0),
           ),
         ),
       );
