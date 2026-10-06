@@ -296,6 +296,8 @@
       font-size: 15px;
       font-weight: 700;
       flex-shrink: 0;
+      object-fit: cover;
+      overflow: hidden;
     }
     .card-details {
       flex: 1;
@@ -471,8 +473,8 @@
         <div id="cookieDot" class="status-dot" style="background: #f59e0b;"></div>
         <span>🍪 YouTube Cookies</span>
       </button>
-      <button id="seedShortsBtn" class="pill-btn" onclick="seedCuratedShorts()">
-        <span>⚡</span> Seed 50 Shorts
+      <button id="seedCatalogBtn" class="pill-btn" onclick="seedCuratedCatalog()">
+        <span>⚡</span> Seed 100 Videos
       </button>
       <button class="pill-btn" onclick="openModal('modal-devices')">
         <span>📱</span> Pair Device
@@ -487,7 +489,6 @@
   <!-- 2. CATEGORY FILTER PILLS BAR -->
   <div class="chips-bar" id="categoryChips">
     <button class="chip active" onclick="filterCategory('all', this)">All</button>
-    <button class="chip" onclick="filterCategory('shorts', this)">⚡ Shorts & Reels</button>
     <!-- Categories loaded dynamically -->
   </div>
 
@@ -764,9 +765,13 @@
 
       container.innerHTML = filtered.map(v => {
         const meta = getChannelMeta(v.title);
-        const avatarColor = getAvatarColor(meta.channel);
-        const initial = meta.channel ? meta.channel[0].toUpperCase() : 'K';
+        const channelName = v.channel_name || meta.channel;
+        const avatarColor = getAvatarColor(channelName);
+        const initial = channelName ? channelName[0].toUpperCase() : 'K';
         const mb = (v.file_size_bytes / (1024 * 1024)).toFixed(1);
+        const avatarHtml = v.channel_icon_url
+          ? `<img class="channel-avatar" src="${v.channel_icon_url}" alt="${channelName}" onerror="this.onerror=null; this.outerHTML='<div class=\\\'channel-avatar\\\' style=\\\'background: ${avatarColor};\\\'>${initial}</div>';">`
+          : `<div class="channel-avatar" style="background: ${avatarColor};">${initial}</div>`;
 
         return `
           <div class="video-card">
@@ -775,10 +780,10 @@
               <span class="duration-tag">${v.duration_formatted}</span>
             </div>
             <div class="card-meta-row" onclick="playVideo('${v.stream_url}', '${v.title.replace(/'/g, "\\'")}', '${v.id}')">
-              <div class="channel-avatar" style="background: ${avatarColor};">${initial}</div>
+              ${avatarHtml}
               <div class="card-details">
                 <div class="card-title" title="${v.title}">${meta.name}</div>
-                <div class="card-subtitle">${meta.channel} • ${v.quality || '720p'} • ${mb} MB</div>
+                <div class="card-subtitle">${channelName} • ${v.quality || '720p'} • ${mb} MB</div>
                 <div class="card-actions">
                   <button class="btn-delete" onclick="event.stopPropagation(); deleteVideo('${v.id}')">Delete</button>
                 </div>
@@ -974,7 +979,7 @@
         bar.innerHTML = `
           <button class="chip active" onclick="filterCategory('all', this)">All</button>
           <button class="chip" onclick="filterCategory('shorts', this)">⚡ Shorts & Reels</button>
-          ${data.map(c => `<button class="chip" onclick="filterCategory('${c.id}', this)">${c.name}</button>`).join('')}
+          ${data.filter(c => c.id !== 'shorts').map(c => `<button class="chip" onclick="filterCategory('${c.id}', this)">${c.name}</button>`).join('')}
         `;
       } catch (e) {
         console.error(e);
@@ -1028,20 +1033,20 @@
       }
     }
 
-    async function seedCuratedShorts() {
-      const btn = document.getElementById('seedShortsBtn');
+    async function seedCuratedCatalog() {
+      const btn = document.getElementById('seedCatalogBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span>⏳</span> Seeding...';
+      btn.innerHTML = '<span>⏳</span> Seeding 100 Videos...';
       try {
-        const res = await fetch('/api/v1/seed/shorts', { method: 'POST' });
+        const res = await fetch('/api/v1/seed/catalog', { method: 'POST' });
         const data = await res.json();
-        alert(data.message || '50 Curated Shorts seeded!');
+        alert(`Successfully seeded ${data.normal_count || 50} normal videos and ${data.shorts_count || 50} shorts!`);
         loadCatalog();
       } catch (e) {
         alert('Failed: ' + e);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>⚡</span> Seed 50 Shorts';
+        btn.innerHTML = '<span>⚡</span> Seed 100 Videos';
       }
     }
 

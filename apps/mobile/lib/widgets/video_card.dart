@@ -22,6 +22,9 @@ class VideoCard extends StatelessWidget {
   });
 
   String get _channelName {
+    if (video.channelName != null && video.channelName!.isNotEmpty) {
+      return video.channelName!;
+    }
     if (video.title.contains('•')) {
       return video.title.split('•').first.trim();
     }
@@ -78,15 +81,20 @@ class VideoCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: _avatarColor,
-                  child: Text(
-                    _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
-                    style: const TextStyle(
-                      fontFamily: 'Roboto',
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  backgroundImage: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
+                      ? CachedNetworkImageProvider(video.channelIconUrl!)
+                      : null,
+                  child: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
+                      ? null
+                      : Text(
+                          _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 12),
 
@@ -160,15 +168,20 @@ class VideoCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 14,
                     backgroundColor: _avatarColor,
-                    child: Text(
-                      _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    backgroundImage: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
+                        ? CachedNetworkImageProvider(video.channelIconUrl!)
+                        : null,
+                    child: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
+                        ? null
+                        : Text(
+                            _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
+                            style: const TextStyle(
+                              fontFamily: 'Roboto',
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(

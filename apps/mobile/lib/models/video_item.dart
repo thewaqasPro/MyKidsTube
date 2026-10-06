@@ -14,6 +14,8 @@ class VideoItem {
   final String sourceUrl;
   final String streamUrl;
   final String thumbnailUrl;
+  final String? channelName;
+  final String? channelIconUrl;
   final String? localFilePath;
   final String? localThumbnailPath;
   final int fileSizeBytes;
@@ -30,6 +32,8 @@ class VideoItem {
     this.sourceUrl = '',
     required this.streamUrl,
     required this.thumbnailUrl,
+    this.channelName,
+    this.channelIconUrl,
     this.localFilePath,
     this.localThumbnailPath,
     this.fileSizeBytes = 0,
@@ -52,6 +56,8 @@ class VideoItem {
     String? sourceUrl,
     String? streamUrl,
     String? thumbnailUrl,
+    String? channelName,
+    String? channelIconUrl,
     String? localFilePath,
     String? localThumbnailPath,
     int? fileSizeBytes,
@@ -68,6 +74,8 @@ class VideoItem {
       sourceUrl: sourceUrl ?? this.sourceUrl,
       streamUrl: streamUrl ?? this.streamUrl,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      channelName: channelName ?? this.channelName,
+      channelIconUrl: channelIconUrl ?? this.channelIconUrl,
       localFilePath: localFilePath ?? this.localFilePath,
       localThumbnailPath: localThumbnailPath ?? this.localThumbnailPath,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
@@ -87,6 +95,8 @@ class VideoItem {
       'source_url': sourceUrl,
       'stream_url': streamUrl,
       'thumbnail_url': thumbnailUrl,
+      'channel_name': channelName,
+      'channel_icon_url': channelIconUrl,
       'local_file_path': localFilePath,
       'local_thumbnail_path': localThumbnailPath,
       'file_size_bytes': fileSizeBytes,
@@ -105,6 +115,8 @@ class VideoItem {
       sourceUrl: map['source_url'] as String? ?? '',
       streamUrl: map['stream_url'] as String? ?? '',
       thumbnailUrl: map['thumbnail_url'] as String? ?? '',
+      channelName: map['channel_name'] as String?,
+      channelIconUrl: map['channel_icon_url'] as String?,
       localFilePath: map['local_file_path'] as String?,
       localThumbnailPath: map['local_thumbnail_path'] as String?,
       fileSizeBytes: map['file_size_bytes'] as int? ?? 0,
@@ -114,15 +126,24 @@ class VideoItem {
   }
 
   factory VideoItem.fromApi(Map<String, dynamic> json, {String? localPath, String? localThumb, DownloadStatus? status}) {
+    final title = json['title'] as String? ?? 'Untitled Video';
+    String? chName = json['channel_name'] as String?;
+    if (chName == null || chName.isEmpty) {
+      if (title.contains('•')) {
+        chName = title.split('•').first.trim();
+      }
+    }
     return VideoItem(
       id: json['id'] as String,
-      title: json['title'] as String? ?? 'Untitled Video',
+      title: title,
       duration: json['duration'] as int? ?? 0,
       durationFormatted: json['duration_formatted'] as String? ?? '00:00',
       categoryId: json['category_id'] as String? ?? 'cartoons',
       sourceUrl: json['source_url'] as String? ?? '',
       streamUrl: json['stream_url'] as String? ?? '',
       thumbnailUrl: json['thumbnail_url'] as String? ?? '',
+      channelName: chName,
+      channelIconUrl: json['channel_icon_url'] as String?,
       localFilePath: localPath,
       localThumbnailPath: localThumb,
       fileSizeBytes: json['file_size_bytes'] as int? ?? 0,

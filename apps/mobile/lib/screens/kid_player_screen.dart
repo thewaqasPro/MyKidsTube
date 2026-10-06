@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
@@ -156,6 +157,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   }
 
   String get _channelName {
+    if (_currentVideo.channelName != null && _currentVideo.channelName!.isNotEmpty) {
+      return _currentVideo.channelName!;
+    }
     if (_currentVideo.title.contains('•')) {
       return _currentVideo.title.split('•').first.trim();
     }
@@ -512,15 +516,20 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         CircleAvatar(
                           radius: 18,
                           backgroundColor: KidColors.primary,
-                          child: Text(
-                            _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          backgroundImage: (_currentVideo.channelIconUrl != null && _currentVideo.channelIconUrl!.isNotEmpty)
+                              ? CachedNetworkImageProvider(_currentVideo.channelIconUrl!)
+                              : null,
+                          child: (_currentVideo.channelIconUrl != null && _currentVideo.channelIconUrl!.isNotEmpty)
+                              ? null
+                              : Text(
+                                  _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
+                                  style: const TextStyle(
+                                    fontFamily: 'Roboto',
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(

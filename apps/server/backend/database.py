@@ -82,9 +82,19 @@ def init_db():
         file_size_bytes INTEGER DEFAULT 0,
         quality TEXT DEFAULT '720p',
         created_at TEXT NOT NULL,
+        channel_name TEXT DEFAULT '',
+        channel_icon TEXT DEFAULT '',
         FOREIGN KEY (category_id) REFERENCES categories (id)
     );
     """)
+
+    # Column migrations for existing databases
+    cursor.execute("PRAGMA table_info(videos)")
+    video_cols = [c[1] for c in cursor.fetchall()]
+    if "channel_name" not in video_cols:
+        cursor.execute("ALTER TABLE videos ADD COLUMN channel_name TEXT DEFAULT ''")
+    if "channel_icon" not in video_cols:
+        cursor.execute("ALTER TABLE videos ADD COLUMN channel_icon TEXT DEFAULT ''")
 
     # 6. Profile Video Assignments (Who is allowed to watch what)
     cursor.execute("""
@@ -297,8 +307,9 @@ def insert_or_update_video(video_data: Dict[str, Any], allowed_profile_ids: Opti
     cursor.execute("""
     INSERT INTO videos (
         id, title, duration, duration_formatted, category_id,
-        source_url, video_file, thumbnail_file, file_size_bytes, quality, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        source_url, video_file, thumbnail_file, file_size_bytes, quality, created_at,
+        channel_name, channel_icon
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
         title=excluded.title,
         duration=excluded.duration,
@@ -307,7 +318,9 @@ def insert_or_update_video(video_data: Dict[str, Any], allowed_profile_ids: Opti
         video_file=excluded.video_file,
         thumbnail_file=excluded.thumbnail_file,
         file_size_bytes=excluded.file_size_bytes,
-        quality=excluded.quality
+        quality=excluded.quality,
+        channel_name=excluded.channel_name,
+        channel_icon=excluded.channel_icon
     """, (
         video_data["id"],
         video_data["title"],
@@ -319,7 +332,9 @@ def insert_or_update_video(video_data: Dict[str, Any], allowed_profile_ids: Opti
         video_data["thumbnail_file"],
         video_data.get("file_size_bytes", 0),
         video_data.get("quality", "720p"),
-        video_data.get("created_at", datetime.utcnow().isoformat())
+        video_data.get("created_at", datetime.utcnow().isoformat()),
+        video_data.get("channel_name", ""),
+        video_data.get("channel_icon", "")
     ))
 
     # Profile video assignments

@@ -75,6 +75,21 @@ def enrich_video_urls(video: dict, base_url: str) -> dict:
     enriched = dict(video)
     enriched["stream_url"] = f"{base_url}media/videos/{video['video_file']}"
     enriched["thumbnail_url"] = f"{base_url}media/thumbs/{video['thumbnail_file']}"
+    
+    ch_icon = video.get("channel_icon") or ""
+    if ch_icon.startswith("http"):
+        enriched["channel_icon_url"] = ch_icon
+    elif ch_icon:
+        enriched["channel_icon_url"] = f"{base_url}media/thumbs/{ch_icon}"
+    else:
+        enriched["channel_icon_url"] = None
+
+    if "channel_name" not in enriched or not enriched["channel_name"]:
+        if "•" in enriched.get("title", ""):
+            enriched["channel_name"] = enriched["title"].split("•")[0].strip()
+        else:
+            enriched["channel_name"] = "KidsTube"
+
     return enriched
 
 @app.get("/api/v1/health")
@@ -215,11 +230,12 @@ def delete_video(video_id: str):
         
     return {"status": "deleted", "video_id": video_id}
 
-# --- Seed Catalog with 50 Curated Kids Shorts ---
+# --- Seed Catalog with Curated 50 Normal Videos & 50 Shorts ---
 @app.post("/api/v1/seed/shorts")
-def seed_kids_shorts():
-    import seed_shorts
-    return seed_shorts.run_seed()
+@app.post("/api/v1/seed/catalog")
+def seed_kids_catalog():
+    import seed_curated_catalog
+    return seed_curated_catalog.run_curated_seed()
 
 @app.get("/api/v1/seed/status")
 def seed_status():

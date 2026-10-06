@@ -239,10 +239,11 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
             onTap: () {
               if (filter['id'] == 'shorts') {
                 // Tapping Shorts pill launches the dedicated vertical shorts feed
+                final shorts = provider.allVideos.where((v) => v.categoryId == 'shorts').toList();
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (context) => KidShortsFeedScreen(
-                      videos: provider.allVideos,
+                      videos: shorts.isNotEmpty ? shorts : provider.allVideos,
                       initialIndex: 0,
                     ),
                   ),
