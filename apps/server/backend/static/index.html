@@ -467,6 +467,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
         Add Video
       </button>
+      <button class="pill-btn" id="cookiesBtn" onclick="openModal('modal-cookies')" title="YouTube Session Cookies">
+        <div id="cookieDot" class="status-dot" style="background: #f59e0b;"></div>
+        <span>🍪 YouTube Cookies</span>
+      </button>
       <button id="seedShortsBtn" class="pill-btn" onclick="seedCuratedShorts()">
         <span>⚡</span> Seed 50 Shorts
       </button>
@@ -498,9 +502,21 @@
   <div class="modal-overlay" id="modal-ingest">
     <div class="modal-box">
       <div class="modal-header">
-        <div class="modal-title">Download Video to Media Server</div>
+        <div class="modal-title">Add Video to Media Server</div>
         <button class="modal-close" onclick="closeModal('modal-ingest')">&times;</button>
       </div>
+
+      <!-- Mode Tabs -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <button type="button" id="tabUrlBtn" class="pill-btn pill-btn-primary" onclick="switchIngestTab('url')">
+          <span>🔗</span> YouTube / Link
+        </button>
+        <button type="button" id="tabUploadBtn" class="pill-btn" onclick="switchIngestTab('upload')">
+          <span>📁</span> Direct Video File
+        </button>
+      </div>
+
+      <!-- TAB 1: URL DOWNLOAD -->
       <form id="ingestForm">
         <div>
           <label for="videoUrl">Video URL</label>
@@ -523,6 +539,35 @@
         </div>
         <button type="submit" id="submitBtn" class="pill-btn pill-btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px;">
           Download to Server
+        </button>
+      </form>
+
+      <!-- TAB 2: DIRECT FILE UPLOAD -->
+      <form id="directUploadForm" style="display: none;">
+        <div>
+          <label for="videoFileInput">Choose Video File (.mp4, .webm, .mkv)</label>
+          <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/*" required style="padding: 8px; margin-bottom: 16px;" />
+        </div>
+        <div>
+          <label for="uploadTitle">Title (Optional)</label>
+          <input type="text" id="uploadTitle" placeholder="Leave blank to use filename" />
+        </div>
+        <div>
+          <label for="uploadCategorySelect">Shelf / Category</label>
+          <select id="uploadCategorySelect"></select>
+        </div>
+        <div>
+          <label>Allow for Children</label>
+          <div id="uploadProfileCheckboxes" class="checkbox-group"></div>
+        </div>
+        <div id="uploadProgressBox" style="display: none; margin-bottom: 14px;">
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;" id="uploadProgressText">Uploading...</div>
+          <div style="width: 100%; background: #222; border-radius: 6px; height: 8px; overflow: hidden;">
+            <div id="uploadProgressBar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.2s;"></div>
+          </div>
+        </div>
+        <button type="submit" id="uploadSubmitBtn" class="pill-btn pill-btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px;">
+          Upload Directly to Server
         </button>
       </form>
     </div>
@@ -573,6 +618,62 @@
     </div>
   </div>
 
+  <!-- MODAL 4: YOUTUBE COOKIES -->
+  <div class="modal-overlay" id="modal-cookies">
+    <div class="modal-box" style="max-width: 580px;">
+      <div class="modal-header">
+        <div class="modal-title">🍪 YouTube Session Cookies</div>
+        <button class="modal-close" onclick="closeModal('modal-cookies')">&times;</button>
+      </div>
+
+      <div id="cookieStatusBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; background: #1c1c1c; border: 1px solid var(--border); margin-bottom: 16px;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;" id="cookieStatusText">
+            <span class="status-dot" id="cookieStatusDot" style="background: #f59e0b;"></span>
+            Checking cookies...
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;" id="cookieStatusSub">Needed for YouTube downloads on VPS cloud IPs</div>
+        </div>
+        <button type="button" class="pill-btn" onclick="testCookiesConnection()" id="testCookiesBtn" style="font-size: 12px; padding: 6px 12px;">
+          🧪 Test Connection
+        </button>
+      </div>
+
+      <div style="background: #161616; border: 1px solid #333; border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px;">
+        <div style="font-weight: 600; margin-bottom: 8px; color: #3ea6ff; display: flex; align-items: center; gap: 6px;">
+          <span>ℹ️</span> How to export YouTube cookies in 1 minute:
+        </div>
+        <ol style="margin-left: 20px; padding-left: 0; color: #bbb;">
+          <li style="margin-bottom: 4px;">In Chrome/Edge/Brave, install the free extension: <b>Get cookies.txt LOCALLY</b>.</li>
+          <li style="margin-bottom: 4px;">Open <b><a href="https://youtube.com" target="_blank" style="color: #3ea6ff; text-decoration: underline;">youtube.com</a></b> and make sure you are signed in.</li>
+          <li style="margin-bottom: 4px;">Click the extension icon in the toolbar & click <b>Export</b> (or copy all lines).</li>
+          <li style="margin-bottom: 4px;">Paste the text below or select your downloaded <code>cookies.txt</code> file, then click <b>Save Cookies</b>.</li>
+        </ol>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label for="cookiePasteArea">Paste Netscape Cookies Text</label>
+        <textarea id="cookiePasteArea" rows="6" placeholder="# Netscape HTTP Cookie File&#10;# Exported from Get cookies.txt LOCALLY&#10;.youtube.com&#9;TRUE&#9;/&#9;TRUE&#9;1791240000&#9;SID&#9;..." style="width: 100%; background: #121212; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 11px; padding: 10px; resize: vertical; outline: none;"></textarea>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label for="cookieFileInput">Or upload cookies.txt file</label>
+        <input type="file" id="cookieFileInput" accept=".txt" style="margin-bottom: 0;" onchange="handleCookieFileSelect(event)">
+      </div>
+
+      <div id="cookieFeedback" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;"></div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" class="pill-btn" onclick="deleteCookies()" style="color: #ef4444; border-color: rgba(239,68,68,0.3);">
+          Delete Cookies
+        </button>
+        <button type="button" class="pill-btn pill-btn-primary" onclick="saveCookies()" id="saveCookiesBtn">
+          Save Cookies
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let allVideos = [];
     let currentFilter = 'all';
@@ -582,6 +683,7 @@
     function openModal(id) {
       document.getElementById(id).style.display = 'flex';
       if (id === 'modal-devices') loadDevices();
+      if (id === 'modal-cookies') loadCookieStatus();
     }
 
     function closeModal(id) {
@@ -708,14 +810,164 @@
       }
     }
 
+    function switchIngestTab(tab) {
+      const urlForm = document.getElementById('ingestForm');
+      const uploadForm = document.getElementById('directUploadForm');
+      const urlBtn = document.getElementById('tabUrlBtn');
+      const uploadBtn = document.getElementById('tabUploadBtn');
+
+      if (tab === 'url') {
+        urlForm.style.display = 'block';
+        uploadForm.style.display = 'none';
+        urlBtn.className = 'pill-btn pill-btn-primary';
+        uploadBtn.className = 'pill-btn';
+      } else {
+        urlForm.style.display = 'none';
+        uploadForm.style.display = 'block';
+        urlBtn.className = 'pill-btn';
+        uploadBtn.className = 'pill-btn pill-btn-primary';
+      }
+    }
+
+    async function loadCookieStatus() {
+      try {
+        const res = await fetch('/api/v1/cookies/status');
+        const data = await res.json();
+        const dot = document.getElementById('cookieDot');
+        const statusDot = document.getElementById('cookieStatusDot');
+        const statusText = document.getElementById('cookieStatusText');
+        const statusSub = document.getElementById('cookieStatusSub');
+
+        if (data.exists) {
+          const kb = (data.size_bytes / 1024).toFixed(1);
+          if (dot) dot.style.background = '#22c55e';
+          if (statusDot) statusDot.style.background = '#22c55e';
+          if (statusText) statusText.innerHTML = `<span class="status-dot" style="background: #22c55e;"></span> Active & Ready (${kb} KB, ${data.valid_cookies_count || 0} cookies)`;
+          if (statusSub) statusSub.textContent = 'Authenticated YouTube downloads enabled.';
+        } else {
+          if (dot) dot.style.background = '#f59e0b';
+          if (statusDot) statusDot.style.background = '#f59e0b';
+          if (statusText) statusText.innerHTML = `<span class="status-dot" style="background: #f59e0b;"></span> Not Configured`;
+          if (statusSub) statusSub.textContent = 'Cloud VPS IP may get bot-blocked by YouTube without cookies.';
+        }
+      } catch (e) {
+        console.error('Failed to load cookies status:', e);
+      }
+    }
+
+    function handleCookieFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('cookiePasteArea').value = e.target.result;
+      };
+      reader.readAsText(file);
+    }
+
+    async function saveCookies() {
+      const text = document.getElementById('cookiePasteArea').value.trim();
+      const feedback = document.getElementById('cookieFeedback');
+      const saveBtn = document.getElementById('saveCookiesBtn');
+
+      if (!text) {
+        feedback.style.display = 'block';
+        feedback.style.background = 'rgba(239, 68, 68, 0.2)';
+        feedback.style.color = '#ef4444';
+        feedback.textContent = 'Please paste cookies text or choose a cookies.txt file first.';
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      feedback.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/v1/cookies/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cookies_content: text })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          feedback.style.display = 'block';
+          feedback.style.background = 'rgba(34, 197, 94, 0.2)';
+          feedback.style.color = '#22c55e';
+          feedback.textContent = 'Cookies saved successfully! Running test connection with YouTube...';
+          await loadCookieStatus();
+          await testCookiesConnection();
+        } else {
+          feedback.style.display = 'block';
+          feedback.style.background = 'rgba(239, 68, 68, 0.2)';
+          feedback.style.color = '#ef4444';
+          feedback.textContent = data.detail || 'Failed to save cookies.';
+        }
+      } catch (e) {
+        feedback.style.display = 'block';
+        feedback.style.background = 'rgba(239, 68, 68, 0.2)';
+        feedback.style.color = '#ef4444';
+        feedback.textContent = 'Error: ' + e;
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Cookies';
+      }
+    }
+
+    async function testCookiesConnection() {
+      const btn = document.getElementById('testCookiesBtn');
+      const feedback = document.getElementById('cookieFeedback');
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+      feedback.style.display = 'block';
+      feedback.style.background = 'rgba(59, 130, 246, 0.2)';
+      feedback.style.color = '#3ea6ff';
+      feedback.textContent = 'Contacting YouTube with cookies session...';
+
+      try {
+        const res = await fetch('/api/v1/cookies/test', { method: 'POST' });
+        const data = await res.json();
+        if (data.valid) {
+          feedback.style.background = 'rgba(34, 197, 94, 0.2)';
+          feedback.style.color = '#22c55e';
+          feedback.textContent = '✅ ' + data.message;
+        } else {
+          feedback.style.background = 'rgba(239, 68, 68, 0.2)';
+          feedback.style.color = '#ef4444';
+          feedback.textContent = '❌ ' + data.message;
+        }
+      } catch (e) {
+        feedback.style.background = 'rgba(239, 68, 68, 0.2)';
+        feedback.style.color = '#ef4444';
+        feedback.textContent = 'Test failed: ' + e;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🧪 Test Connection';
+      }
+    }
+
+    async function deleteCookies() {
+      if (!confirm('Are you sure you want to delete the YouTube cookies file?')) return;
+      await fetch('/api/v1/cookies', { method: 'DELETE' });
+      document.getElementById('cookiePasteArea').value = '';
+      const feedback = document.getElementById('cookieFeedback');
+      feedback.style.display = 'block';
+      feedback.style.background = 'rgba(239, 68, 68, 0.2)';
+      feedback.style.color = '#ef4444';
+      feedback.textContent = 'Cookies deleted.';
+      await loadCookieStatus();
+    }
+
     async function loadCategories() {
       try {
         const res = await fetch('/api/v1/categories');
         const data = await res.json();
         
-        // Select in Ingest Modal
+        // Select in Ingest Modal (both tabs)
         const select = document.getElementById('categorySelect');
-        select.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        const uploadSelect = document.getElementById('uploadCategorySelect');
+        const opts = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        if (select) select.innerHTML = opts;
+        if (uploadSelect) uploadSelect.innerHTML = opts;
 
         // Category Chips Bar
         const bar = document.getElementById('categoryChips');
@@ -735,12 +987,15 @@
         currentProfiles = await res.json();
 
         const checkWrap = document.getElementById('profileCheckboxes');
-        checkWrap.innerHTML = currentProfiles.map(p => `
+        const uploadCheckWrap = document.getElementById('uploadProfileCheckboxes');
+        const checkHtml = currentProfiles.map(p => `
           <label class="checkbox-label">
             <input type="checkbox" name="profile_id" value="${p.id}" checked>
             <span>${p.name}</span>
           </label>
         `).join('');
+        if (checkWrap) checkWrap.innerHTML = checkHtml;
+        if (uploadCheckWrap) uploadCheckWrap.innerHTML = checkHtml;
 
         const pairSelect = document.getElementById('pairProfileSelect');
         pairSelect.innerHTML = '<option value="">Shared Tablet (Shows Profile Selector)</option>' +
@@ -796,13 +1051,13 @@
       loadCatalog();
     }
 
-    // Ingest Submit
+    // Ingest Submit (URL)
     document.getElementById('ingestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const url = document.getElementById('videoUrl').value.trim();
       const cat = document.getElementById('categorySelect').value;
       const qual = document.getElementById('qualitySelect').value;
-      const checkedBoxes = Array.from(document.querySelectorAll('input[name="profile_id"]:checked')).map(cb => cb.value);
+      const checkedBoxes = Array.from(document.querySelectorAll('#profileCheckboxes input[name="profile_id"]:checked')).map(cb => cb.value);
 
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
@@ -834,6 +1089,63 @@
       }
     });
 
+    // Direct Upload Form Submit
+    document.getElementById('directUploadForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('videoFileInput');
+      if (!fileInput.files.length) return;
+
+      const file = fileInput.files[0];
+      const title = document.getElementById('uploadTitle').value.trim() || file.name.replace(/\.[^/.]+$/, "");
+      const cat = document.getElementById('uploadCategorySelect').value;
+      const checkedBoxes = Array.from(document.querySelectorAll('#uploadProfileCheckboxes input[name="profile_id"]:checked')).map(cb => cb.value);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title);
+      formData.append('category_id', cat);
+      formData.append('allowed_profile_ids', JSON.stringify(checkedBoxes));
+
+      const progressBox = document.getElementById('uploadProgressBox');
+      const progressBar = document.getElementById('uploadProgressBar');
+      const progressText = document.getElementById('uploadProgressText');
+      const submitBtn = document.getElementById('uploadSubmitBtn');
+
+      progressBox.style.display = 'block';
+      submitBtn.disabled = true;
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/v1/upload', true);
+
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          const percent = Math.round((evt.loaded / evt.total) * 100);
+          progressBar.style.width = percent + '%';
+          progressText.textContent = `Uploading: ${percent}% (${(evt.loaded / 1048576).toFixed(1)} / ${(evt.total / 1048576).toFixed(1)} MB)`;
+        }
+      };
+
+      xhr.onload = () => {
+        submitBtn.disabled = false;
+        if (xhr.status === 200) {
+          closeModal('modal-ingest');
+          document.getElementById('directUploadForm').reset();
+          progressBox.style.display = 'none';
+          alert('Video uploaded successfully!');
+          loadCatalog();
+        } else {
+          alert('Upload failed: ' + xhr.responseText);
+        }
+      };
+
+      xhr.onerror = () => {
+        submitBtn.disabled = false;
+        alert('Network error while uploading video.');
+      };
+
+      xhr.send(formData);
+    });
+
     // Pair Submit
     document.getElementById('pairForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -858,6 +1170,7 @@
     loadCategories();
     loadProfiles();
     loadCatalog();
+    loadCookieStatus();
     setInterval(loadCatalog, 15000);
   </script>
 </body>

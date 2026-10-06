@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import subprocess
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, UploadFile, File, Form
@@ -10,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
+import yt_dlp
 
 from config import DB_PATH, VIDEOS_DIR, THUMBS_DIR, PARENT_PIN, COOKIES_FILE
 import database
@@ -241,9 +243,18 @@ class CookiesUploadRequest(BaseModel):
 @app.get("/api/v1/cookies/status")
 def cookies_status():
     exists = COOKIES_FILE.exists()
+    size = COOKIES_FILE.stat().st_size if exists else 0
+    lines_count = 0
+    if exists and size > 0:
+        try:
+            with open(COOKIES_FILE, "r", encoding="utf-8", errors="ignore") as f:
+                lines_count = sum(1 for line in f if line.strip() and not line.startswith("#"))
+        except Exception:
+            pass
     return {
-        "exists": exists,
-        "size_bytes": COOKIES_FILE.stat().st_size if exists else 0,
+        "exists": exists and size > 0,
+        "size_bytes": size,
+        "valid_cookies_count": lines_count,
         "path": str(COOKIES_FILE)
     }
 
@@ -255,7 +266,43 @@ def upload_cookies(req: CookiesUploadRequest):
     COOKIES_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(COOKIES_FILE, "w", encoding="utf-8") as f:
         f.write(content + "\n")
-    return {"status": "saved", "size_bytes": len(content)}
+    return {
+        "status": "saved",
+        "size_bytes": len(content),
+        "message": "Cookies saved successfully."
+    }
+
+@app.post("/api/v1/cookies/test")
+async def test_cookies():
+    if not COOKIES_FILE.exists() or COOKIES_FILE.stat().st_size == 0:
+        return {"valid": False, "message": "No cookies file found. Please paste and save cookies first."}
+    
+    loop = asyncio.get_running_loop()
+    def _test():
+        ydl_opts = {
+            'cookiefile': str(COOKIES_FILE),
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'js_runtimes': {'nodejs': {}},
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ", download=False)
+                return {
+                    "valid": True,
+                    "message": f"Successfully verified! Authenticated session confirmed by YouTube."
+                }
+        except Exception as e:
+            err = str(e)
+            if "Sign in to confirm you’re not a bot" in err:
+                return {
+                    "valid": False,
+                    "message": "YouTube still asks for bot verification. Your cookies may have expired or were exported without being signed in."
+                }
+            return {"valid": False, "message": f"Verification failed: {err[:160]}"}
+
+    return await loop.run_in_executor(None, _test)
 
 @app.delete("/api/v1/cookies")
 def delete_cookies():
@@ -319,7 +366,15 @@ async def upload_video_file(
 
         profiles = None
         if allowed_profile_ids:
-            profiles = [p.strip() for p in allowed_profile_ids.split(",") if p.strip()]
+            try:
+                import json
+                parsed = json.loads(allowed_profile_ids)
+                if isinstance(parsed, list):
+                    profiles = [str(x) for x in parsed]
+                else:
+                    profiles = [str(parsed)]
+            except Exception:
+                profiles = [p.strip() for p in allowed_profile_ids.split(",") if p.strip()]
 
         video_record = {
             "id": video_id,

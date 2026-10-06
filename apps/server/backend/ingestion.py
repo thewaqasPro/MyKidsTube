@@ -153,11 +153,21 @@ class IngestionManager:
                 'noplaylist': True,
                 'quiet': True,
                 'no_warnings': True,
+                'js_runtimes': {'nodejs': {}},
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr', 'web'],
+                    }
+                },
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                }
             }
 
-            if COOKIES_FILE.exists():
+            if COOKIES_FILE.exists() and COOKIES_FILE.stat().st_size > 0:
                 ydl_opts['cookiefile'] = str(COOKIES_FILE)
-                logger.info(f"Using YouTube cookie file: {COOKIES_FILE}")
+                logger.info(f"Using YouTube cookie file: {COOKIES_FILE} ({COOKIES_FILE.stat().st_size} bytes)")
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(task.url, download=True)
@@ -216,6 +226,14 @@ class IngestionManager:
         except Exception as e:
             logger.error(f"Task {task.task_id} failed: {e}", exc_info=True)
             task.status = "failed"
-            task.error_message = str(e)
+            err_str = str(e)
+            if "Sign in to confirm you’re not a bot" in err_str:
+                task.error_message = (
+                    "YouTube Bot Guard triggered: YouTube blocked anonymous download from this server IP. "
+                    "Fix: Click '🍪 YouTube Cookies' in the top bar to paste your browser cookies.txt, "
+                    "or upload the video file directly."
+                )
+            else:
+                task.error_message = err_str
 
 manager = IngestionManager()
