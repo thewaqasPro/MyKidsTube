@@ -1,325 +1,419 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_provider.dart';
 import '../models/video_item.dart';
+import '../providers/app_provider.dart';
 import '../utils/constants.dart';
-import '../widgets/video_tile.dart';
+import '../widgets/video_card.dart';
+import 'kid_player_screen.dart';
 import 'kid_shorts_feed_screen.dart';
 import 'parent_gate_dialog.dart';
 import 'profile_selector_dialog.dart';
 
-class KidHomeScreen extends StatelessWidget {
+/// Authentic YouTube / YouTube Kids Home Feed Screen
+class KidHomeScreen extends StatefulWidget {
   const KidHomeScreen({super.key});
+
+  @override
+  State<KidHomeScreen> createState() => _KidHomeScreenState();
+}
+
+class _KidHomeScreenState extends State<KidHomeScreen> {
+  String _selectedFilter = 'all';
+  String _searchQuery = '';
+  bool _isSearchOpen = false;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
+        final videos = _filterVideos(provider);
+
         return Scaffold(
           backgroundColor: KidColors.bgDark,
-          appBar: AppBar(
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: KidColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'KidsTube',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              // Active Child Profile Switcher (e.g. 🐻 Maya)
-              if (provider.availableProfiles.isNotEmpty)
-                GestureDetector(
-                  onTap: () => ProfileSelectorDialog.show(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: KidColors.cardDark,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: KidColors.borderDark),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          provider.activeProfile?.emojiAvatar ?? '🐻',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          provider.activeProfile?.name ?? 'Kids',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              // Offline toggle button
-              IconButton(
-                tooltip: provider.isOfflineOnly ? 'Show All' : 'Offline Only',
-                icon: Icon(
-                  provider.isOfflineOnly ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
-                  color: provider.isOfflineOnly ? KidColors.accent : KidColors.green,
-                ),
-                onPressed: () => provider.toggleOfflineOnly(),
-              ),
-
-              // Parent Gate Icon
-              IconButton(
-                tooltip: 'Parents',
-                icon: const Icon(Icons.shield_rounded, color: KidColors.textMuted),
-                onPressed: () => ParentGateDialog.show(context),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
+          appBar: _buildYouTubeAppBar(context, provider),
           body: RefreshIndicator(
             color: KidColors.primary,
             backgroundColor: KidColors.cardDark,
             onRefresh: () => provider.syncCatalog(),
-            child: provider.isLoading
-                ? const Center(child: CircularProgressIndicator(color: KidColors.primary))
-                : (provider.allVideos.isEmpty
-                    ? _buildEmptyState(context, provider)
-                    : _buildContent(context, provider)),
+            child: Column(
+              children: [
+                // 1. YouTube Horizontal Filter Pills Bar
+                _buildCategoryPills(provider),
+
+                // 2. Responsive Main Video Feed / Grid
+                Expanded(
+                  child: provider.isLoading
+                      ? const Center(child: CircularProgressIndicator(color: KidColors.primary))
+                      : (videos.isEmpty
+                          ? _buildEmptyState(context, provider)
+                          : _buildResponsiveFeed(context, provider, videos)),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, AppProvider provider) {
-    return ListView(
-      children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.video_library_outlined, size: 72, color: KidColors.surfaceDark),
-              const SizedBox(height: 16),
-              const Text(
-                'No Videos Yet!',
-                style: TextStyle(
-                  color: KidColors.textLight,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Tap the lock icon in the top right corner\nto paste links and add videos.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: KidColors.textMuted, fontSize: 14),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: KidColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () => ParentGateDialog.show(context),
-                icon: const Icon(Icons.add_link_rounded, color: Colors.white),
-                label: const Text('Add Videos as Parent', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
+  // ==========================================
+  // TOP APP BAR (YOUTUBE MODERN)
+  // ==========================================
+  PreferredSizeWidget _buildYouTubeAppBar(BuildContext context, AppProvider provider) {
+    if (_isSearchOpen) {
+      return AppBar(
+        backgroundColor: KidColors.bgDark,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () {
+            setState(() {
+              _isSearchOpen = false;
+              _searchQuery = '';
+              _searchController.clear();
+            });
+          },
         ),
-      ],
-    );
-  }
+        title: TextField(
+          controller: _searchController,
+          autofocus: true,
+          style: const TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 16),
+          decoration: const InputDecoration(
+            hintText: 'Search fun videos...',
+            hintStyle: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted),
+            border: InputBorder.none,
+          ),
+          onChanged: (val) => setState(() => _searchQuery = val.trim()),
+        ),
+        actions: [
+          if (_searchQuery.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear_rounded, color: KidColors.textMuted),
+              onPressed: () {
+                setState(() {
+                  _searchQuery = '';
+                  _searchController.clear();
+                });
+              },
+            ),
+          const SizedBox(width: 8),
+        ],
+      );
+    }
 
-  Widget _buildContent(BuildContext context, AppProvider provider) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      children: [
-        // 0. Hero "Watch Kids Shorts & Reels Feed" Action Card
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 6.0),
-          child: GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => KidShortsFeedScreen(
-                    videos: provider.allVideos,
-                    initialIndex: 0,
-                  ),
-                ),
-              );
-            },
+    return AppBar(
+      backgroundColor: KidColors.bgDark,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleSpacing: 14,
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // YouTube Red Logo Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: KidColors.primary,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 7),
+          const Text(
+            'KidsTube',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontWeight: FontWeight.w800,
+              fontSize: 19,
+              letterSpacing: -0.5,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        // 1. Search Button
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.search_rounded, color: Colors.white, size: 23),
+          tooltip: 'Search',
+          onPressed: () => setState(() => _isSearchOpen = true),
+        ),
+
+        // 2. Offline Mode Quick Indicator (if offline)
+        if (provider.isOfflineOnly)
+          GestureDetector(
+            onTap: () => provider.toggleOfflineOnly(),
             child: Container(
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: KidColors.cardDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: KidColors.borderDark, width: 1.0),
+                color: KidColors.primary.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: KidColors.primary, width: 0.8),
               ),
-              child: Row(
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: KidColors.primary,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 28),
+                  Icon(Icons.cloud_off_rounded, color: KidColors.primary, size: 12),
+                  SizedBox(width: 3),
+                  Text(
+                    'Offline',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.primary, fontSize: 10.5, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Watch Kids Shorts & Reels',
-                          style: TextStyle(
-                            fontFamily: 'Roboto',
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Swipe up for ${provider.allVideos.length} fun videos',
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            color: KidColors.textMuted,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, color: KidColors.textMuted, size: 16),
                 ],
               ),
             ),
           ),
+
+        // 3. Parent Lock Icon (Minimal)
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Parent Dashboard',
+          icon: const Icon(Icons.shield_outlined, color: KidColors.textMuted, size: 21),
+          onPressed: () => ParentGateDialog.show(context),
         ),
-        const SizedBox(height: 10),
 
-        // 1. Favorites Shelf (Pinned at top if any starred videos exist)
-        if (provider.favoriteVideos.isNotEmpty)
-          _buildShelf(
-            context,
-            provider,
-            title: 'Favorites & Stars',
-            icon: Icons.star_rounded,
-            iconColor: KidColors.yellow,
-            videos: provider.favoriteVideos,
+        // 4. Authentic YouTube Profile Avatar
+        Padding(
+          padding: const EdgeInsets.only(right: 12, left: 4),
+          child: GestureDetector(
+            onTap: () => _showAccountModal(context, provider),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: KidColors.surfaceDark,
+                shape: BoxShape.circle,
+                border: Border.all(color: KidColors.borderDark, width: 1.2),
+              ),
+              child: Center(
+                child: Text(
+                  provider.activeProfile?.emojiAvatar ?? '🐻',
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+            ),
           ),
-
-        // 2. Downloaded Shelf (Pinned at top if any downloaded videos exist)
-        if (provider.downloadedVideos.isNotEmpty && !provider.isOfflineOnly)
-          _buildShelf(
-            context,
-            provider,
-            title: 'Downloaded & Ready to Watch',
-            icon: Icons.offline_pin_rounded,
-            iconColor: KidColors.green,
-            videos: provider.downloadedVideos,
-          ),
-
-        // 2. Category Shelves
-        for (final category in provider.categories) ...[
-          Builder(builder: (context) {
-            final categoryVideos = provider.getVideosForCategory(category.id);
-            if (categoryVideos.isEmpty) return const SizedBox.shrink();
-
-            return _buildShelf(
-              context,
-              provider,
-              title: category.name,
-              icon: _getCategoryIcon(category.icon),
-              iconColor: KidColors.primary,
-              videos: categoryVideos,
-            );
-          }),
-        ],
-
-        // 3. Extra spacer at bottom
-        const SizedBox(height: 32),
+        ),
       ],
     );
   }
 
-  Widget _buildShelf(
-    BuildContext context,
-    AppProvider provider, {
-    required String title,
-    required IconData icon,
-    required Color iconColor,
-    required List<VideoItem> videos,
-  }) {
+  // ==========================================
+  // TOP CATEGORY FILTER PILLS (YOUTUBE STANDARD)
+  // ==========================================
+  Widget _buildCategoryPills(AppProvider provider) {
+    final List<Map<String, String>> filters = [
+      {'id': 'all', 'label': 'All'},
+      {'id': 'shorts', 'label': '⚡ Shorts & Reels'},
+      if (provider.favoriteVideos.isNotEmpty) {'id': 'favorites', 'label': '⭐ Favorites'},
+      if (provider.downloadedVideos.isNotEmpty && !provider.isOfflineOnly) {'id': 'downloaded', 'label': '📥 Saved'},
+      for (final cat in provider.categories) {'id': cat.id, 'label': cat.name},
+    ];
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: const BoxDecoration(
+        color: KidColors.bgDark,
+        border: Border(bottom: BorderSide(color: KidColors.borderDark, width: 0.5)),
+      ),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final isSelected = _selectedFilter == filter['id'];
+
+          return GestureDetector(
+            onTap: () {
+              if (filter['id'] == 'shorts') {
+                // Tapping Shorts pill launches the dedicated vertical shorts feed
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => KidShortsFeedScreen(
+                      videos: provider.allVideos,
+                      initialIndex: 0,
+                    ),
+                  ),
+                );
+              } else {
+                setState(() {
+                  _selectedFilter = filter['id']!;
+                });
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? KidColors.chipSelectedBg : KidColors.chipUnselectedBg,
+                borderRadius: BorderRadius.circular(18), // 18px pill radius per DESIGN.md
+                border: Border.all(
+                  color: isSelected ? Colors.transparent : KidColors.borderDark,
+                  width: 0.8,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  filter['label']!,
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    color: isSelected ? KidColors.chipSelectedText : KidColors.chipUnselectedText,
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================
+  // RESPONSIVE FEED (MOBILE, TABLET, PORTRAIT, LANDSCAPE)
+  // ==========================================
+  Widget _buildResponsiveFeed(BuildContext context, AppProvider provider, List<VideoItem> videos) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isTabletOrLandscape = width >= 600;
+
+        // Tablet or Phone Landscape: Multi-column Grid
+        if (isTabletOrLandscape) {
+          final crossAxisCount = width > 900 ? 3 : 2;
+          return GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 20,
+              crossAxisSpacing: 16,
+              childAspectRatio: width > 900 ? 1.12 : 1.04,
+            ),
+            itemCount: videos.length,
+            itemBuilder: (context, index) {
+              final video = videos[index];
+              return VideoCard(
+                video: video,
+                downloadProgress: provider.downloadProgress[video.id],
+                onTap: () => _openPlayer(context, video, videos),
+                onDownloadTap: () => provider.startDownload(video),
+              );
+            },
+          );
+        }
+
+        // Phone Portrait: Authentic Vertical Single-Column YouTube Feed
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          itemCount: (_selectedFilter == 'all' ? 1 : 0) + videos.length,
+          itemBuilder: (context, index) {
+            // 0. Horizontal Shorts Row when "All" is active
+            if (_selectedFilter == 'all' && index == 0) {
+              return _buildShortsShelf(context, provider);
+            }
+
+            final videoIndex = _selectedFilter == 'all' ? index - 1 : index;
+            final video = videos[videoIndex];
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 20.0),
+              child: VideoCard(
+                video: video,
+                downloadProgress: provider.downloadProgress[video.id],
+                onTap: () => _openPlayer(context, video, videos),
+                onDownloadTap: () => provider.startDownload(video),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Compact Horizontal Shorts & Reels Shelf (YouTube Home style)
+  Widget _buildShortsShelf(BuildContext context, AppProvider provider) {
+    final shorts = provider.allVideos.where((v) => v.categoryId == 'shorts').toList();
+    if (shorts.isEmpty) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24.0),
+      padding: const EdgeInsets.only(bottom: 20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Shelf Title Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
-            child: Row(
-              children: [
-                Icon(icon, color: iconColor, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: KidColors.textLight,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+          // Shelf Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: KidColors.primary,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Shorts & Reels',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => KidShortsFeedScreen(
+                        videos: provider.allVideos,
+                        initialIndex: 0,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Watch all >',
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    color: KidColors.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '${videos.length}',
-                  style: const TextStyle(color: KidColors.textMuted, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
 
-          // Horizontal scrolling video cards
+          // Horizontal list of compact cards
           SizedBox(
-            height: 215,
+            height: 195,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              itemCount: videos.length,
+              itemCount: shorts.length,
               itemBuilder: (context, index) {
-                final video = videos[index];
-                final progress = provider.downloadProgress[video.id];
-
-                return VideoTile(
-                  video: video,
-                  downloadProgress: progress,
+                final item = shorts[index];
+                return VideoCard(
+                  video: item,
+                  isHorizontalCompact: true,
                   onTap: () {
                     final all = provider.allVideos;
-                    final idx = all.indexWhere((v) => v.id == video.id);
+                    final idx = all.indexWhere((v) => v.id == item.id);
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => KidShortsFeedScreen(
@@ -329,34 +423,214 @@ class KidHomeScreen extends StatelessWidget {
                       ),
                     );
                   },
-                  onDownloadTap: () {
-                    provider.startDownload(video);
-                  },
                 );
               },
             ),
           ),
+          const SizedBox(height: 8),
+          const Divider(color: KidColors.borderDark, height: 1),
         ],
       ),
     );
   }
 
-  IconData _getCategoryIcon(String iconName) {
-    switch (iconName) {
-      case 'bolt':
-        return Icons.bolt_rounded;
-      case 'pets':
-        return Icons.pets_rounded;
-      case 'tv':
-        return Icons.live_tv_rounded;
-      case 'school':
-        return Icons.school_rounded;
-      case 'music_note':
-        return Icons.music_note_rounded;
-      case 'bedtime':
-        return Icons.nightlight_round;
-      default:
-        return Icons.category_rounded;
+  void _openPlayer(BuildContext context, VideoItem video, List<VideoItem> playlist) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => KidPlayerScreen(
+          video: video,
+          playlist: playlist,
+        ),
+      ),
+    );
+  }
+
+  void _showAccountModal(BuildContext context, AppProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: KidColors.cardDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Active Profile Header
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: KidColors.surfaceDark,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: KidColors.borderDark, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text(
+                          provider.activeProfile?.emojiAvatar ?? '🐻',
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            provider.activeProfile?.name ?? 'Kids Profile',
+                            style: const TextStyle(
+                              fontFamily: 'Roboto',
+                              color: KidColors.textLight,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Active Child Profile',
+                            style: TextStyle(
+                              fontFamily: 'Roboto',
+                              color: KidColors.textMuted,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: KidColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ProfileSelectorDialog.show(context);
+                      },
+                      child: const Text('Switch', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(color: KidColors.borderDark, height: 1),
+                const SizedBox(height: 8),
+
+                // 1. Offline Mode Switch
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    provider.isOfflineOnly ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
+                    color: provider.isOfflineOnly ? KidColors.primary : KidColors.green,
+                    size: 24,
+                  ),
+                  title: const Text(
+                    'Offline Only (Saved Videos)',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textLight, fontSize: 14.5, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    provider.isOfflineOnly ? 'Showing downloaded videos only' : 'Play online and offline content',
+                    style: const TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 12),
+                  ),
+                  trailing: Switch(
+                    activeColor: KidColors.primary,
+                    value: provider.isOfflineOnly,
+                    onChanged: (val) {
+                      provider.toggleOfflineOnly();
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+
+                // 2. Parent Dashboard & Controls
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.shield_outlined, color: KidColors.textMuted, size: 24),
+                  title: const Text(
+                    'Parent Dashboard & Controls',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textLight, fontSize: 14.5, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text(
+                    'PIN protected settings, media ingest, limits',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: KidColors.textMuted),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ParentGateDialog.show(context);
+                  },
+                ),
+
+                // 3. Refresh Catalog
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.refresh_rounded, color: KidColors.textMuted, size: 24),
+                  title: const Text(
+                    'Sync Video Catalog',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textLight, fontSize: 14.5, fontWeight: FontWeight.w500),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: KidColors.textMuted),
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.syncCatalog();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<VideoItem> _filterVideos(AppProvider provider) {
+    List<VideoItem> list = provider.allVideos;
+
+    if (_selectedFilter == 'favorites') {
+      list = provider.favoriteVideos;
+    } else if (_selectedFilter == 'downloaded') {
+      list = provider.downloadedVideos;
+    } else if (_selectedFilter != 'all') {
+      list = provider.getVideosForCategory(_selectedFilter);
     }
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((v) => v.title.toLowerCase().contains(q)).toList();
+    }
+
+    return list;
+  }
+
+  Widget _buildEmptyState(BuildContext context, AppProvider provider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.play_circle_outline_rounded, size: 64, color: KidColors.borderDark),
+            const SizedBox(height: 16),
+            const Text(
+              'No Videos Found',
+              style: TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _searchQuery.isNotEmpty
+                  ? 'No videos match "$_searchQuery".'
+                  : 'No videos available in this category yet.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

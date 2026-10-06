@@ -3,23 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KidsTube Media Server - Parent Dashboard</title>
+  <title>KidsTube - Parent & Media Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f0f0f;
+      --bg: #0F0F0F;
+      --surface: #222222;
       --card-bg: #272727;
-      --border: #3f3f3f;
+      --border: #303030;
       --primary: #FF0000;
-      --primary-hover: #cc0000;
-      --accent: #FF0000;
-      --text: #ffffff;
-      --text-muted: #aaaaaa;
-      --success: #22c55e;
-      --danger: #ef4444;
-      --warning: #f59e0b;
+      --primary-hover: #D90000;
+      --text: #F1F1F1;
+      --text-muted: #AAAAAA;
+      --success: #2BA640;
+      --danger: #FF4E45;
     }
     * {
       box-sizing: border-box;
@@ -31,105 +30,350 @@
       background-color: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 24px;
-      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
     }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
+
+    /* 1. YOUTUBE HEADER */
     header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 56px;
+      background-color: var(--bg);
       border-bottom: 1px solid var(--border);
-    }
-    .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 16px;
+    }
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
     }
     .brand-icon {
-      width: 40px;
-      height: 40px;
-      background: var(--primary);
-      border-radius: 8px;
+      width: 32px;
+      height: 22px;
+      background-color: var(--primary);
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
-      font-size: 20px;
-      color: #fff;
     }
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
+    .brand-icon svg {
+      width: 14px;
+      height: 14px;
+      fill: #FFFFFF;
     }
-    .badge {
-      display: inline-flex;
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
+      gap: 4px;
+    }
+    .brand-title span {
+      font-size: 10px;
+      background: #272727;
+      color: var(--text-muted);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-weight: 500;
+      margin-left: 2px;
+    }
+
+    /* CENTERED SEARCH PILL */
+    .search-container {
+      flex: 1;
+      max-width: 560px;
+      display: flex;
+      align-items: center;
+    }
+    .search-box {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      background: #121212;
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus-within {
+      border-color: #3EA6FF;
+    }
+    .search-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      padding: 8px 16px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+    .search-btn {
+      background: var(--surface);
+      border: none;
+      border-left: 1px solid var(--border);
+      padding: 8px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .search-btn:hover {
+      color: var(--text);
+    }
+
+    /* HEADER ACTIONS */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pill-btn {
+      padding: 7px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
       border-radius: 18px;
       font-size: 13px;
       font-weight: 500;
-      background: rgba(34, 197, 94, 0.15);
-      color: var(--success);
-      border: 1px solid rgba(34, 197, 94, 0.3);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      white-space: nowrap;
     }
-    .dot {
+    .pill-btn:hover {
+      background: #333333;
+    }
+    .pill-btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #FFFFFF;
+    }
+    .pill-btn-primary:hover {
+      background: var(--primary-hover);
+    }
+    .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       background: var(--success);
     }
-    .tabs {
+
+    /* 2. CATEGORY FILTER PILLS BAR */
+    .chips-bar {
+      position: sticky;
+      top: 56px;
+      z-index: 90;
+      background: var(--bg);
+      padding: 10px 16px;
       display: flex;
       gap: 10px;
-      margin-bottom: 24px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: none;
     }
-    .tab-btn {
-      padding: 9px 18px;
+    .chips-bar::-webkit-scrollbar {
+      display: none;
+    }
+    .chip {
+      padding: 6px 14px;
       background: var(--card-bg);
       border: 1px solid var(--border);
-      color: var(--text-muted);
+      color: var(--text);
       border-radius: 18px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       cursor: pointer;
+      white-space: nowrap;
       transition: all 0.2s;
     }
-    .tab-btn.active {
-      background: var(--primary);
-      color: #ffffff;
-      border-color: var(--primary);
+    .chip:hover {
+      background: #383838;
     }
-    .grid-2 {
+    .chip.active {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+      font-weight: 700;
+    }
+
+    /* 3. RESPONSIVE YOUTUBE GRID */
+    main {
+      flex: 1;
+      padding: 20px 16px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    .video-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 24px;
+      gap: 32px 16px;
     }
-    @media(min-width: 900px) {
-      .grid-2 {
-        grid-template-columns: 420px 1fr;
+    @media (min-width: 600px) {
+      .video-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
-    .card {
+    @media (min-width: 960px) {
+      .video-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    @media (min-width: 1280px) {
+      .video-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    /* YOUTUBE VIDEO CARD */
+    .video-card {
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      position: relative;
+    }
+    .thumb-container {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .thumb-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.2s;
+    }
+    .video-card:hover .thumb-container img {
+      transform: scale(1.02);
+    }
+    .duration-tag {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #FFFFFF;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+    }
+    .card-meta-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      align-items: flex-start;
+    }
+    .channel-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #E53935;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .card-details {
+      flex: 1;
+      overflow: hidden;
+    }
+    .card-title {
+      font-size: 14.5px;
+      font-weight: 500;
+      line-height: 1.3;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .card-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .btn-delete:hover {
+      color: var(--danger);
+      background: rgba(255, 78, 69, 0.1);
+    }
+
+    /* MODAL DIALOGS */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-box {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
+      width: 100%;
+      max-width: 520px;
       padding: 24px;
-      margin-bottom: 24px;
+      position: relative;
     }
-    .card-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 16px;
+    .modal-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      cursor: pointer;
     }
     label {
       display: block;
@@ -140,7 +384,7 @@
     }
     input, select {
       width: 100%;
-      padding: 12px 14px;
+      padding: 11px 14px;
       background: #181818;
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -148,390 +392,318 @@
       font-size: 14px;
       margin-bottom: 16px;
       outline: none;
-      transition: border-color 0.2s;
     }
     input:focus, select:focus {
       border-color: var(--primary);
     }
-    button.btn-primary {
-      width: 100%;
-      padding: 12px;
-      background: var(--primary);
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 14px;
-      border: none;
-      border-radius: 18px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button.btn-primary:hover {
-      background: var(--primary-hover);
-      color: #fff;
-    }
-    .task-item {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 12px;
-    }
-    .task-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-    .task-url {
-      font-weight: 600;
-      max-width: 260px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .progress-bar-bg {
-      height: 8px;
-      background: var(--border);
-      border-radius: 9999px;
-      overflow: hidden;
-      margin-bottom: 6px;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--primary);
-      border-radius: 9999px;
-      transition: width 0.3s ease;
-    }
-    .task-footer {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .video-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
-      margin-top: 16px;
-    }
-    .video-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      position: relative;
-    }
-    .thumb-wrap {
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      background: #181818;
-      position: relative;
-    }
-    .thumb-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .duration-tag {
-      position: absolute;
-      bottom: 6px;
-      right: 6px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #fff;
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 500;
-    }
-    .video-info {
-      padding: 12px;
-    }
-    .video-title {
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      margin-bottom: 8px;
-    }
-    .video-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .btn-delete {
-      background: none;
-      border: none;
-      color: var(--danger);
-      cursor: pointer;
-      font-size: 12px;
-      padding: 4px 6px;
-      border-radius: 4px;
-    }
-    .profile-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #0f172a;
-      border: 1px solid var(--border);
-      padding: 14px 18px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-    }
-    .profile-avatar {
-      font-size: 26px;
-      margin-right: 14px;
-    }
-    .profile-info {
-      flex: 1;
-    }
-    .profile-name {
-      font-weight: 600;
-      font-size: 15px;
-    }
-    .profile-bracket {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .device-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #0f172a;
-      border: 1px solid var(--border);
-      padding: 14px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-    }
-    .pairing-code-badge {
-      font-family: monospace;
-      font-size: 18px;
-      font-weight: 700;
-      background: #0284c7;
-      color: white;
-      padding: 6px 14px;
-      border-radius: 8px;
-      letter-spacing: 2px;
-    }
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-muted);
-      font-size: 14px;
-    }
     .checkbox-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 20px;
     }
     .checkbox-label {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 6px;
+      background: #181818;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 18px;
       font-size: 13px;
       cursor: pointer;
-      color: var(--text);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--text-muted);
+      grid-column: 1 / -1;
+    }
+
+    /* INLINE VIDEO PLAYER MODAL */
+    .player-modal {
+      max-width: 860px;
+      width: 100%;
+      padding: 16px;
+    }
+    .player-wrap {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .player-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand">
-        <div class="brand-icon">▶</div>
-        <div>
-          <h1>KidsTube Media Server</h1>
-          <p style="font-size: 13px; color: var(--text-muted);">Multi-User & Family Media Center</p>
-        </div>
-      </div>
-      <div class="badge">
-        <div class="dot"></div>
-        Server Online
-      </div>
-    </header>
 
-    <!-- Navigation Tabs -->
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('videos')">Videos & Ingestion</button>
-      <button class="tab-btn" onclick="switchTab('profiles')">Child Profiles</button>
-      <button class="tab-btn" onclick="switchTab('devices')">Pair Devices (6-Digit Code)</button>
+  <!-- 1. YOUTUBE HEADER -->
+  <header>
+    <div class="brand-wrap" onclick="filterCategory('all')">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <div class="brand-title">KidsTube <span>PARENT PORTAL</span></div>
     </div>
 
-    <!-- TAB 1: VIDEOS & INGESTION -->
-    <div id="tab-videos" class="tab-content">
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <div class="card-title">Add Video by Link</div>
-            <form id="ingestForm">
-              <div>
-                <label for="videoUrl">Video URL</label>
-                <input type="url" id="videoUrl" placeholder="https://youtube.com/watch?v=... or TikTok/Vimeo" required />
-              </div>
-              <div>
-                <label for="categorySelect">Category</label>
-                <select id="categorySelect"></select>
-              </div>
-              <div>
-                <label for="qualitySelect">Quality Preset</label>
-                <select id="qualitySelect">
-                  <option value="720p" selected>720p HD (Moderate - Recommended)</option>
-                  <option value="480p">480p SD (Compact - Saves 50% Space)</option>
-                </select>
-              </div>
-
-              <!-- Assign to Child Profiles -->
-              <div>
-                <label>Allow for Children</label>
-                <div id="profileCheckboxes" class="checkbox-group">
-                  <!-- Dynamically populated -->
-                </div>
-              </div>
-
-              <button type="submit" id="submitBtn" class="btn-primary">Download to Media Server</button>
-            </form>
-          </div>
-
-          <div class="card">
-            <div class="card-title">
-              <span>Download Queue</span>
-              <span id="taskCount" style="font-size: 12px; color: var(--text-muted);">0 active</span>
-            </div>
-            <div id="taskList">
-              <div class="empty-state">No active downloads</div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="card">
-            <div class="card-title">
-              <span>Media Library (<span id="totalVideos">0</span>)</span>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <button id="seedShortsBtn" onclick="seedCuratedShorts()" style="background: linear-gradient(135deg, #f97316, #ec4899); border: none; color: #fff; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-                  <span>⚡</span> Seed 50 Curated Shorts
-                </button>
-                <button onclick="loadCatalog()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;">Refresh</button>
-              </div>
-            </div>
-            <div id="catalogContainer">
-              <div class="empty-state">Loading library...</div>
-            </div>
-          </div>
-        </div>
+    <!-- Centered Search Pill -->
+    <div class="search-container">
+      <div class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search fun videos..." oninput="handleSearch(this.value)">
+        <button class="search-btn" title="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        </button>
       </div>
     </div>
 
-    <!-- TAB 2: CHILD PROFILES -->
-    <div id="tab-profiles" class="tab-content" style="display: none;">
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <div class="card-title">Create Child Profile</div>
-            <form id="profileForm">
-              <div>
-                <label for="childName">Child Name</label>
-                <input type="text" id="childName" placeholder="e.g. Maya, Noah, Leo" required />
-              </div>
-              <div>
-                <label for="avatarSelect">Avatar Icon</label>
-                <select id="avatarSelect">
-                  <option value="bear">🐻 Little Bear</option>
-                  <option value="rocket">🚀 Space Rocket</option>
-                  <option value="lion">🦁 Brave Lion</option>
-                  <option value="unicorn">🦄 Magic Unicorn</option>
-                  <option value="panda">🐼 Cozy Panda</option>
-                  <option value="star">⭐ Shining Star</option>
-                </select>
-              </div>
-              <div>
-                <label for="ageBracket">Age Group</label>
-                <select id="ageBracket">
-                  <option value="all">All Ages</option>
-                  <option value="toddler">Toddler (0-4 years)</option>
-                  <option value="early">Early Reader (5-7 years)</option>
-                  <option value="big_kid">Big Kid (8+ years)</option>
-                </select>
-              </div>
-              <button type="submit" class="btn-primary">Add Child Profile</button>
-            </form>
-          </div>
-        </div>
-
-        <div>
-          <div class="card">
-            <div class="card-title">Active Child Profiles</div>
-            <div id="profileList">
-              <div class="empty-state">Loading profiles...</div>
-            </div>
-          </div>
-        </div>
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button class="pill-btn pill-btn-primary" onclick="openModal('modal-ingest')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        Add Video
+      </button>
+      <button id="seedShortsBtn" class="pill-btn" onclick="seedCuratedShorts()">
+        <span>⚡</span> Seed 50 Shorts
+      </button>
+      <button class="pill-btn" onclick="openModal('modal-devices')">
+        <span>📱</span> Pair Device
+      </button>
+      <div class="pill-btn" style="cursor: default;" title="Server Online">
+        <div class="status-dot"></div>
+        Online
       </div>
     </div>
+  </header>
 
-    <!-- TAB 3: PAIR DEVICES (6-DIGIT CODE) -->
-    <div id="tab-devices" class="tab-content" style="display: none;">
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <div class="card-title">Pair a Phone or Tablet</div>
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-              When you open the KidsTube app on a new device, it displays a 6-digit code. Enter that code here to instantly pair it to your family.
-            </p>
-            <form id="pairForm">
-              <div>
-                <label for="pairingCodeInput">6-Digit Pairing Code</label>
-                <input type="text" id="pairingCodeInput" placeholder="e.g. KID-482" style="font-family: monospace; font-size: 18px; letter-spacing: 2px;" required />
-              </div>
-              <div>
-                <label for="pairProfileSelect">Assign to Child</label>
-                <select id="pairProfileSelect">
-                  <option value="">Shared Tablet (Shows Profile Selector)</option>
-                  <!-- Dynamically populated -->
-                </select>
-              </div>
-              <button type="submit" class="btn-primary">Pair & Authorize Device</button>
-            </form>
-          </div>
-        </div>
+  <!-- 2. CATEGORY FILTER PILLS BAR -->
+  <div class="chips-bar" id="categoryChips">
+    <button class="chip active" onclick="filterCategory('all', this)">All</button>
+    <button class="chip" onclick="filterCategory('shorts', this)">⚡ Shorts & Reels</button>
+    <!-- Categories loaded dynamically -->
+  </div>
 
+  <!-- 3. MAIN YOUTUBE VIDEO GRID -->
+  <main>
+    <div class="video-grid" id="catalogContainer">
+      <div class="empty-state">Loading library...</div>
+    </div>
+  </main>
+
+  <!-- MODAL 1: ADD VIDEO / INGEST -->
+  <div class="modal-overlay" id="modal-ingest">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">Download Video to Media Server</div>
+        <button class="modal-close" onclick="closeModal('modal-ingest')">&times;</button>
+      </div>
+      <form id="ingestForm">
         <div>
-          <div class="card">
-            <div class="card-title">Paired Devices</div>
-            <div id="deviceList">
-              <div class="empty-state">No devices paired yet</div>
-            </div>
-          </div>
+          <label for="videoUrl">Video URL</label>
+          <input type="url" id="videoUrl" placeholder="https://youtube.com/watch?v=... or TikTok/Vimeo" required />
         </div>
+        <div>
+          <label for="categorySelect">Shelf / Category</label>
+          <select id="categorySelect"></select>
+        </div>
+        <div>
+          <label for="qualitySelect">Quality Preset</label>
+          <select id="qualitySelect">
+            <option value="720p" selected>720p HD (Moderate - Recommended)</option>
+            <option value="480p">480p SD (Compact - Saves 50% Space)</option>
+          </select>
+        </div>
+        <div>
+          <label>Allow for Children</label>
+          <div id="profileCheckboxes" class="checkbox-group"></div>
+        </div>
+        <button type="submit" id="submitBtn" class="pill-btn pill-btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px;">
+          Download to Server
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: PAIR DEVICE -->
+  <div class="modal-overlay" id="modal-devices">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">Pair a Phone or Tablet</div>
+        <button class="modal-close" onclick="closeModal('modal-devices')">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        Open the KidsTube app on your child's phone or tablet to display the 6-digit pairing code.
+      </p>
+      <form id="pairForm">
+        <div>
+          <label for="pairingCodeInput">6-Digit Pairing Code</label>
+          <input type="text" id="pairingCodeInput" placeholder="e.g. KID-482" style="font-family: monospace; font-size: 18px; letter-spacing: 2px;" required />
+        </div>
+        <div>
+          <label for="pairProfileSelect">Assign to Child Profile</label>
+          <select id="pairProfileSelect">
+            <option value="">Shared Tablet (Shows Profile Selector)</option>
+          </select>
+        </div>
+        <button type="submit" class="pill-btn pill-btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px;">
+          Pair & Authorize Device
+        </button>
+      </form>
+      <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
+        <div style="font-weight: 600; font-size: 14px; margin-bottom: 10px;">Paired Devices</div>
+        <div id="deviceList"><div class="empty-state" style="padding: 12px 0;">Loading devices...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: INLINE VIDEO PLAYER -->
+  <div class="modal-overlay" id="modal-player" onclick="closePlayerOnBackdrop(event)">
+    <div class="modal-box player-modal">
+      <div class="modal-header" style="margin-bottom: 12px;">
+        <div class="modal-title" id="playerTitle" style="font-size: 15px; font-weight: 500;">Playing Video</div>
+        <button class="modal-close" onclick="closeModal('modal-player')">&times;</button>
+      </div>
+      <div class="player-wrap">
+        <video id="playerVideo" controls autoplay></video>
       </div>
     </div>
   </div>
 
   <script>
+    let allVideos = [];
+    let currentFilter = 'all';
+    let searchQuery = '';
     let currentProfiles = [];
 
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-      
-      event.target.classList.add('active');
-      document.getElementById('tab-' + tabId).style.display = 'block';
+    function openModal(id) {
+      document.getElementById(id).style.display = 'flex';
+      if (id === 'modal-devices') loadDevices();
+    }
 
-      if (tabId === 'profiles') loadProfiles();
-      if (tabId === 'devices') loadDevices();
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+      if (id === 'modal-player') {
+        const vid = document.getElementById('playerVideo');
+        vid.pause();
+        vid.src = '';
+      }
+    }
+
+    function closePlayerOnBackdrop(e) {
+      if (e.target.id === 'modal-player') closeModal('modal-player');
+    }
+
+    function playVideo(url, title) {
+      document.getElementById('playerTitle').textContent = title;
+      const vid = document.getElementById('playerVideo');
+      vid.src = url;
+      openModal('modal-player');
+    }
+
+    function filterCategory(catId, btnElement) {
+      currentFilter = catId;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (btnElement) {
+        btnElement.classList.add('active');
+      }
+      renderVideos();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val.trim().toLowerCase();
+      renderVideos();
+    }
+
+    function getChannelMeta(title) {
+      if (title.includes('•')) {
+        const parts = title.split('•');
+        return { channel: parts[0].trim(), name: parts.slice(1).join('•').trim() };
+      }
+      return { channel: 'KidsTube', name: title };
+    }
+
+    function getAvatarColor(channel) {
+      const colors = ['#E53935', '#1E88E5', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1'];
+      let hash = 0;
+      for (let i = 0; i < channel.length; i++) hash += channel.charCodeAt(i);
+      return colors[hash % colors.length];
+    }
+
+    function renderVideos() {
+      const container = document.getElementById('catalogContainer');
+      let filtered = allVideos;
+
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(v => v.category_id === currentFilter);
+      }
+
+      if (searchQuery) {
+        filtered = filtered.filter(v => v.title.toLowerCase().includes(searchQuery));
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">No videos found.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(v => {
+        const meta = getChannelMeta(v.title);
+        const avatarColor = getAvatarColor(meta.channel);
+        const initial = meta.channel ? meta.channel[0].toUpperCase() : 'K';
+        const mb = (v.file_size_bytes / (1024 * 1024)).toFixed(1);
+
+        return `
+          <div class="video-card">
+            <div class="thumb-container" onclick="playVideo('${v.stream_url}', '${v.title.replace(/'/g, "\\'")}')">
+              <img src="${v.thumbnail_url}" alt="${v.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'160\\' height=\\'90\\'><rect fill=\\'%23222222\\' width=\\'160\\' height=\\'90\\'/></svg>'">
+              <span class="duration-tag">${v.duration_formatted}</span>
+            </div>
+            <div class="card-meta-row">
+              <div class="channel-avatar" style="background: ${avatarColor};">${initial}</div>
+              <div class="card-details">
+                <div class="card-title" title="${v.title}">${meta.name}</div>
+                <div class="card-subtitle">${meta.channel} • ${v.quality || '720p'} • ${mb} MB</div>
+                <div class="card-actions">
+                  <button class="btn-delete" onclick="event.stopPropagation(); deleteVideo('${v.id}')">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function loadCatalog() {
+      try {
+        const res = await fetch('/api/v1/catalog');
+        const data = await res.json();
+        allVideos = data.all_videos || [];
+        renderVideos();
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     async function loadCategories() {
       try {
         const res = await fetch('/api/v1/categories');
         const data = await res.json();
+        
+        // Select in Ingest Modal
         const select = document.getElementById('categorySelect');
         select.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+        // Category Chips Bar
+        const bar = document.getElementById('categoryChips');
+        bar.innerHTML = `
+          <button class="chip active" onclick="filterCategory('all', this)">All</button>
+          <button class="chip" onclick="filterCategory('shorts', this)">⚡ Shorts & Reels</button>
+          ${data.map(c => `<button class="chip" onclick="filterCategory('${c.id}', this)">${c.name}</button>`).join('')}
+        `;
       } catch (e) {
         console.error(e);
       }
@@ -542,7 +714,6 @@
         const res = await fetch('/api/v1/profiles');
         currentProfiles = await res.json();
 
-        // 1. Populate profile checkboxes for video ingestion
         const checkWrap = document.getElementById('profileCheckboxes');
         checkWrap.innerHTML = currentProfiles.map(p => `
           <label class="checkbox-label">
@@ -551,29 +722,9 @@
           </label>
         `).join('');
 
-        // 2. Populate profile select for device pairing
         const pairSelect = document.getElementById('pairProfileSelect');
         pairSelect.innerHTML = '<option value="">Shared Tablet (Shows Profile Selector)</option>' +
-          currentProfiles.map(p => `<option value="${p.id}">${p.name} (Dedicated Phone)</option>`).join('');
-
-        // 3. Render Profile List
-        const list = document.getElementById('profileList');
-        if (currentProfiles.length === 0) {
-          list.innerHTML = '<div class="empty-state">No profiles created yet.</div>';
-          return;
-        }
-
-        const avatarMap = { bear: '🐻', rocket: '🚀', lion: '🦁', unicorn: '🦄', panda: '🐼', star: '⭐', stars: '⭐', teddy: '🧸' };
-        list.innerHTML = currentProfiles.map(p => `
-          <div class="profile-card">
-            <div class="profile-avatar">${avatarMap[p.avatar_icon] || '🐻'}</div>
-            <div class="profile-info">
-              <div class="profile-name">${p.name}</div>
-              <div class="profile-bracket">Group: ${p.age_bracket.toUpperCase()}</div>
-            </div>
-            <button class="btn-delete" onclick="deleteProfile('${p.id}')">Remove</button>
-          </div>
-        `).join('');
+          currentProfiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
       } catch (e) {
         console.error(e);
       }
@@ -585,94 +736,18 @@
         const devices = await res.json();
         const list = document.getElementById('deviceList');
         if (devices.length === 0) {
-          list.innerHTML = '<div class="empty-state">No devices paired yet. Open the app on a tablet to get a pairing code!</div>';
+          list.innerHTML = '<div class="empty-state" style="padding: 12px 0;">No devices paired yet.</div>';
           return;
         }
         list.innerHTML = devices.map(d => `
-          <div class="device-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border);">
             <div>
-              <div style="font-weight: 600; font-size: 15px;">${d.device_name}</div>
-              <div style="font-size: 12px; color: var(--text-muted);">
-                Assigned to: <strong style="color: var(--primary);">${d.profile_name || 'Shared (All Profiles)'}</strong>
-              </div>
+              <div style="font-weight: 500; font-size: 14px;">${d.device_name}</div>
+              <div style="font-size: 12px; color: var(--text-muted);">${d.profile_name || 'Shared Tablet'}</div>
             </div>
-            <span class="badge">Paired</span>
+            <span style="font-size: 11px; color: var(--success); font-weight: 600;">PAIRED</span>
           </div>
         `).join('');
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function loadCatalog() {
-      try {
-        const res = await fetch('/api/v1/catalog');
-        const data = await res.json();
-        document.getElementById('totalVideos').textContent = data.total_videos || 0;
-        const container = document.getElementById('catalogContainer');
-        
-        if (!data.all_videos || data.all_videos.length === 0) {
-          container.innerHTML = '<div class="empty-state">No videos in catalog yet. Paste a link on the left to start!</div>';
-          return;
-        }
-
-        container.innerHTML = `
-          <div class="video-grid">
-            ${data.all_videos.map(v => `
-              <div class="video-card">
-                <div class="thumb-wrap">
-                  <img src="${v.thumbnail_url}" alt="${v.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'><rect fill=\\'%231e293b\\' width=\\'100\\' height=\\'100\\'/></svg>'">
-                  <span class="duration-tag">${v.duration_formatted}</span>
-                </div>
-                <div class="video-info">
-                  <div class="video-title" title="${v.title}">${v.title}</div>
-                  <div class="video-meta">
-                    <span>${(v.file_size_bytes / (1024*1024)).toFixed(1)} MB</span>
-                    <button class="btn-delete" onclick="deleteVideo('${v.id}')">Delete</button>
-                  </div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function loadTasks() {
-      try {
-        const res = await fetch('/api/v1/tasks');
-        const tasks = await res.json();
-        const active = tasks.filter(t => t.status === 'downloading' || t.status === 'processing' || t.status === 'queued');
-        document.getElementById('taskCount').textContent = `${active.length} active`;
-
-        const list = document.getElementById('taskList');
-        if (!tasks || tasks.length === 0) {
-          list.innerHTML = '<div class="empty-state">No active downloads</div>';
-          return;
-        }
-
-        list.innerHTML = tasks.slice(0, 5).map(t => {
-          const isDone = t.status === 'completed';
-          const isFail = t.status === 'failed';
-          const statusColor = isDone ? 'var(--success)' : (isFail ? 'var(--danger)' : 'var(--primary)');
-          return `
-            <div class="task-item">
-              <div class="task-header">
-                <span class="task-url">${t.title || t.url}</span>
-                <span style="color: ${statusColor}; font-weight: 600;">${t.status.toUpperCase()}</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width: ${t.progress}%; background: ${statusColor};"></div>
-              </div>
-              <div class="task-footer">
-                <span>${t.progress}% ${t.speed ? '· ' + t.speed : ''}</span>
-                <span>${t.eta ? 'ETA: ' + t.eta : (isFail ? t.error_message : '')}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
       } catch (e) {
         console.error(e);
       }
@@ -685,13 +760,13 @@
       try {
         const res = await fetch('/api/v1/seed/shorts', { method: 'POST' });
         const data = await res.json();
-        alert(data.message || '50 Curated Shorts seeded successfully!');
+        alert(data.message || '50 Curated Shorts seeded!');
         loadCatalog();
       } catch (e) {
-        alert('Failed to seed shorts: ' + e);
+        alert('Failed: ' + e);
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>⚡</span> Seed 50 Curated Shorts';
+        btn.innerHTML = '<span>⚡</span> Seed 50 Shorts';
       }
     }
 
@@ -701,13 +776,7 @@
       loadCatalog();
     }
 
-    async function deleteProfile(id) {
-      if (!confirm('Remove this child profile?')) return;
-      await fetch(`/api/v1/profiles/${id}`, { method: 'DELETE' });
-      loadProfiles();
-    }
-
-    // Ingest submit
+    // Ingest Submit
     document.getElementById('ingestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const url = document.getElementById('videoUrl').value.trim();
@@ -732,34 +801,20 @@
         });
         if (res.ok) {
           document.getElementById('videoUrl').value = '';
-          loadTasks();
+          closeModal('modal-ingest');
+          alert('Video download task started!');
+          loadCatalog();
         } else {
           const errData = await res.json().catch(() => ({}));
           alert(errData.detail || 'Failed to enqueue video');
         }
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Download to Media Server';
+        submitBtn.textContent = 'Download to Server';
       }
     });
 
-    // Profile create submit
-    document.getElementById('profileForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('childName').value.trim();
-      const avatar = document.getElementById('avatarSelect').value;
-      const bracket = document.getElementById('ageBracket').value;
-
-      await fetch('/api/v1/profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, avatar_icon: avatar, age_bracket: bracket })
-      });
-      document.getElementById('childName').value = '';
-      loadProfiles();
-    });
-
-    // Device pair submit
+    // Pair Submit
     document.getElementById('pairForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const code = document.getElementById('pairingCodeInput').value.trim();
@@ -783,8 +838,6 @@
     loadCategories();
     loadProfiles();
     loadCatalog();
-    loadTasks();
-    setInterval(loadTasks, 3000);
     setInterval(loadCatalog, 15000);
   </script>
 </body>

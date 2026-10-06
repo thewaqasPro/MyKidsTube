@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../utils/constants.dart';
 
 class AmbientBlurBackground extends StatelessWidget {
   final VideoPlayerController? controller;
@@ -29,7 +30,7 @@ class AmbientBlurBackground extends StatelessWidget {
             ),
           )
         else
-          Container(color: const Color(0xFF0F172A)),
+          Container(color: KidColors.bgDark),
 
         // 2. Heavy Gaussian Blur
         BackdropFilter(

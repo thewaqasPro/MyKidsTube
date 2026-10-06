@@ -1,67 +1,92 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../models/video_item.dart';
+import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import '../widgets/touch_lock_overlay.dart';
+import '../widgets/video_card.dart';
 
+/// Authentic YouTube / YouTube Kids Player Screen
 class KidPlayerScreen extends StatefulWidget {
   final VideoItem video;
+  final List<VideoItem> playlist;
 
-  const KidPlayerScreen({super.key, required this.video});
+  const KidPlayerScreen({
+    super.key,
+    required this.video,
+    this.playlist = const [],
+  });
 
   @override
   State<KidPlayerScreen> createState() => _KidPlayerScreenState();
 }
 
 class _KidPlayerScreenState extends State<KidPlayerScreen> {
-  late VideoPlayerController _controller;
+  late VideoItem _currentVideo;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isLocked = false;
   bool _showControls = true;
   bool _hasError = false;
   String _errorMessage = '';
+  Timer? _hideControlsTimer;
+  bool _isMuted = false;
 
   @override
   void initState() {
     super.initState();
-    // Allow landscape and portrait
+    _currentVideo = widget.video;
+
+    // Allow both portrait and landscape
     SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
-      DeviceOrientation.portraitUp,
     ]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    _initPlayer();
+    _initControllerForVideo(_currentVideo);
   }
 
-  Future<void> _initPlayer() async {
+  Future<void> _initControllerForVideo(VideoItem video) async {
+    _hideControlsTimer?.cancel();
+    _controller?.removeListener(_playerListener);
+    _controller?.dispose();
+
+    setState(() {
+      _currentVideo = video;
+      _isInitialized = false;
+      _hasError = false;
+      _errorMessage = '';
+      _showControls = true;
+    });
+
     try {
-      final hasLocal = widget.video.localFilePath != null &&
-          File(widget.video.localFilePath!).existsSync();
+      final hasLocal = video.localFilePath != null && File(video.localFilePath!).existsSync();
+      final ctrl = hasLocal
+          ? VideoPlayerController.file(File(video.localFilePath!))
+          : VideoPlayerController.networkUrl(Uri.parse(video.streamUrl));
 
-      if (hasLocal) {
-        _controller = VideoPlayerController.file(File(widget.video.localFilePath!));
-      } else {
-        _controller = VideoPlayerController.networkUrl(Uri.parse(widget.video.streamUrl));
-      }
-
-      await _controller.initialize();
-      _controller.addListener(_playerListener);
-      _controller.play();
+      _controller = ctrl;
+      await ctrl.initialize();
+      ctrl.addListener(_playerListener);
+      ctrl.setVolume(_isMuted ? 0.0 : 1.0);
+      ctrl.play();
 
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
+        _resetControlsTimer();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _hasError = true;
-          _errorMessage = 'Could not load video. Please check VPS connection or file.';
+          _errorMessage = 'Could not load video. Please verify connection.';
         });
       }
     }
@@ -71,18 +96,56 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     if (mounted) setState(() {});
   }
 
-  @override
-  void dispose() {
-    _controller.removeListener(_playerListener);
-    _controller.dispose();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
+  void _resetControlsTimer() {
+    _hideControlsTimer?.cancel();
+    if (_controller != null && _controller!.value.isPlaying && !_isLocked) {
+      _hideControlsTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted && _controller!.value.isPlaying) {
+          setState(() => _showControls = false);
+        }
+      });
+    }
   }
 
   void _toggleControls() {
-    if (!_isLocked) {
-      setState(() => _showControls = !_showControls);
+    if (_isLocked) return;
+    setState(() {
+      _showControls = !_showControls;
+    });
+    if (_showControls) {
+      _resetControlsTimer();
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_controller == null || !_isInitialized) return;
+    setState(() {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+        _hideControlsTimer?.cancel();
+      } else {
+        _controller!.play();
+        _resetControlsTimer();
+      }
+    });
+  }
+
+  void _toggleMute() {
+    if (_controller == null) return;
+    setState(() {
+      _isMuted = !_isMuted;
+      _controller!.setVolume(_isMuted ? 0.0 : 1.0);
+    });
+  }
+
+  void _toggleOrientation(bool isLandscape) {
+    if (isLandscape) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
     }
   }
 
@@ -92,64 +155,71 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     return '$minutes:$seconds';
   }
 
+  String get _channelName {
+    if (_currentVideo.title.contains('•')) {
+      return _currentVideo.title.split('•').first.trim();
+    }
+    return 'KidsTube';
+  }
+
+  String get _cleanTitle {
+    if (_currentVideo.title.contains('•')) {
+      return _currentVideo.title.split('•').last.trim();
+    }
+    return _currentVideo.title;
+  }
+
+  @override
+  void dispose() {
+    _hideControlsTimer?.cancel();
+    _controller?.removeListener(_playerListener);
+    _controller?.dispose();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final orientation = MediaQuery.of(context).orientation;
+    final isLandscape = orientation == Orientation.landscape;
+
+    if (isLandscape) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      return _buildLandscapeFullscreen(context);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      return _buildPortraitInlinePlayer(context);
+    }
+  }
+
+  // ==========================================
+  // 1. LANDSCAPE IMMERSIVE FULLSCREEN
+  // ==========================================
+  Widget _buildLandscapeFullscreen(BuildContext context) {
     return PopScope(
       canPop: !_isLocked,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _isLocked) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Screen is locked. Hold the lock button for 3 seconds to unlock.'),
-              duration: Duration(seconds: 2),
-              backgroundColor: KidColors.accent,
-            ),
-          );
-        }
-      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
-          alignment: Alignment.center,
+          fit: StackFit.expand,
           children: [
-            // 1. Video Player Surface
-            if (_isInitialized)
-              Center(
-                child: AspectRatio(
-                  aspectRatio: _controller.value.aspectRatio,
-                  child: VideoPlayer(_controller),
-                ),
-              )
-            else if (_hasError)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, color: KidColors.red, size: 54),
-                      const SizedBox(height: 12),
-                      Text(
-                        _errorMessage,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Back to Videos'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              const Center(
-                child: CircularProgressIndicator(color: KidColors.primary),
-              ),
+            // Video Surface
+            Center(
+              child: _isInitialized
+                  ? AspectRatio(
+                      aspectRatio: _controller!.value.aspectRatio,
+                      child: VideoPlayer(_controller!),
+                    )
+                  : const CircularProgressIndicator(color: KidColors.primary),
+            ),
 
-            // 2. Gesture detector to toggle controls
-            if (_isInitialized && !_isLocked)
+            // Tap detector
+            if (!_isLocked)
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -157,19 +227,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 ),
               ),
 
-            // 3. Child-safe controls overlay
-            if (_isInitialized && !_isLocked && _showControls)
-              _buildControlsOverlay(),
+            // Controls Overlay
+            if (_showControls && !_isLocked) _buildLandscapeControls(context),
 
-            // 4. Video Ended screen (Play again button)
-            if (_isInitialized &&
-                _controller.value.position >= _controller.value.duration &&
-                _controller.value.duration.inSeconds > 0)
-              _buildVideoEndedOverlay(),
-
-            // 5. Touch Lock Overlay (Handles freeze and 3-second hold to unlock)
+            // Touch Lock Overlay
             TouchLockOverlay(
               isLocked: _isLocked,
+              showLockButton: false,
               onLock: () => setState(() {
                 _isLocked = true;
                 _showControls = false;
@@ -185,156 +249,430 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  Widget _buildControlsOverlay() {
-    final position = _controller.value.position;
-    final duration = _controller.value.duration;
+  Widget _buildLandscapeControls(BuildContext context) {
+    final position = _controller?.value.position ?? Duration.zero;
+    final duration = _controller?.value.duration ?? Duration.zero;
 
     return Container(
-      color: Colors.black.withOpacity(0.4),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Top bar: Back button + Title
-          SafeArea(
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 24),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    widget.video.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+      color: Colors.black.withOpacity(0.45),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Top Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
+                    onPressed: () => _toggleOrientation(true),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _cleanTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 140), // Spacer for lock button
-              ],
+                  IconButton(
+                    icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white),
+                    onPressed: _toggleMute,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.lock_outline_rounded, color: Colors.white),
+                    onPressed: () => setState(() {
+                      _isLocked = true;
+                      _showControls = false;
+                    }),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Center: Large Play/Pause button
-          Center(
-            child: GestureDetector(
-              onTap: () {
-                if (_controller.value.isPlaying) {
-                  _controller.pause();
-                } else {
-                  _controller.play();
-                }
-              },
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white38, width: 2),
-                ),
-                child: Icon(
-                  _controller.value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 44,
+            // Center Play / Pause
+            Center(
+              child: GestureDetector(
+                onTap: _togglePlayPause,
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 42,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Bottom: Kid scrubber + Timestamps
-          SafeArea(
-            child: Column(
-              children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    thumbColor: KidColors.accent,
-                    activeTrackColor: KidColors.accent,
-                    inactiveTrackColor: Colors.white24,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                    trackHeight: 5,
-                  ),
-                  child: Slider(
-                    value: position.inMilliseconds.clamp(0, duration.inMilliseconds).toDouble(),
-                    min: 0,
-                    max: duration.inMilliseconds.toDouble() > 0 ? duration.inMilliseconds.toDouble() : 1.0,
-                    onChanged: (val) {
-                      _controller.seekTo(Duration(milliseconds: val.toInt()));
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
+            // Bottom Red Scrubber Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildRedScrubber(position, duration),
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _formatDuration(position),
-                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                        '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                        style: const TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 12),
                       ),
-                      Text(
-                        _formatDuration(duration),
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 24),
+                        onPressed: () => _toggleOrientation(true),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildVideoEndedOverlay() {
-    return Container(
-      color: Colors.black.withOpacity(0.85),
-      child: Center(
-        child: Column(
+  // ==========================================
+  // 2. PORTRAIT INLINE PLAYER (YOUTUBE AUTHENTIC)
+  // ==========================================
+  Widget _buildPortraitInlinePlayer(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final isFavorite = provider.isFavorite(_currentVideo.id);
+    final position = _controller?.value.position ?? Duration.zero;
+    final duration = _controller?.value.duration ?? Duration.zero;
+
+    final relatedVideos = widget.playlist.isNotEmpty
+        ? widget.playlist.where((v) => v.id != _currentVideo.id).toList()
+        : provider.allVideos.where((v) => v.id != _currentVideo.id).toList();
+
+    return PopScope(
+      canPop: !_isLocked,
+      child: Scaffold(
+        backgroundColor: KidColors.bgDark,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // 1. Anchored 16:9 Inline Video Player
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: _isInitialized
+                            ? VideoPlayer(_controller!)
+                            : (_hasError
+                                ? Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.error_outline_rounded, color: KidColors.primary, size: 36),
+                                        const SizedBox(height: 8),
+                                        Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                      ],
+                                    ),
+                                  )
+                                : const CircularProgressIndicator(color: KidColors.primary)),
+                      ),
+                    ),
+
+                    // Tap to toggle controls
+                    if (!_isLocked)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _toggleControls,
+                        ),
+                      ),
+
+                    // Inline Controls Overlay
+                    if (_showControls && !_isLocked)
+                      Container(
+                        color: Colors.black.withOpacity(0.4),
+                        child: Stack(
+                          children: [
+                            // Top left back button
+                            Positioned(
+                              top: 6,
+                              left: 6,
+                              child: IconButton(
+                                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 30),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                            ),
+                            // Center Play / Pause
+                            Center(
+                              child: GestureDetector(
+                                onTap: _togglePlayPause,
+                                child: Container(
+                                  width: 54,
+                                  height: 54,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                    color: Colors.white,
+                                    size: 34,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // Bottom Right Fullscreen Icon
+                            Positioned(
+                              bottom: 12,
+                              right: 8,
+                              child: IconButton(
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 24),
+                                onPressed: () => _toggleOrientation(false),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Red Scrubber Bar at bottom of video
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: _buildRedScrubber(position, duration),
+                    ),
+
+                    // Touch Lock Overlay
+                    TouchLockOverlay(
+                      isLocked: _isLocked,
+                      showLockButton: false,
+                      onLock: () => setState(() {
+                        _isLocked = true;
+                        _showControls = false;
+                      }),
+                      onUnlock: () => setState(() {
+                        _isLocked = false;
+                        _showControls = true;
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 2. Video Details & Actions Underneath (Scrollable)
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  children: [
+                    // Video Title (FontWeight 500, 16px)
+                    Text(
+                      _cleanTitle,
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        color: KidColors.textLight,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Metadata row
+                    Text(
+                      '${_formatDuration(position)} / ${_formatDuration(duration)} • ${_currentVideo.quality}${_currentVideo.fileSizeBytes > 0 ? " • ${(_currentVideo.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        color: KidColors.textMuted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Channel Avatar + Name Row
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: KidColors.primary,
+                          child: Text(
+                            _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
+                            style: const TextStyle(
+                              fontFamily: 'Roboto',
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _channelName,
+                            style: const TextStyle(
+                              fontFamily: 'Roboto',
+                              color: KidColors.textLight,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Single-Row Action Bar (YouTube Pill Buttons)
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          // Star / Favorite
+                          _buildPillButton(
+                            icon: isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                            iconColor: isFavorite ? KidColors.yellow : Colors.white,
+                            label: isFavorite ? 'Starred' : 'Favorite',
+                            onTap: () => provider.toggleFavorite(_currentVideo.id),
+                          ),
+                          const SizedBox(width: 10),
+
+                          // Mute / Sound
+                          _buildPillButton(
+                            icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                            iconColor: _isMuted ? KidColors.primary : Colors.white,
+                            label: _isMuted ? 'Muted' : 'Sound',
+                            onTap: _toggleMute,
+                          ),
+                          const SizedBox(width: 10),
+
+                          // Fullscreen
+                          _buildPillButton(
+                            icon: Icons.fullscreen_rounded,
+                            iconColor: Colors.white,
+                            label: 'Landscape',
+                            onTap: () => _toggleOrientation(false),
+                          ),
+                          const SizedBox(width: 10),
+
+                          // Toddler Lock
+                          _buildPillButton(
+                            icon: Icons.lock_outline_rounded,
+                            iconColor: Colors.white,
+                            label: 'Lock Screen',
+                            onTap: () => setState(() {
+                              _isLocked = true;
+                              _showControls = false;
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    const Divider(color: KidColors.borderDark, height: 1),
+                    const SizedBox(height: 16),
+
+                    // "Up Next / More Videos" Header
+                    const Text(
+                      'More for Kids',
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        color: KidColors.textLight,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // List of more curated parent-approved videos
+                    ...relatedVideos.map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: VideoCard(
+                            video: item,
+                            onTap: () => _initControllerForVideo(item),
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Sleek YouTube Red Scrubber Bar
+  Widget _buildRedScrubber(Duration position, Duration duration) {
+    final maxMs = duration.inMilliseconds.toDouble();
+    final currentMs = position.inMilliseconds.clamp(0, duration.inMilliseconds).toDouble();
+
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        trackHeight: 3.5,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+        activeTrackColor: KidColors.primary, // Signature YouTube Red #FF0000
+        inactiveTrackColor: Colors.white24,
+        thumbColor: KidColors.primary,
+        overlayColor: KidColors.primary.withOpacity(0.3),
+      ),
+      child: Slider(
+        value: currentMs,
+        min: 0.0,
+        max: maxMs > 0 ? maxMs : 1.0,
+        onChanged: (val) {
+          _controller?.seekTo(Duration(milliseconds: val.toInt()));
+        },
+      ),
+    );
+  }
+
+  /// YouTube Standard Pill Button (18px radius)
+  Widget _buildPillButton({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: KidColors.surfaceDark,
+          borderRadius: BorderRadius.circular(18), // 18px radius per DESIGN.md
+          border: Border.all(color: KidColors.borderDark, width: 1.0),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.stars_rounded, color: KidColors.yellow, size: 64),
-            const SizedBox(height: 12),
-            const Text(
-              'Great Job Watching!',
-              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: KidColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: () {
-                    _controller.seekTo(Duration.zero);
-                    _controller.play();
-                  },
-                  icon: const Icon(Icons.replay_rounded, size: 22),
-                  label: const Text('Watch Again', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(width: 16),
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white38),
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Pick Another', style: TextStyle(color: Colors.white, fontSize: 16)),
-                ),
-              ],
+            Icon(icon, color: iconColor, size: 19),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                color: KidColors.textLight,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),

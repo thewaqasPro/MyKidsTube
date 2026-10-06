@@ -83,7 +83,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           backgroundColor: KidColors.bgDark,
           appBar: AppBar(
             title: const Text('Parent Dashboard'),
-            backgroundColor: KidColors.cardDark,
+            backgroundColor: KidColors.bgDark,
+            elevation: 0,
+            scrolledUnderElevation: 0,
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(20.0),
