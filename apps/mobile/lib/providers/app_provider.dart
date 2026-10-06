@@ -24,6 +24,7 @@ class AppProvider extends ChangeNotifier {
   List<CategoryItem> _categories = [];
   List<VideoItem> _allVideos = [];
   List<VideoItem> _downloadedVideos = [];
+  Set<String> _favoriteVideoIds = {};
   final Map<String, double> _downloadProgress = {};
 
   bool _isLoading = false;
@@ -44,6 +45,9 @@ class AppProvider extends ChangeNotifier {
   List<CategoryItem> get categories => _categories;
   List<VideoItem> get allVideos => _isOfflineOnly ? _downloadedVideos : _allVideos;
   List<VideoItem> get downloadedVideos => _downloadedVideos;
+  Set<String> get favoriteVideoIds => _favoriteVideoIds;
+  List<VideoItem> get favoriteVideos => allVideos.where((v) => _favoriteVideoIds.contains(v.id)).toList();
+  bool isFavorite(String videoId) => _favoriteVideoIds.contains(videoId);
   Map<String, double> get downloadProgress => _downloadProgress;
   bool get isLoading => _isLoading;
   bool get isSyncing => _isSyncing;
@@ -90,6 +94,7 @@ class AppProvider extends ChangeNotifier {
     _categories = await _db.getAllCategories();
     _allVideos = await _db.getAllVideos();
     _downloadedVideos = await _db.getDownloadedVideos();
+    _favoriteVideoIds = await _db.getFavoriteIds();
     _cachedBytes = await _downloader.getTotalCachedBytes();
     notifyListeners();
   }
@@ -246,6 +251,16 @@ class AppProvider extends ChangeNotifier {
     _parentPin = newPin;
     await _db.setSetting('parent_pin', newPin);
     notifyListeners();
+  }
+
+  Future<void> toggleFavorite(String videoId) async {
+    if (_favoriteVideoIds.contains(videoId)) {
+      _favoriteVideoIds.remove(videoId);
+    } else {
+      _favoriteVideoIds.add(videoId);
+    }
+    notifyListeners();
+    await _db.toggleFavorite(videoId);
   }
 
   void toggleOfflineOnly() {

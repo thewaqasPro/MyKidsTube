@@ -23,6 +23,14 @@ class DatabaseService {
       path,
       version: 1,
       onCreate: _createDB,
+      onOpen: (db) async {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS favorites (
+            video_id TEXT PRIMARY KEY,
+            created_at INTEGER
+          );
+        ''');
+      },
     );
   }
 
@@ -168,4 +176,31 @@ class DatabaseService {
     final db = await database;
     await db.insert('settings', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+
+  // --- Favorites ---
+  Future<void> toggleFavorite(String videoId) async {
+    final db = await database;
+    final exists = await db.query('favorites', where: 'video_id = ?', whereArgs: [videoId]);
+    if (exists.isNotEmpty) {
+      await db.delete('favorites', where: 'video_id = ?', whereArgs: [videoId]);
+    } else {
+      await db.insert('favorites', {
+        'video_id': videoId,
+        'created_at': DateTime.now().millisecondsSinceEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  Future<bool> isFavorite(String videoId) async {
+    final db = await database;
+    final res = await db.query('favorites', where: 'video_id = ?', whereArgs: [videoId]);
+    return res.isNotEmpty;
+  }
+
+  Future<Set<String>> getFavoriteIds() async {
+    final db = await database;
+    final res = await db.query('favorites');
+    return res.map((r) => r['video_id'] as String).toSet();
+  }
 }
+

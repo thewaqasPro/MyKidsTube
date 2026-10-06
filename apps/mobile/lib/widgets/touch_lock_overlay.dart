@@ -7,12 +7,14 @@ class TouchLockOverlay extends StatefulWidget {
   final bool isLocked;
   final VoidCallback onUnlock;
   final VoidCallback onLock;
+  final bool showLockButton;
 
   const TouchLockOverlay({
     super.key,
     required this.isLocked,
     required this.onUnlock,
     required this.onLock,
+    this.showLockButton = true,
   });
 
   @override
@@ -62,6 +64,7 @@ class _TouchLockOverlayState extends State<TouchLockOverlay>
   @override
   Widget build(BuildContext context) {
     if (!widget.isLocked) {
+      if (!widget.showLockButton) return const SizedBox.shrink();
       // Small button to lock
       return Positioned(
         top: 24,

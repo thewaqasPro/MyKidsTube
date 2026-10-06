@@ -4,7 +4,7 @@ import '../providers/app_provider.dart';
 import '../models/video_item.dart';
 import '../utils/constants.dart';
 import '../widgets/video_tile.dart';
-import 'kid_player_screen.dart';
+import 'kid_shorts_feed_screen.dart';
 import 'parent_gate_dialog.dart';
 import 'profile_selector_dialog.dart';
 
@@ -149,9 +149,96 @@ class KidHomeScreen extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, AppProvider provider) {
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
-        // 1. Downloaded Shelf (Pinned at top if any downloaded videos exist)
+        // 0. Hero "Watch Kids Shorts & Reels Feed" Action Card
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 6.0),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => KidShortsFeedScreen(
+                    videos: provider.allVideos,
+                    initialIndex: 0,
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [KidColors.primary, Color(0xFF8B5CF6), KidColors.accent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: KidColors.primary.withOpacity(0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.22),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.bolt_rounded, color: KidColors.yellow, size: 34),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Watch Kids Shorts & Reels',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Swipe up for ${provider.allVideos.length} fun videos!',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // 1. Favorites Shelf (Pinned at top if any starred videos exist)
+        if (provider.favoriteVideos.isNotEmpty)
+          _buildShelf(
+            context,
+            provider,
+            title: 'Favorites & Stars',
+            icon: Icons.star_rounded,
+            iconColor: KidColors.yellow,
+            videos: provider.favoriteVideos,
+          ),
+
+        // 2. Downloaded Shelf (Pinned at top if any downloaded videos exist)
         if (provider.downloadedVideos.isNotEmpty && !provider.isOfflineOnly)
           _buildShelf(
             context,
@@ -224,7 +311,7 @@ class KidHomeScreen extends StatelessWidget {
 
           // Horizontal scrolling video cards
           SizedBox(
-            height: 195,
+            height: 215,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -237,9 +324,14 @@ class KidHomeScreen extends StatelessWidget {
                   video: video,
                   downloadProgress: progress,
                   onTap: () {
+                    final all = provider.allVideos;
+                    final idx = all.indexWhere((v) => v.id == video.id);
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => KidPlayerScreen(video: video),
+                        builder: (context) => KidShortsFeedScreen(
+                          videos: all,
+                          initialIndex: idx >= 0 ? idx : 0,
+                        ),
                       ),
                     );
                   },
@@ -257,6 +349,10 @@ class KidHomeScreen extends StatelessWidget {
 
   IconData _getCategoryIcon(String iconName) {
     switch (iconName) {
+      case 'bolt':
+        return Icons.bolt_rounded;
+      case 'pets':
+        return Icons.pets_rounded;
       case 'tv':
         return Icons.live_tv_rounded;
       case 'school':

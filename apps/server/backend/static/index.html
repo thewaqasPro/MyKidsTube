@@ -411,7 +411,12 @@
           <div class="card">
             <div class="card-title">
               <span>Media Library (<span id="totalVideos">0</span>)</span>
-              <button onclick="loadCatalog()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;">Refresh</button>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="seedShortsBtn" onclick="seedCuratedShorts()" style="background: linear-gradient(135deg, #f97316, #ec4899); border: none; color: #fff; padding: 5px 12px; border-radius: 8px; font-weight: 600; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                  <span>⚡</span> Seed 50 Curated Shorts
+                </button>
+                <button onclick="loadCatalog()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;">Refresh</button>
+              </div>
             </div>
             <div id="catalogContainer">
               <div class="empty-state">Loading library...</div>
@@ -669,6 +674,23 @@
         }).join('');
       } catch (e) {
         console.error(e);
+      }
+    }
+
+    async function seedCuratedShorts() {
+      const btn = document.getElementById('seedShortsBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Seeding...';
+      try {
+        const res = await fetch('/api/v1/seed/shorts', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || '50 Curated Shorts seeded successfully!');
+        loadCatalog();
+      } catch (e) {
+        alert('Failed to seed shorts: ' + e);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>⚡</span> Seed 50 Curated Shorts';
       }
     }
 

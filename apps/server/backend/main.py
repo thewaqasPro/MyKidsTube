@@ -213,6 +213,27 @@ def delete_video(video_id: str):
         
     return {"status": "deleted", "video_id": video_id}
 
+# --- Seed Catalog with 50 Curated Kids Shorts ---
+@app.post("/api/v1/seed/shorts")
+def seed_kids_shorts():
+    import seed_shorts
+    return seed_shorts.run_seed()
+
+@app.get("/api/v1/seed/status")
+def seed_status():
+    conn = database.get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM videos WHERE category_id = 'shorts'")
+    shorts_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM videos")
+    total_count = cursor.fetchone()[0]
+    conn.close()
+    return {
+        "shorts_count": shorts_count,
+        "total_videos": total_count,
+        "seeded": shorts_count >= 50
+    }
+
 # --- YouTube Cookies Configuration (Bypass Datacenter IP restrictions) ---
 class CookiesUploadRequest(BaseModel):
     cookies_content: str
