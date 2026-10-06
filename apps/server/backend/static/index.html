@@ -590,6 +590,9 @@
         const vid = document.getElementById('playerVideo');
         vid.pause();
         vid.src = '';
+        const u = new URL(window.location);
+        u.searchParams.delete('v');
+        window.history.replaceState({}, '', u);
       }
     }
 
@@ -597,11 +600,18 @@
       if (e.target.id === 'modal-player') closeModal('modal-player');
     }
 
-    function playVideo(url, title) {
+    function playVideo(url, title, videoId) {
       document.getElementById('playerTitle').textContent = title;
       const vid = document.getElementById('playerVideo');
       vid.src = url;
+      vid.load();
+      vid.play().catch(() => {});
       openModal('modal-player');
+      if (videoId) {
+        const u = new URL(window.location);
+        u.searchParams.set('v', videoId);
+        window.history.replaceState({}, '', u);
+      }
     }
 
     function filterCategory(catId, btnElement) {
@@ -658,11 +668,11 @@
 
         return `
           <div class="video-card">
-            <div class="thumb-container" onclick="playVideo('${v.stream_url}', '${v.title.replace(/'/g, "\\'")}')">
-              <img src="${v.thumbnail_url}" alt="${v.title}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'160\\' height=\\'90\\'><rect fill=\\'%23222222\\' width=\\'160\\' height=\\'90\\'/></svg>'">
+            <div class="thumb-container" onclick="playVideo('${v.stream_url}', '${v.title.replace(/'/g, "\\'")}', '${v.id}')">
+              <img src="${v.thumbnail_url}" alt="${v.title}" loading="lazy" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'160\\' height=\\'90\\'><rect fill=\\'%23222222\\' width=\\'160\\' height=\\'90\\'/></svg>'">
               <span class="duration-tag">${v.duration_formatted}</span>
             </div>
-            <div class="card-meta-row">
+            <div class="card-meta-row" onclick="playVideo('${v.stream_url}', '${v.title.replace(/'/g, "\\'")}', '${v.id}')">
               <div class="channel-avatar" style="background: ${avatarColor};">${initial}</div>
               <div class="card-details">
                 <div class="card-title" title="${v.title}">${meta.name}</div>
@@ -683,6 +693,16 @@
         const data = await res.json();
         allVideos = data.all_videos || [];
         renderVideos();
+
+        // Check if single video URL parameter is present (?v=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const vidParam = urlParams.get('v');
+        if (vidParam) {
+          const target = allVideos.find(v => v.id === vidParam);
+          if (target) {
+            playVideo(target.stream_url, target.title, target.id);
+          }
+        }
       } catch (e) {
         console.error(e);
       }

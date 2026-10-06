@@ -93,25 +93,45 @@ def create_gradient_thumb(video, output_path):
         bcol = (255, 255, 255, rng.randint(15, 45))
         draw.ellipse([(bx - brad, by - brad), (bx + brad, by + brad)], fill=bcol)
 
-    # 1. Top Channel Pill Badge (e.g. CoComelon 🍉)
-    pill_text = f"{channel}  {emoji}"
-    draw.rounded_rectangle([(60, 48), (60 + min(500, len(pill_text) * 22 + 40), 108)], radius=24, fill=(15, 15, 15, 230), outline=(255, 255, 255, 70), width=2)
-    draw.text((85, 62), pill_text, fill=(255, 255, 255, 255))
+    # Load TrueType Font if available
+    font_title = None
+    font_pill = None
+    font_sub = None
+    try:
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if os.path.exists(font_path):
+            font_title = ImageFont.truetype(font_path, 44)
+            font_pill = ImageFont.truetype(font_path, 26)
+            font_sub = ImageFont.truetype(font_path, 22)
+    except Exception:
+        pass
+
+    # 1. Top Channel Pill Badge
+    pill_text = f" {channel} "
+    pill_w = len(pill_text) * 18 + 40
+    draw.rounded_rectangle([(60, 48), (60 + min(500, pill_w), 108)], radius=24, fill=(15, 15, 15, 230), outline=(255, 255, 255, 100), width=2)
+    draw.text((80, 62), pill_text, fill=(255, 255, 255, 255), font=font_pill)
 
     # 2. Central Big YouTube Kids Play Badge
-    cx, cy = width // 2, 330
-    draw.ellipse([(cx - 75, cy - 75), (cx + 75, cy + 75)], fill=(255, 0, 0, 240), outline=(255, 255, 255, 200), width=4)
+    cx, cy = width // 2, 310
+    draw.ellipse([(cx - 70, cy - 70), (cx + 70, cy + 70)], fill=(255, 0, 0, 245), outline=(255, 255, 255, 220), width=4)
     # White Play Triangle
-    triangle = [(cx - 20, cy - 35), (cx - 20, cy + 35), (cx + 35, cy)]
+    triangle = [(cx - 18, cy - 32), (cx - 18, cy + 32), (cx + 32, cy)]
     draw.polygon(triangle, fill=(255, 255, 255, 255))
 
-    # 3. Bold Video Title (Bottom)
-    draw.text((62, 532), title, fill=(0, 0, 0, 240)) # shadow
-    draw.text((60, 530), title, fill=(255, 255, 255, 255))
+    # 3. Bold Video Title (Bottom with 2-line wrap)
+    import textwrap
+    lines = textwrap.wrap(title, width=32)
+    ty = 530 if len(lines) == 1 else 460
+    for line in lines[:2]:
+        # Drop shadow
+        draw.text((63, ty + 3), line, fill=(0, 0, 0, 255), font=font_title)
+        draw.text((60, ty), line, fill=(255, 255, 255, 255), font=font_title)
+        ty += 54
     
-    # 4. Subtle Category / Age Tag
-    cat_tag = "Safe for Kids • Verified"
-    draw.text((60, 625), cat_tag, fill=(255, 255, 255, 180))
+    # 4. Subtle Category / Safe badge
+    cat_tag = "Safe for Kids • High Quality"
+    draw.text((60, 640), cat_tag, fill=(255, 255, 255, 180), font=font_sub)
 
     # Save as WebP
     base.convert("RGB").save(output_path, "WEBP", quality=92)
@@ -167,9 +187,10 @@ def main():
         # 1. Generate 16:9 Thumbnail
         create_gradient_thumb(s, t_path)
 
-        # 2. Generate Dynamic 16:9 Video (8 seconds clip for rapid streaming)
         dur = s.get("duration", 8)
-        generate_dynamic_video(t_path, v_path, v_id, duration_sec=8)
+        # 2. Generate Dynamic 16:9 Video if not present
+        if not v_path.exists() or v_path.stat().st_size == 0 or "--force-video" in sys.argv:
+            generate_dynamic_video(t_path, v_path, v_id, duration_sec=8)
 
         file_size = v_path.stat().st_size if v_path.exists() else 0
 
