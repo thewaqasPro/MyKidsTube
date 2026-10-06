@@ -1,0 +1,59 @@
+---
+import '../styles/global.css';
+import { KidsPortal } from '../components/KidsPortal';
+import { getDbData } from '../lib/db';
+import type { Video, Category, ChildProfile } from '../types/video';
+
+// Server-side Edge Execution (Runs on Cloudflare Worker)
+const data = await getDbData();
+let videos: Video[] = data.videos;
+let categories: Category[] = data.categories;
+let profiles: ChildProfile[] = data.profiles;
+
+// Fallback safety defaults if database had 0 categories/profiles
+if (categories.length === 0) {
+  categories = [
+    { id: 'shorts', name: '⚡ Shorts & Reels', display_order: 0 },
+    { id: 'cartoons', name: 'Cartoons', display_order: 1 },
+    { id: 'learning', name: 'Learning & Fun', display_order: 2 },
+    { id: 'music', name: 'Songs & Music', display_order: 3 },
+    { id: 'nature', name: 'Animals & Nature', display_order: 4 },
+  ];
+}
+
+if (profiles.length === 0) {
+  profiles = [
+    { id: 'kids_all', family_id: 'default_family', name: 'All Kids' },
+    { id: 'kids_toddler', family_id: 'default_family', name: 'Little Kids' },
+  ];
+}
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KidsTube • 100% Curated Safe Video Library</title>
+    <meta
+      name="description"
+      content="Ad-free, safe YouTube streaming curated strictly for children with zero algorithmic distractions or inappropriate content."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Preconnect Google Fonts for Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-[#0F0F0F] text-[#F1F1F1] antialiased selection:bg-[#FF0000] selection:text-white">
+    <KidsPortal
+      client:load
+      initialVideos={videos}
+      initialCategories={categories}
+      initialProfiles={profiles}
+    />
+  </body>
+</html>

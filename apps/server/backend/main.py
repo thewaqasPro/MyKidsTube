@@ -67,7 +67,7 @@ class ProfileCreateRequest(BaseModel):
 def get_base_url(request: Request) -> str:
     proto = request.headers.get("x-forwarded-proto") or request.url.scheme
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
-    if "kids.waqas.pro" in host or proto == "https":
+    if "waqas.pro" in host or proto == "https":
         return f"https://{host}/"
     return f"{proto}://{host}/"
 

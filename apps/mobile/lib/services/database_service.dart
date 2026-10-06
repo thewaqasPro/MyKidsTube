@@ -70,7 +70,7 @@ class DatabaseService {
     ''');
 
     // Default settings
-    await db.insert('settings', {'key': 'vps_url', 'value': 'https://kids.waqas.pro'});
+    await db.insert('settings', {'key': 'vps_url', 'value': 'https://kidsapi.waqas.pro'});
     await db.insert('settings', {'key': 'parent_pin', 'value': '1234'});
   }
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mykidstube",
+  "account_id": "e625c672ee355cd19487de814338560a",
+  "compatibility_date": "2026-03-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mykidstube",
+      "database_id": "dce947fe-b59f-40f0-9788-c76414b476b4"
+    }
+  ]
+}
