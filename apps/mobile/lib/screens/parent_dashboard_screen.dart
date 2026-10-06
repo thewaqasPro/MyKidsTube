@@ -121,6 +121,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
+                              isExpanded: true,
                               value: provider.categories.any((c) => c.id == _selectedCategory)
                                   ? _selectedCategory
                                   : (provider.categories.isNotEmpty ? provider.categories.first.id : 'cartoons'),
@@ -129,6 +130,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               decoration: InputDecoration(
                                 labelText: 'Category',
                                 labelStyle: const TextStyle(color: KidColors.textMuted),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 filled: true,
                                 fillColor: KidColors.bgDark,
                                 border: OutlineInputBorder(
@@ -137,22 +139,24 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 ),
                               ),
                               items: provider.categories.map((c) {
-                                return DropdownMenuItem(value: c.id, child: Text(c.name));
+                                return DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis));
                               }).toList(),
                               onChanged: (val) {
                                 if (val != null) setState(() => _selectedCategory = val);
                               },
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: DropdownButtonFormField<String>(
+                              isExpanded: true,
                               value: _selectedQuality,
                               dropdownColor: KidColors.cardDark,
                               style: const TextStyle(color: Colors.white, fontSize: 13),
                               decoration: InputDecoration(
                                 labelText: 'Quality',
                                 labelStyle: const TextStyle(color: KidColors.textMuted),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 filled: true,
                                 fillColor: KidColors.bgDark,
                                 border: OutlineInputBorder(
@@ -161,8 +165,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 ),
                               ),
                               items: const [
-                                DropdownMenuItem(value: '720p', child: Text('720p (Good)')),
-                                DropdownMenuItem(value: '480p', child: Text('480p (Compact)')),
+                                DropdownMenuItem(value: '720p', child: Text('720p', overflow: TextOverflow.ellipsis)),
+                                DropdownMenuItem(value: '480p', child: Text('480p', overflow: TextOverflow.ellipsis)),
                               ],
                               onChanged: (val) {
                                 if (val != null) setState(() => _selectedQuality = val);
@@ -260,6 +264,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: KidColors.surfaceDark,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: provider.isSyncing ? null : () => provider.syncCatalog(),
@@ -301,6 +306,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: KidColors.accent,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: () async {

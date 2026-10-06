@@ -2,6 +2,7 @@ import sqlite3
 import random
 import string
 import uuid
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from config import DB_PATH
@@ -205,10 +206,21 @@ def register_device(device_name: str) -> Dict[str, Any]:
         "status": "pending"
     }
 
+def normalize_pairing_code(code: str) -> str:
+    cleaned = re.sub(r'[^A-Za-z0-9]', '', code).upper().strip()
+    if len(cleaned) == 6:
+        return f"{cleaned[:3]}-{cleaned[3:]}"
+    return cleaned
+
 def get_device_by_code(pairing_code: str) -> Optional[Dict[str, Any]]:
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM devices WHERE pairing_code = ?", (pairing_code.upper().strip(),))
+    code = normalize_pairing_code(pairing_code)
+    cursor.execute("""
+        SELECT * FROM devices 
+        WHERE pairing_code = ? 
+           OR replace(pairing_code, '-', '') = replace(?, '-', '')
+    """, (code, code))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -224,7 +236,12 @@ def get_device_by_id(device_id: str) -> Optional[Dict[str, Any]]:
 def confirm_device_pairing(pairing_code: str, family_id: str, profile_id: Optional[str]) -> Optional[Dict[str, Any]]:
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM devices WHERE pairing_code = ?", (pairing_code.upper().strip(),))
+    code = normalize_pairing_code(pairing_code)
+    cursor.execute("""
+        SELECT * FROM devices 
+        WHERE pairing_code = ? 
+           OR replace(pairing_code, '-', '') = replace(?, '-', '')
+    """, (code, code))
     row = cursor.fetchone()
     if not row:
         conn.close()

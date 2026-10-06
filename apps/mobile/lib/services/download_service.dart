@@ -18,7 +18,7 @@ class DownloadService {
     final docsDir = await getApplicationDocumentsDirectory();
     final mediaDir = Directory(p.join(docsDir.path, 'kidstube_media'));
     if (!await mediaDir.exists()) {
-      await mediaDir.create(parents=true);
+      await mediaDir.create(recursive: true);
     }
     return mediaDir.path;
   }

@@ -66,7 +66,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
     return Dialog(
       backgroundColor: KidColors.cardDark,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,

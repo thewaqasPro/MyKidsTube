@@ -1,14 +1,17 @@
 import os
+import uuid
+import shutil
+import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 
-from config import DB_PATH, VIDEOS_DIR, THUMBS_DIR, PARENT_PIN
+from config import DB_PATH, VIDEOS_DIR, THUMBS_DIR, PARENT_PIN, COOKIES_FILE
 import database
 from ingestion import manager
 
@@ -59,6 +62,13 @@ class ProfileCreateRequest(BaseModel):
     family_id: Optional[str] = "default_family"
 
 # Helper to construct absolute media URLs
+def get_base_url(request: Request) -> str:
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    if "kids.waqas.pro" in host or proto == "https":
+        return f"https://{host}/"
+    return f"{proto}://{host}/"
+
 def enrich_video_urls(video: dict, base_url: str) -> dict:
     enriched = dict(video)
     enriched["stream_url"] = f"{base_url}media/videos/{video['video_file']}"
@@ -72,7 +82,7 @@ def health():
 # --- Catalog API (Per Profile or Full) ---
 @app.get("/api/v1/catalog")
 def get_catalog(request: Request, profile_id: Optional[str] = None):
-    base_url = str(request.base_url)
+    base_url = get_base_url(request)
     raw_catalog = database.get_profile_catalog(profile_id)
     
     sections = []
@@ -202,6 +212,113 @@ def delete_video(video_id: str):
         t_file.unlink()
         
     return {"status": "deleted", "video_id": video_id}
+
+# --- YouTube Cookies Configuration (Bypass Datacenter IP restrictions) ---
+class CookiesUploadRequest(BaseModel):
+    cookies_content: str
+
+@app.get("/api/v1/cookies/status")
+def cookies_status():
+    exists = COOKIES_FILE.exists()
+    return {
+        "exists": exists,
+        "size_bytes": COOKIES_FILE.stat().st_size if exists else 0,
+        "path": str(COOKIES_FILE)
+    }
+
+@app.post("/api/v1/cookies/upload")
+def upload_cookies(req: CookiesUploadRequest):
+    content = req.cookies_content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Cookies content is empty")
+    COOKIES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(COOKIES_FILE, "w", encoding="utf-8") as f:
+        f.write(content + "\n")
+    return {"status": "saved", "size_bytes": len(content)}
+
+@app.delete("/api/v1/cookies")
+def delete_cookies():
+    if COOKIES_FILE.exists():
+        COOKIES_FILE.unlink()
+    return {"status": "deleted"}
+
+# --- Direct Video File Upload ---
+@app.post("/api/v1/upload")
+async def upload_video_file(
+    file: UploadFile = File(...),
+    category_id: str = Form("cartoons"),
+    title: Optional[str] = Form(None),
+    allowed_profile_ids: Optional[str] = Form(None)
+):
+    video_id = str(uuid.uuid4())[:12]
+    ext = Path(file.filename or "video.mp4").suffix.lower() or ".mp4"
+    temp_target = VIDEOS_DIR / f"{video_id}_temp{ext}"
+    final_video = VIDEOS_DIR / f"{video_id}.mp4"
+    thumb_file = THUMBS_DIR / f"{video_id}.webp"
+
+    try:
+        with open(temp_target, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        if ext != ".mp4":
+            subprocess.run([
+                "ffmpeg", "-y", "-i", str(temp_target),
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26",
+                "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart",
+                str(final_video)
+            ], check=True)
+            if temp_target.exists():
+                temp_target.unlink()
+        else:
+            temp_target.rename(final_video)
+
+        # Extract duration
+        duration = 0
+        try:
+            probe = subprocess.run([
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", str(final_video)
+            ], capture_output=True, text=True)
+            duration = int(float(probe.stdout.strip()))
+        except Exception:
+            pass
+
+        # Generate thumbnail
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-ss", "00:00:02", "-i", str(final_video),
+                "-vframes", "1", "-vf", "scale=640:-1", str(thumb_file)
+            ], check=False)
+        except Exception:
+            pass
+
+        minutes = duration // 60
+        seconds = duration % 60
+        duration_formatted = f"{minutes:02d}:{seconds:02d}"
+
+        profiles = None
+        if allowed_profile_ids:
+            profiles = [p.strip() for p in allowed_profile_ids.split(",") if p.strip()]
+
+        video_record = {
+            "id": video_id,
+            "title": title or Path(file.filename or "Uploaded Video").stem,
+            "duration": duration,
+            "duration_formatted": duration_formatted,
+            "category_id": category_id,
+            "source_url": "Direct Upload",
+            "video_file": f"{video_id}.mp4",
+            "thumbnail_file": f"{video_id}.webp",
+            "file_size_bytes": final_video.stat().st_size if final_video.exists() else 0,
+            "quality": "Direct"
+        }
+
+        database.insert_or_update_video(video_record, profiles)
+        return {"status": "uploaded", "video": video_record}
+    except Exception as e:
+        if temp_target.exists():
+            temp_target.unlink()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Static file mounts
 app.mount("/media/videos", StaticFiles(directory=str(VIDEOS_DIR)), name="media_videos")

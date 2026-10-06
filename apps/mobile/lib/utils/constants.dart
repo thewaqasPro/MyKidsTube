@@ -39,7 +39,7 @@ class KidTheme {
             fontWeight: FontWeight.w700,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: KidColors.cardDark,
           elevation: 2,
           shape: RoundedRectangleBorder(

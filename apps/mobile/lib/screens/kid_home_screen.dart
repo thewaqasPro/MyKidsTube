@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/video_item.dart';
-import '../models/category_item.dart';
 import '../utils/constants.dart';
 import '../widgets/video_tile.dart';
 import 'kid_player_screen.dart';
@@ -39,6 +38,7 @@ class KidHomeScreen extends StatelessWidget {
                 ),
               ],
             ),
+            actions: [
               // Active Child Profile Switcher (e.g. 🐻 Maya)
               if (provider.availableProfiles.isNotEmpty)
                 GestureDetector(

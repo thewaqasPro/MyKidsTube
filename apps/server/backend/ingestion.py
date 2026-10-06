@@ -4,7 +4,7 @@ import uuid
 import logging
 from typing import Dict, Any, Optional
 import yt_dlp
-from config import VIDEOS_DIR, THUMBS_DIR, DEFAULT_QUALITY
+from config import VIDEOS_DIR, THUMBS_DIR, DEFAULT_QUALITY, COOKIES_FILE
 import database
 
 logger = logging.getLogger("ingestion")
@@ -154,6 +154,10 @@ class IngestionManager:
                 'quiet': True,
                 'no_warnings': True,
             }
+
+            if COOKIES_FILE.exists():
+                ydl_opts['cookiefile'] = str(COOKIES_FILE)
+                logger.info(f"Using YouTube cookie file: {COOKIES_FILE}")
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(task.url, download=True)

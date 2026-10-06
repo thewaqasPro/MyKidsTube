@@ -11,7 +11,7 @@ class AppProvider extends ChangeNotifier {
   final VpsApiService _api = VpsApiService();
   final DownloadService _downloader = DownloadService.instance;
 
-  String _vpsUrl = 'http://10.0.2.2:8080';
+  String _vpsUrl = 'https://kids.waqas.pro';
   String _parentPin = '1234';
   String _deviceName = 'Kids Tablet';
 

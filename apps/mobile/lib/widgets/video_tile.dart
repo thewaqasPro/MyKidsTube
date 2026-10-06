@@ -180,14 +180,15 @@ class VideoTile extends StatelessWidget {
     }
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onDownloadTap,
       child: Container(
-        padding: const EdgeInsets.all(5),
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
+          color: Colors.black.withOpacity(0.65),
           shape: BoxShape.circle,
         ),
-        child: const Icon(Icons.download_rounded, color: Colors.white, size: 16),
+        child: const Icon(Icons.download_rounded, color: Colors.white, size: 18),
       ),
     );
   }

@@ -6,6 +6,7 @@ MEDIA_DIR = Path(os.getenv("MEDIA_DIR", "/data/media"))
 VIDEOS_DIR = MEDIA_DIR / "videos"
 THUMBS_DIR = MEDIA_DIR / "thumbs"
 DB_PATH = DATA_DIR / "catalog.db"
+COOKIES_FILE = DATA_DIR / "cookies.txt"
 
 PORT = int(os.getenv("PORT", "8000"))
 DEFAULT_QUALITY = os.getenv("DEFAULT_QUALITY", "480p")

@@ -40,6 +40,7 @@ services:
       - MAX_CONCURRENT_DOWNLOADS=1
       - PARENT_PIN=1234
     volumes:
+      - ./backend:/app
       - ./data:/data
       - ./data/media/videos:/data/media/videos
       - ./data/media/thumbs:/data/media/thumbs
