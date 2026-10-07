@@ -33,6 +33,12 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
+    // Normalize code (e.g. ABC234 -> ABC-234, uppercase, trim)
+    let normalizedCode = rawCode.toUpperCase().replace(/\s+/g, '');
+    if (/^[A-Z0-9]{3}[A-Z0-9]{3}$/.test(normalizedCode)) {
+      normalizedCode = normalizedCode.slice(0, 3) + '-' + normalizedCode.slice(3);
+    }
+
     const db = await getDatabase(context);
     if (!db) {
       return new Response(JSON.stringify({ error: 'internal_error' }), {
@@ -56,8 +62,8 @@ export const POST: APIRoute = async (context) => {
 
     // 2. Fetch the device pairing record
     const device: any = await db
-      .prepare('SELECT id, status, used, expires_at FROM devices WHERE pairing_code = ?')
-      .bind(rawCode)
+      .prepare('SELECT id, status, used, expires_at FROM devices WHERE pairing_code = ? OR pairing_code = ?')
+      .bind(normalizedCode, rawCode)
       .first();
 
     if (!device) {
@@ -95,12 +101,12 @@ export const POST: APIRoute = async (context) => {
 
     // 6. Update device row: set status=paired, used=1, store hash, stage raw token for one-time retrieval
     const updateQuery = sanitizedDeviceName
-      ? `UPDATE devices SET status = 'paired', used = 1, profile_id = ?, family_id = 'default_family', auth_token = ?, raw_token_pending = ?, device_name = ? WHERE pairing_code = ? AND (used = 0 OR used IS NULL)`
-      : `UPDATE devices SET status = 'paired', used = 1, profile_id = ?, family_id = 'default_family', auth_token = ?, raw_token_pending = ? WHERE pairing_code = ? AND (used = 0 OR used IS NULL)`;
+      ? `UPDATE devices SET status = 'paired', used = 1, profile_id = ?, family_id = 'default_family', auth_token = ?, raw_token_pending = ?, device_name = ? WHERE id = ? AND (used = 0 OR used IS NULL)`
+      : `UPDATE devices SET status = 'paired', used = 1, profile_id = ?, family_id = 'default_family', auth_token = ?, raw_token_pending = ? WHERE id = ? AND (used = 0 OR used IS NULL)`;
 
     const bindArgs = sanitizedDeviceName
-      ? [profileId, tokenHash, rawToken, sanitizedDeviceName, rawCode]
-      : [profileId, tokenHash, rawToken, rawCode];
+      ? [profileId, tokenHash, rawToken, sanitizedDeviceName, device.id]
+      : [profileId, tokenHash, rawToken, device.id];
 
     const updateRes = await db.prepare(updateQuery).bind(...bindArgs).run();
 

@@ -4,7 +4,7 @@ import { requireParent } from '../../../lib/parentAuth';
 import { getCorsHeaders, handleOptions } from '../../../lib/cors';
 
 export const OPTIONS: APIRoute = async ({ request }) => {
-  return handleOptions(request, ['GET', 'OPTIONS']);
+  return handleOptions(request, ['GET', 'DELETE', 'OPTIONS']);
 };
 
 export const GET: APIRoute = async (context) => {
@@ -49,3 +49,44 @@ export const GET: APIRoute = async (context) => {
     });
   }
 };
+
+export const DELETE: APIRoute = async (context) => {
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
+
+  const corsHeaders = getCorsHeaders(context.request, { methods: ['DELETE', 'OPTIONS'], isStateChanging: true });
+
+  try {
+    const body = await context.request.json().catch(() => ({}));
+    const id = String(body.id || '').trim();
+
+    if (!id) {
+      return new Response(JSON.stringify({ error: 'Device ID is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    const db = await getDatabase(context);
+    if (!db) {
+      return new Response(JSON.stringify({ error: 'internal_error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    }
+
+    await db.prepare('DELETE FROM devices WHERE id = ?').bind(id).run();
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  } catch (error: any) {
+    console.error('studio/devices DELETE error:', error);
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
+  }
+};
+
