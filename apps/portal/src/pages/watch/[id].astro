@@ -1,0 +1,74 @@
+---
+import '../../styles/global.css';
+import { WatchPage } from '../../components/WatchPage';
+import { getVideoById, getDbData, extractYoutubeId, fetchYoutubeOembed } from '../../lib/db';
+import { isVideoShort } from '../../lib/constants';
+import type { Video } from '../../types/video';
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/');
+}
+
+// 1. Fetch from D1
+let video: Video | null = await getVideoById(id, Astro);
+const data = await getDbData(Astro);
+const allVideos = data.videos || [];
+const profiles = data.profiles || [];
+
+// 2. If not found in database, dynamically fetch oEmbed so it never fails
+if (!video) {
+  const meta = await fetchYoutubeOembed(id);
+  video = {
+    id: id,
+    youtube_id: id,
+    title: meta.title,
+    channel_name: meta.channel_name,
+    channel_icon: '',
+    duration: 180,
+    duration_formatted: '03:00',
+    category_id: 'cartoons',
+    video_file: `${id}.mp4`,
+    thumbnail_file: `${id}.webp`,
+    thumbnail_url: meta.thumbnail_url,
+    status: 'pending_download',
+  };
+}
+
+// 3. Enforce layout: If this video is a short (<= 70s / vertical), redirect to vertical shorts feed!
+if (video && isVideoShort(video)) {
+  return Astro.redirect(`/shorts?v=${video.id}`);
+}
+
+// Related videos in the 16:9 watch player must only be full-length wide videos
+const relatedVideos = allVideos.filter((v) => v.id !== video?.id && !isVideoShort(v));
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{video.title} • KidsTube</title>
+    <meta
+      name="description"
+      content={`Watch ${video.title} on KidsTube. 100% ad-free, safe video streaming curated for children.`}
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-[#0F0F0F] text-[#F1F1F1] antialiased">
+    <WatchPage
+      client:load
+      video={video}
+      relatedVideos={relatedVideos}
+      profiles={profiles}
+    />
+  </body>
+</html>

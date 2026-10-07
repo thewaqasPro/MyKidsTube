@@ -39,9 +39,9 @@ const ShortCard: React.FC<{ short: Video; onPlay: (s: Video) => void }> = ({ sho
   const thumbUrl = getThumbnailUrl(short);
 
   return (
-    <div
-      onClick={() => onPlay(short)}
-      className="group relative flex-none w-[160px] sm:w-[185px] aspect-[9/16] rounded-2xl overflow-hidden bg-[#202020] cursor-pointer select-none border border-[#262626] hover:border-[#383838] transition-all hover:scale-[1.02] active:scale-[0.98]"
+    <a
+      href={`/shorts?v=${short.id}`}
+      className="group relative flex-none w-[160px] sm:w-[185px] aspect-[9/16] rounded-2xl overflow-hidden bg-[#202020] cursor-pointer select-none border border-[#262626] hover:border-[#383838] transition-all hover:scale-[1.02] active:scale-[0.98] text-inherit no-underline"
     >
       {!imgErr ? (
         <img
@@ -71,6 +71,6 @@ const ShortCard: React.FC<{ short: Video; onPlay: (s: Video) => void }> = ({ sho
       <div className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-white">
         {short.duration_formatted || '00:30'}
       </div>
-    </div>
+    </a>
   );
 };

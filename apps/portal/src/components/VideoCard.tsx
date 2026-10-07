@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Video } from '../types/video';
-import { getThumbnailUrl, getChannelIconUrl } from '../lib/constants';
+import { getThumbnailUrl, getChannelIconUrl, isVideoShort } from '../lib/constants';
 import { Play, Heart } from 'lucide-react';
 
 interface VideoCardProps {
@@ -26,9 +26,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const cleanTitle = video.title.includes('•') ? video.title.split('•').slice(1).join('•').trim() : video.title;
 
   return (
-    <div
-      onClick={() => onPlay(video)}
-      className="group flex flex-col cursor-pointer select-none transition-transform duration-150 active:scale-[0.99]"
+    <a
+      href={isVideoShort(video) ? `/shorts?v=${video.id}` : `/watch/${video.id}`}
+      className="group flex flex-col cursor-pointer select-none transition-transform duration-150 active:scale-[0.99] text-inherit no-underline"
     >
       {/* 16:9 Thumbnail Container */}
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#202020] border border-[#222222]">
@@ -115,6 +115,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </a>
   );
 };

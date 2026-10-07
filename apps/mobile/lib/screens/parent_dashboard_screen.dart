@@ -336,6 +336,28 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: KidColors.borderDark),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Clearing cache and re-syncing fresh catalog...'),
+                                backgroundColor: KidColors.primary,
+                              ),
+                            );
+                            provider.clearMobileCache();
+                          },
+                          icon: const Icon(Icons.cleaning_services_rounded, color: KidColors.yellow, size: 18),
+                          label: const Text('Clear Mobile Cache & Fresh Reload', style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
                     ],
                   ),
                 ),

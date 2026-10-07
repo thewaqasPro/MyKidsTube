@@ -1,0 +1,52 @@
+---
+import '../styles/global.css';
+import { ShortsPage } from '../components/ShortsPage';
+import { getDbData } from '../lib/db';
+import { isVideoShort } from '../lib/constants';
+
+const url = new URL(Astro.request.url);
+const initialVideoId = url.searchParams.get('v');
+
+const data = await getDbData(Astro);
+
+// If a specific video was requested via ?v=, verify if it's wide/full-length
+if (initialVideoId) {
+  const requestedVideo = data.videos.find((v) => v.id === initialVideoId || v.youtube_id === initialVideoId);
+  if (requestedVideo && !isVideoShort(requestedVideo)) {
+    // Redirect wide/full-length videos to 16:9 Watch Player
+    return Astro.redirect(`/watch/${requestedVideo.id}`);
+  }
+}
+
+// Strictly include only short videos (<= 70s / vertical)
+let shorts = data.videos.filter(isVideoShort);
+
+let initialIndex = 0;
+if (initialVideoId) {
+  const foundIdx = shorts.findIndex((s) => s.id === initialVideoId || s.youtube_id === initialVideoId);
+  if (foundIdx !== -1) initialIndex = foundIdx;
+}
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shorts • KidsTube</title>
+    <meta
+      name="description"
+      content="Watch fun, bite-sized vertical safe kids clips on KidsTube."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-[#0A0A0A] text-[#F1F1F1] antialiased overflow-hidden">
+    <ShortsPage client:load shorts={shorts} initialIndex={initialIndex} profiles={data.profiles} />
+  </body>
+</html>

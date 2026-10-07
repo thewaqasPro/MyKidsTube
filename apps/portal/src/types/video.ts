@@ -12,6 +12,11 @@ export interface Video {
   stream_url?: string;
   thumbnail_url?: string;
   channel_icon_url?: string;
+  views?: number;
+  watch_seconds?: number;
+  file_verified?: number;
+  youtube_id?: string;
+  status?: 'pending_download' | 'downloading' | 'processing' | 'ready' | 'error';
   created_at?: string;
 }
 

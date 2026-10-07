@@ -22,6 +22,8 @@ class VideoItem {
   final String quality;
   final DownloadStatus downloadStatus;
   final double downloadProgress;
+  final String status;
+  final String? youtubeId;
 
   VideoItem({
     required this.id,
@@ -40,12 +42,47 @@ class VideoItem {
     this.quality = '720p',
     this.downloadStatus = DownloadStatus.notDownloaded,
     this.downloadProgress = 0.0,
+    this.status = 'pending_download',
+    this.youtubeId,
   });
 
   bool get isOfflineReady =>
       downloadStatus == DownloadStatus.downloaded &&
       localFilePath != null &&
       localFilePath!.isNotEmpty;
+
+  /// Returns true if this video is a short (<= 70s / vertical short)
+  bool get isShort {
+    if (id.startsWith('short_') || sourceUrl.contains('/shorts/')) {
+      return true;
+    }
+    if (duration > 0) {
+      return duration <= 70;
+    }
+    return categoryId == 'shorts';
+  }
+
+  /// Extracts or computes the reliable YouTube video ID for embed playback
+  String get effectiveYoutubeId {
+    if (youtubeId != null && youtubeId!.isNotEmpty) {
+      return youtubeId!;
+    }
+    if (id.startsWith('short_')) {
+      return id.replaceFirst('short_', '');
+    }
+    if (sourceUrl.contains('v=')) {
+      final uri = Uri.tryParse(sourceUrl);
+      final v = uri?.queryParameters['v'];
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return id;
+  }
+
+  /// Whether the video has verified local MP4 or verified self-hosted VPS MP4
+  bool get isSelfHosted => status == 'ready' && streamUrl.isNotEmpty;
+
+  /// Whether the video requires sandboxed YouTube embed playback
+  bool get needsEmbed => !isOfflineReady && status != 'ready';
 
   VideoItem copyWith({
     String? id,
@@ -64,6 +101,8 @@ class VideoItem {
     String? quality,
     DownloadStatus? downloadStatus,
     double? downloadProgress,
+    String? status,
+    String? youtubeId,
   }) {
     return VideoItem(
       id: id ?? this.id,
@@ -82,6 +121,8 @@ class VideoItem {
       quality: quality ?? this.quality,
       downloadStatus: downloadStatus ?? this.downloadStatus,
       downloadProgress: downloadProgress ?? this.downloadProgress,
+      status: status ?? this.status,
+      youtubeId: youtubeId ?? this.youtubeId,
     );
   }
 
@@ -102,6 +143,8 @@ class VideoItem {
       'file_size_bytes': fileSizeBytes,
       'quality': quality,
       'download_status': downloadStatus.index,
+      'status': status,
+      'youtube_id': youtubeId ?? effectiveYoutubeId,
     };
   }
 
@@ -122,6 +165,8 @@ class VideoItem {
       fileSizeBytes: map['file_size_bytes'] as int? ?? 0,
       quality: map['quality'] as String? ?? '720p',
       downloadStatus: DownloadStatus.values[map['download_status'] as int? ?? 0],
+      status: map['status'] as String? ?? 'pending_download',
+      youtubeId: map['youtube_id'] as String?,
     );
   }
 
@@ -149,6 +194,8 @@ class VideoItem {
       fileSizeBytes: json['file_size_bytes'] as int? ?? 0,
       quality: json['quality'] as String? ?? '720p',
       downloadStatus: status ?? DownloadStatus.notDownloaded,
+      status: json['status'] as String? ?? 'pending_download',
+      youtubeId: json['youtube_id'] as String?,
     );
   }
 }

@@ -1,0 +1,40 @@
+---
+import '../styles/global.css';
+import { UploadPage } from '../components/UploadPage';
+import { getDbData } from '../lib/db';
+
+// Check parent authentication cookie
+const cookie = Astro.cookies.get('kidstube_parent_session');
+if (!cookie || cookie.value !== 'authenticated') {
+  return Astro.redirect('/login?redirect=/upload');
+}
+
+const data = await getDbData(Astro);
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Videos & HandBrake Dropzone • KidsTube</title>
+    <meta
+      name="description"
+      content="Add safe YouTube videos, batch export download links for HandBrake, and upload optimized MP4 files directly to KidsTube."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-[#0F0F0F] text-[#F1F1F1] antialiased">
+    <UploadPage
+      client:load
+      categories={data.categories}
+      profiles={data.profiles}
+    />
+  </body>
+</html>

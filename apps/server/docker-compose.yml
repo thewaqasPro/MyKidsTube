@@ -4,43 +4,17 @@ services:
     container_name: safekids_nginx
     restart: unless-stopped
     mem_limit: 64m
-    cpus: 0.15
+    cpus: 0.25
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
     ports:
-      - "${PORT_BINDING:-8080}:80"
-      - "${SSL_PORT_BINDING:-8443}:443"
+      - "${PORT_BINDING:-80}:80"
+      - "${SSL_PORT_BINDING:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
-      - ./data/media/videos:/var/www/media/videos:ro
-      - ./data/media/thumbs:/var/www/media/thumbs:ro
-    depends_on:
-      - backend
-
-  backend:
-    build: ./backend
-    container_name: safekids_backend
-    restart: unless-stopped
-    mem_limit: 650m
-    cpus: 0.85
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    environment:
-      - PORT=8000
-      - DATA_DIR=/data
-      - MEDIA_DIR=/data/media
-      - DEFAULT_QUALITY=480p
-      - MAX_CONCURRENT_DOWNLOADS=1
-      - PARENT_PIN=1234
-    volumes:
-      - ./backend:/app
-      - ./data:/data
-      - ./data/media/videos:/data/media/videos
-      - ./data/media/thumbs:/data/media/thumbs
+      - /var/www/media/videos:/var/www/media/videos:ro
+      - /var/www/media/thumbs:/var/www/media/thumbs:ro

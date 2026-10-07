@@ -1,24 +1,6 @@
 import type { APIRoute } from 'astro';
-import { API_BASE } from '../../lib/constants';
+import { POST as v1Pair } from './v1/devices/pair';
 
-export const POST: APIRoute = async ({ request }) => {
-  try {
-    const body = await request.json();
-    const res = await fetch(`${API_BASE}/api/v1/devices/pair`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const data = await res.json();
-    return new Response(JSON.stringify(data), {
-      status: res.status,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Pairing service unreachable' }),
-      { status: 502, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+export const POST: APIRoute = async (context) => {
+  return v1Pair(context);
 };

@@ -239,15 +239,17 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
             onTap: () {
               if (filter['id'] == 'shorts') {
                 // Tapping Shorts pill launches the dedicated vertical shorts feed
-                final shorts = provider.allVideos.where((v) => v.categoryId == 'shorts').toList();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => KidShortsFeedScreen(
-                      videos: shorts.isNotEmpty ? shorts : provider.allVideos,
-                      initialIndex: 0,
+                final shorts = provider.allVideos.where((v) => v.isShort).toList();
+                if (shorts.isNotEmpty) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => KidShortsFeedScreen(
+                        videos: shorts,
+                        initialIndex: 0,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
               } else {
                 setState(() {
                   _selectedFilter = filter['id']!;
@@ -345,7 +347,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
 
   /// Compact Horizontal Shorts & Reels Shelf (YouTube Home style)
   Widget _buildShortsShelf(BuildContext context, AppProvider provider) {
-    final shorts = provider.allVideos.where((v) => v.categoryId == 'shorts').toList();
+    final shorts = provider.allVideos.where((v) => v.isShort).toList();
     if (shorts.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -381,7 +383,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => KidShortsFeedScreen(
-                        videos: provider.allVideos,
+                        videos: shorts,
                         initialIndex: 0,
                       ),
                     ),
@@ -413,12 +415,11 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   video: item,
                   isHorizontalCompact: true,
                   onTap: () {
-                    final all = provider.allVideos;
-                    final idx = all.indexWhere((v) => v.id == item.id);
+                    final idx = shorts.indexWhere((v) => v.id == item.id);
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => KidShortsFeedScreen(
-                          videos: all,
+                          videos: shorts,
                           initialIndex: idx >= 0 ? idx : 0,
                         ),
                       ),
@@ -436,14 +437,29 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
   }
 
   void _openPlayer(BuildContext context, VideoItem video, List<VideoItem> playlist) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => KidPlayerScreen(
-          video: video,
-          playlist: playlist,
+    if (video.isShort) {
+      final shorts = playlist.where((v) => v.isShort).toList();
+      final feedList = shorts.isNotEmpty ? shorts : [video];
+      final idx = feedList.indexWhere((v) => v.id == video.id);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => KidShortsFeedScreen(
+            videos: feedList,
+            initialIndex: idx >= 0 ? idx : 0,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      final widePlaylist = playlist.where((v) => !v.isShort).toList();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => KidPlayerScreen(
+            video: video,
+            playlist: widePlaylist.isNotEmpty ? widePlaylist : [video],
+          ),
+        ),
+      );
+    }
   }
 
   void _showAccountModal(BuildContext context, AppProvider provider) {
@@ -539,7 +555,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                     style: const TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 12),
                   ),
                   trailing: Switch(
-                    activeColor: KidColors.primary,
+                    activeThumbColor: KidColors.primary,
                     value: provider.isOfflineOnly,
                     onChanged: (val) {
                       provider.toggleOfflineOnly();
@@ -567,7 +583,33 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   },
                 ),
 
-                // 3. Refresh Catalog
+                // 3. Clear Mobile Cache & Fresh Reload
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.cleaning_services_rounded, color: KidColors.yellow, size: 24),
+                  title: const Text(
+                    'Clear Mobile Cache & Fresh Reload',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textLight, fontSize: 14.5, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text(
+                    'Wipes stale cache and reloads all 100 videos from Cloudflare',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: KidColors.textMuted),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Clearing cache and reloading fresh video catalog...'),
+                        backgroundColor: KidColors.primary,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    provider.clearMobileCache();
+                  },
+                ),
+
+                // 4. Refresh Catalog
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.refresh_rounded, color: KidColors.textMuted, size: 24),
@@ -596,8 +638,13 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
       list = provider.favoriteVideos;
     } else if (_selectedFilter == 'downloaded') {
       list = provider.downloadedVideos;
+    } else if (_selectedFilter == 'shorts') {
+      list = provider.allVideos.where((v) => v.isShort).toList();
     } else if (_selectedFilter != 'all') {
-      list = provider.getVideosForCategory(_selectedFilter);
+      list = provider.getVideosForCategory(_selectedFilter).where((v) => !v.isShort).toList();
+    } else {
+      // In 'all' feed, horizontal shelf shows shorts; main feed shows full-length videos
+      list = provider.allVideos.where((v) => !v.isShort).toList();
     }
 
     if (_searchQuery.isNotEmpty) {

@@ -1,13 +1,23 @@
-.PHONY: help server server-down server-logs mobile mobile-apk test
+.PHONY: help server server-down server-logs portal portal-build portal-deploy mobile sync-export sync-upload
 
 help:
-	@echo "KidsTube Monorepo Commands:"
-	@echo "  make server        - Start Docker media server (Nginx + FastAPI + Ingestion)"
-	@echo "  make server-down   - Stop Docker media server"
-	@echo "  make server-logs   - Follow live server logs"
-	@echo "  make mobile        - Run Flutter app (auto-detects emulator/device)"
-	@echo "  make mobile-apk    - Build release Android APK"
-	@echo "  make test          - Run mobile unit and widget tests"
+	@echo "MyKidsTube Monorepo Commands:"
+	@echo "  make portal          - Run frontend portal locally (Astro SSR)"
+	@echo "  make portal-deploy   - Deploy portal to Cloudflare Workers"
+	@echo "  make server          - Start VPS Nginx static media streamer"
+	@echo "  make server-down     - Stop VPS Nginx container"
+	@echo "  make sync-export     - Export pending wishlist links for HandBrake"
+	@echo "  make sync-upload     - Rsync encoded MP4s to 80GB VPS storage"
+	@echo "  make mobile          - Run Flutter kid tablet app"
+
+portal:
+	cd apps/portal && pnpm dev
+
+portal-build:
+	cd apps/portal && pnpm build
+
+portal-deploy:
+	cd apps/portal && pnpm build && npx wrangler deploy
 
 server:
 	docker compose up -d
@@ -18,11 +28,11 @@ server-down:
 server-logs:
 	docker compose logs -f
 
+sync-export:
+	./scripts/sync-mykidstube.sh export
+
+sync-upload:
+	./scripts/sync-mykidstube.sh upload
+
 mobile:
 	cd apps/mobile && flutter run
-
-mobile-apk:
-	cd apps/mobile && flutter build apk --release
-
-test:
-	cd apps/mobile && flutter test

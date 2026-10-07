@@ -11,6 +11,7 @@ class ShortsActionRail extends StatelessWidget {
   final VoidCallback onToggleAutoAdvance;
   final VoidCallback onExit;
   final VoidCallback onLockTap;
+  final VoidCallback? onNextShort;
 
   const ShortsActionRail({
     super.key,
@@ -23,6 +24,7 @@ class ShortsActionRail extends StatelessWidget {
     required this.onToggleAutoAdvance,
     required this.onExit,
     required this.onLockTap,
+    this.onNextShort,
   });
 
   @override
@@ -35,7 +37,18 @@ class ShortsActionRail extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 1. Favorite Star Button
+        // 1. Next Short Quick Action
+        if (onNextShort != null) ...[
+          _buildRailButton(
+            icon: Icons.keyboard_arrow_down_rounded,
+            color: Colors.white,
+            label: 'Next',
+            onTap: onNextShort!,
+          ),
+          const SizedBox(height: 18),
+        ],
+
+        // 2. Favorite Star Button
         _buildRailButton(
           icon: isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
           color: isFavorite ? KidColors.yellow : Colors.white,
@@ -44,7 +57,7 @@ class ShortsActionRail extends StatelessWidget {
         ),
         const SizedBox(height: 18),
 
-        // 2. Sound Toggle
+        // 3. Sound Toggle
         _buildRailButton(
           icon: isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
           color: isMuted ? KidColors.red : Colors.white,
@@ -53,7 +66,7 @@ class ShortsActionRail extends StatelessWidget {
         ),
         const SizedBox(height: 18),
 
-        // 3. Auto-Advance vs Loop Toggle
+        // 4. Auto-Advance vs Loop Toggle
         _buildRailButton(
           icon: autoAdvance ? Icons.queue_play_next_rounded : Icons.repeat_one_rounded,
           color: autoAdvance ? KidColors.primary : KidColors.accent,
@@ -62,7 +75,7 @@ class ShortsActionRail extends StatelessWidget {
         ),
         const SizedBox(height: 18),
 
-        // 4. Toddler Lock Indicator / Button
+        // 5. Toddler Lock Indicator / Button
         _buildRailButton(
           icon: Icons.lock_outline_rounded,
           color: Colors.white,
@@ -88,7 +101,7 @@ class ShortsActionRail extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.55),
+              color: Colors.black.withValues(alpha: 0.55),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white24, width: 1.0),
             ),

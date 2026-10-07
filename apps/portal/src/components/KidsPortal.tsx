@@ -1,16 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import type { Video, Category, ChildProfile } from '../types/video';
-import { Header } from './Header';
-import { Sidebar, type ChannelItem } from './Sidebar';
+import { KidsTopBar } from './KidsTopBar';
+import { KidsSidebar } from './KidsSidebar';
 import { CategoryPills } from './CategoryPills';
 import { ShortsShelf } from './ShortsShelf';
 import { VideoGrid } from './VideoGrid';
-import { VideoPlayerModal } from './VideoPlayerModal';
-import { ShortsModal } from './ShortsModal';
-import { IngestModal } from './IngestModal';
-import { PairModal } from './PairModal';
-import { CookiesModal } from './CookiesModal';
-import { MEDIA_BASE } from '../lib/constants';
+import { MEDIA_BASE, isVideoShort } from '../lib/constants';
 
 interface KidsPortalProps {
   initialVideos: Video[];
@@ -51,12 +46,7 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
     return new Set<string>();
   });
 
-  // Modals state
-  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
-  const [activeShortIndex, setActiveShortIndex] = useState<number | null>(null);
-  const [isIngestOpen, setIsIngestOpen] = useState(false);
-  const [isPairOpen, setIsPairOpen] = useState(false);
-  const [isCookiesOpen, setIsCookiesOpen] = useState(false);
+
 
   // Extract distinct channels from videos
   const channels = useMemo<ChannelItem[]>(() => {
@@ -83,13 +73,13 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [videos]);
 
-  // Split into normal videos and shorts
+  // Split into normal videos and shorts according to video length
   const shortsList = useMemo(() => {
-    return videos.filter((v) => v.category_id === 'shorts');
+    return videos.filter(isVideoShort);
   }, [videos]);
 
   const regularVideos = useMemo(() => {
-    return videos.filter((v) => v.category_id !== 'shorts');
+    return videos.filter((v) => !isVideoShort(v));
   }, [videos]);
 
   const toggleFavorite = (videoId: string, e: React.MouseEvent) => {
@@ -185,15 +175,14 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
   }, [activeNav, favorites.size, selectedCategoryId, categories]);
 
   const handlePlayShort = (short: Video) => {
-    const idx = shortsList.findIndex((s) => s.id === short.id);
-    setActiveShortIndex(idx >= 0 ? idx : 0);
+    window.location.href = `/shorts?v=${short.id}`;
   };
 
   const handlePlayVideoOrShort = (video: Video) => {
-    if (video.category_id === 'shorts') {
+    if (isVideoShort(video)) {
       handlePlayShort(video);
     } else {
-      setActiveVideo(video);
+      window.location.href = `/watch/${video.id}`;
     }
   };
 
@@ -212,37 +201,30 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col font-sans selection:bg-[#FF0000] selection:text-white">
       {/* Top YouTube Header */}
-      <Header
+      <KidsTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         profiles={profiles}
         selectedProfileId={selectedProfileId}
         onProfileSelect={setSelectedProfileId}
-        onOpenIngest={() => setIsIngestOpen(true)}
-        onOpenPair={() => setIsPairOpen(true)}
-        onOpenCookies={() => setIsCookiesOpen(true)}
         onToggleSidebar={handleToggleSidebar}
+        badgeText="Safe"
       />
 
-      {/* Main Layout Area with Fixed YouTube Sidebar */}
-      <div className="flex flex-1 relative">
+      {/* Main Layout Area with Reusable YouTube Sidebar */}
+      <div className="flex flex-1 relative overflow-x-hidden">
         {/* Left Sidebar */}
-        <Sidebar
+        <KidsSidebar
           isExpanded={isSidebarExpanded}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
           activeNav={activeNav}
           onSelectNav={handleSelectNav}
           channels={channels}
-          favoritesCount={favorites.size}
         />
 
         {/* Content Body */}
-        <div
-          className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ${
-            isSidebarExpanded ? 'lg:pl-60' : 'lg:pl-[72px]'
-          }`}
-        >
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Horizontal Category Filter Pills (Shown on Home view) */}
           {activeNav === 'home' && (
             <CategoryPills
@@ -298,48 +280,7 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
         </div>
       </div>
 
-      {/* Video Player Modal */}
-      {activeVideo && (
-        <VideoPlayerModal
-          video={activeVideo}
-          onClose={() => setActiveVideo(null)}
-          onSelectVideo={setActiveVideo}
-          relatedVideos={regularVideos}
-        />
-      )}
 
-      {/* Vertical Shorts Reel Modal */}
-      {activeShortIndex !== null && (
-        <ShortsModal
-          shorts={shortsList}
-          initialIndex={activeShortIndex}
-          onClose={() => setActiveShortIndex(null)}
-        />
-      )}
-
-      {/* Ingest (Add Video) Modal */}
-      <IngestModal
-        isOpen={isIngestOpen}
-        onClose={() => setIsIngestOpen(false)}
-        categories={categories}
-        profiles={profiles}
-        onVideoIngested={handleRefreshCatalog}
-      />
-
-      {/* Device Pairing Modal */}
-      <PairModal
-        isOpen={isPairOpen}
-        onClose={() => setIsPairOpen(false)}
-        profiles={profiles}
-        onPairSuccess={() => {}}
-      />
-
-      {/* Upload Cookies Modal */}
-      <CookiesModal
-        isOpen={isCookiesOpen}
-        onClose={() => setIsCookiesOpen(false)}
-        onSuccess={() => {}}
-      />
     </div>
   );
 };

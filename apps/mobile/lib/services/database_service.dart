@@ -30,6 +30,12 @@ class DatabaseService {
             created_at INTEGER
           );
         ''');
+        try {
+          await db.execute('ALTER TABLE videos ADD COLUMN status TEXT DEFAULT "pending_download";');
+        } catch (_) {}
+        try {
+          await db.execute('ALTER TABLE videos ADD COLUMN youtube_id TEXT;');
+        } catch (_) {}
       },
     );
   }
@@ -58,7 +64,9 @@ class DatabaseService {
         local_thumbnail_path TEXT,
         file_size_bytes INTEGER DEFAULT 0,
         quality TEXT DEFAULT '720p',
-        download_status INTEGER DEFAULT 0
+        download_status INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending_download',
+        youtube_id TEXT
       );
     ''');
 
@@ -70,8 +78,26 @@ class DatabaseService {
     ''');
 
     // Default settings
-    await db.insert('settings', {'key': 'vps_url', 'value': 'https://kidsapi.waqas.pro'});
+    await db.insert('settings', {'key': 'vps_url', 'value': 'https://mykidstube.kidstube.workers.dev'});
     await db.insert('settings', {'key': 'parent_pin', 'value': '1234'});
+  }
+
+  /// Clears cached video and category records while preserving downloaded offline content
+  Future<void> clearStaleCatalogCache() async {
+    final db = await database;
+    await db.delete(
+      'videos',
+      where: 'download_status != ? OR local_file_path IS NULL',
+      whereArgs: [DownloadStatus.downloaded.index],
+    );
+    await db.delete('categories');
+  }
+
+  /// Completely wipes all cached videos and categories for a 100% fresh start
+  Future<void> clearAllCache() async {
+    final db = await database;
+    await db.delete('videos');
+    await db.delete('categories');
   }
 
   // --- Category CRUD ---

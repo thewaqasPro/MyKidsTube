@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import '../widgets/ambient_blur_background.dart';
+import '../widgets/kid_embed_player.dart';
 import '../widgets/shorts_action_rail.dart';
 import '../widgets/touch_lock_overlay.dart';
 import 'parent_gate_dialog.dart';
@@ -27,9 +29,11 @@ class KidShortsFeedScreen extends StatefulWidget {
 }
 
 class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerProviderStateMixin {
+  late List<VideoItem> _shorts;
   late PageController _pageController;
   int _currentIndex = 0;
   final Map<int, VideoPlayerController> _controllers = {};
+  final Set<int> _failedIndices = {};
 
   bool _isLocked = false;
   bool _isMuted = false;
@@ -42,7 +46,19 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, widget.videos.isEmpty ? 0 : widget.videos.length - 1);
+    // Strictly isolate short videos (<= 70s / vertical)
+    final filtered = widget.videos.where((v) => v.isShort).toList();
+    _shorts = filtered.isNotEmpty ? filtered : widget.videos;
+
+    final initialVideo = (widget.initialIndex >= 0 && widget.initialIndex < widget.videos.length)
+        ? widget.videos[widget.initialIndex]
+        : null;
+    int targetIndex = 0;
+    if (initialVideo != null) {
+      final found = _shorts.indexWhere((v) => v.id == initialVideo.id);
+      if (found != -1) targetIndex = found;
+    }
+    _currentIndex = targetIndex.clamp(0, _shorts.isEmpty ? 0 : _shorts.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
 
     SystemChrome.setPreferredOrientations([
@@ -88,7 +104,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
     // Initialize needed controllers
     for (final idx in neededIndices) {
-      if (idx >= 0 && idx < widget.videos.length && !_controllers.containsKey(idx)) {
+      if (idx >= 0 && idx < _shorts.length && !_controllers.containsKey(idx)) {
         _createController(idx, autoPlay: idx == centerIndex);
       }
     }
@@ -102,10 +118,16 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _createController(int index, {bool autoPlay = false}) {
-    final video = widget.videos[index];
-    VideoPlayerController ctrl;
+    if (index < 0 || index >= _shorts.length) return;
+    final video = _shorts[index];
 
     final hasLocal = video.localFilePath != null && File(video.localFilePath!).existsSync();
+    // If video is not downloaded locally and status is pending sync, use KidEmbedPlayer directly
+    if (!hasLocal && video.needsEmbed) {
+      return;
+    }
+
+    VideoPlayerController ctrl;
     if (hasLocal) {
       ctrl = VideoPlayerController.file(File(video.localFilePath!));
     } else {
@@ -133,14 +155,26 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       }
       setState(() {});
     }).catchError((err) {
-      // Non-blocking fallback
+      if (!mounted) return;
+      setState(() {
+        _failedIndices.add(index);
+      });
     });
+  }
+
+  void _goToNextShort() {
+    if (_currentIndex < _shorts.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   void _onVideoFinished(int index) {
     if (index != _currentIndex) return;
 
-    if (_autoAdvance && _currentIndex < widget.videos.length - 1) {
+    if (_autoAdvance && _currentIndex < _shorts.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -189,7 +223,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _toggleFavorite() {
-    final video = widget.videos[_currentIndex];
+    final video = _shorts[_currentIndex];
     context.read<AppProvider>().toggleFavorite(video.id);
   }
 
@@ -210,7 +244,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
   @override
   Widget build(BuildContext context) {
-    if (widget.videos.isEmpty) {
+    if (_shorts.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -240,7 +274,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
             controller: _pageController,
             scrollDirection: Axis.vertical,
             physics: _isLocked ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
-            itemCount: widget.videos.length,
+            itemCount: _shorts.length,
             onPageChanged: _onPageChanged,
             itemBuilder: (context, index) {
               return _buildVideoPage(index);
@@ -256,7 +290,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.65),
+                    color: Colors.black.withValues(alpha: 0.65),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -281,14 +315,24 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   Widget _buildVideoPage(int index) {
-    final video = widget.videos[index];
+    final video = _shorts[index];
     final ctrl = _controllers[index];
     final isInitialized = ctrl != null && ctrl.value.isInitialized;
     final isFavorite = context.watch<AppProvider>().isFavorite(video.id);
+    final isEmbed = !isInitialized && video.effectiveYoutubeId.isNotEmpty;
 
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _togglePlayPause,
+      behavior: isEmbed ? HitTestBehavior.deferToChild : HitTestBehavior.opaque,
+      onTap: () {
+        if (!isEmbed) {
+          if (_failedIndices.contains(index)) {
+            _goToNextShort();
+          } else {
+            _togglePlayPause();
+          }
+        }
+      },
+      onDoubleTap: _toggleFavorite,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -305,9 +349,20 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                       child: VideoPlayer(ctrl),
                     ),
                   )
-                : const Center(
-                    child: CircularProgressIndicator(color: KidColors.primary),
-                  ),
+                : (isEmbed
+                    ? AspectRatio(
+                        aspectRatio: 9 / 16,
+                        child: KidEmbedPlayer(
+                          youtubeId: video.effectiveYoutubeId,
+                          autoPlay: index == _currentIndex,
+                          aspectRatio: 9 / 16,
+                        ),
+                      )
+                    : (_failedIndices.contains(index)
+                        ? _buildShortPendingState(video)
+                        : const Center(
+                            child: CircularProgressIndicator(color: KidColors.primary),
+                          ))),
           ),
 
           // C. Top Navigation Bar (Back + Parent Shield)
@@ -323,7 +378,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
@@ -334,7 +389,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
+                      color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: Colors.white24),
                     ),
@@ -344,7 +399,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                         const Icon(Icons.bolt_rounded, color: KidColors.yellow, size: 16),
                         const SizedBox(width: 4),
                         Text(
-                          '${index + 1} / ${widget.videos.length}',
+                          '${index + 1} / ${_shorts.length}',
                           style: const TextStyle(
                             fontFamily: 'Roboto',
                             color: Colors.white,
@@ -362,7 +417,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.shield_outlined, color: Colors.white, size: 20),
@@ -386,6 +441,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
               onToggleAutoAdvance: _toggleAutoAdvance,
               onExit: () => Navigator.of(context).pop(),
               onLockTap: () => setState(() => _isLocked = true),
+              onNextShort: _goToNextShort,
             ),
           ),
 
@@ -448,6 +504,73 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildShortPendingState(VideoItem video) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (video.thumbnailUrl.isNotEmpty)
+          CachedNetworkImage(
+            imageUrl: video.thumbnailUrl,
+            fit: BoxFit.cover,
+            errorWidget: (_, __, ___) => Container(color: const Color(0xFF18181B)),
+          ),
+        Container(
+          color: Colors.black.withValues(alpha: 0.65),
+        ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: KidColors.yellow.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.bolt_rounded, color: KidColors.yellow, size: 48),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Short Syncing to Storage',
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tap anywhere or swipe up for next short',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    color: Colors.white70,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: KidColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  ),
+                  onPressed: _goToNextShort,
+                  icon: const Icon(Icons.arrow_downward_rounded, size: 20),
+                  label: const Text('Next Short ⚡', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

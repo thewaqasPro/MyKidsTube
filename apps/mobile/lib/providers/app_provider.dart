@@ -11,7 +11,7 @@ class AppProvider extends ChangeNotifier {
   final VpsApiService _api = VpsApiService();
   final DownloadService _downloader = DownloadService.instance;
 
-  String _vpsUrl = 'https://kidsapi.waqas.pro';
+  String _vpsUrl = 'https://mykidstube.kidstube.workers.dev';
   String _parentPin = '1234';
   String _deviceName = 'Kids Tablet';
 
@@ -59,9 +59,9 @@ class AppProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // 1. Load settings
-    final savedUrl = await _db.getSetting('vps_url');
-    if (savedUrl != null && savedUrl.isNotEmpty) _vpsUrl = savedUrl;
+    // 1. Point to fast Cloudflare Edge API
+    _vpsUrl = 'https://mykidstube.kidstube.workers.dev';
+    await _db.setSetting('vps_url', _vpsUrl);
 
     final savedPin = await _db.getSetting('parent_pin');
     if (savedPin != null && savedPin.isNotEmpty) _parentPin = savedPin;
@@ -80,13 +80,23 @@ class AppProvider extends ChangeNotifier {
       );
     }
 
-    // 2. Load cached local database
+    // 2. Clear stale catalog cache so fresh Cloudflare D1 data replaces old single-video seeds
+    await _db.clearStaleCatalogCache();
+
+    // 3. Load initial database state
     await _loadFromLocalDb();
 
     _isLoading = false;
     notifyListeners();
 
-    // 3. Background sync with VPS
+    // 4. Background sync with Edge API
+    await syncCatalog();
+  }
+
+  Future<void> clearMobileCache() async {
+    _isLoading = true;
+    notifyListeners();
+    await _db.clearAllCache();
     await syncCatalog();
   }
 
@@ -103,14 +113,11 @@ class AppProvider extends ChangeNotifier {
     _isSyncing = true;
     notifyListeners();
 
-    _isServerOnline = await _api.checkHealth(_vpsUrl);
-    if (_isServerOnline) {
-      // Sync profiles
-      _availableProfiles = await _api.fetchProfiles(_vpsUrl);
-
-      // Fetch curated catalog for active profile
+    try {
+      // 1. Fetch curated catalog from Edge
       final catalogData = await _api.fetchCatalog(_vpsUrl, profileId: _activeProfile?.id);
       if (catalogData != null && catalogData['sections'] is List) {
+        _isServerOnline = true;
         final sections = catalogData['sections'] as List;
 
         for (final sec in sections) {
@@ -129,7 +136,22 @@ class AppProvider extends ChangeNotifier {
             await _db.upsertVideo(video);
           }
         }
+
+        // Also upsert complete all_videos list to guarantee 100% video inclusion
+        if (catalogData['all_videos'] is List) {
+          for (final vJson in (catalogData['all_videos'] as List)) {
+            final video = VideoItem.fromApi(vJson);
+            await _db.upsertVideo(video);
+          }
+        }
+
+        // 2. Sync profiles
+        _availableProfiles = await _api.fetchProfiles(_vpsUrl);
+      } else {
+        _isServerOnline = await _api.checkHealth(_vpsUrl);
       }
+    } catch (_) {
+      _isServerOnline = false;
     }
 
     await _loadFromLocalDb();
