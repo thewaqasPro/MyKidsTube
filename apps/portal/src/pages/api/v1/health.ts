@@ -1,6 +1,12 @@
 import type { APIRoute } from 'astro';
+import { getCorsHeaders, handleOptions } from '../../../lib/cors';
 
-export const GET: APIRoute = async () => {
+export const OPTIONS: APIRoute = async ({ request }) => {
+  return handleOptions(request, ['GET', 'OPTIONS']);
+};
+
+export const GET: APIRoute = async ({ request }) => {
+  const corsHeaders = getCorsHeaders(request, { methods: ['GET', 'OPTIONS'], isStateChanging: false });
   return new Response(
     JSON.stringify({
       status: 'ok',
@@ -11,7 +17,7 @@ export const GET: APIRoute = async () => {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        ...corsHeaders,
       },
     }
   );

@@ -1,15 +1,26 @@
 import type { APIRoute } from 'astro';
 import { getDatabase } from '../../../lib/db';
 import { getR2Bucket } from '../../../lib/r2';
+import { requireParent } from '../../../lib/parentAuth';
+import { getCorsHeaders, handleOptions } from '../../../lib/cors';
+
+export const OPTIONS: APIRoute = async ({ request }) => {
+  return handleOptions(request, ['POST', 'OPTIONS']);
+};
 
 export const POST: APIRoute = async (context) => {
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
+
+  const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
+
   const r2 = await getR2Bucket(context);
   const db = await getDatabase(context);
 
   if (!r2 || !db) {
     return new Response(JSON.stringify({ error: 'R2 or DB binding missing' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
@@ -32,7 +43,9 @@ export const POST: APIRoute = async (context) => {
 
       // Fetch from YouTube
       try {
-        const ytRes = await fetch(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`);
+        const ytRes = await fetch(`https://i.ytimg.com/vi/${id}/hqdefault.jpg`, {
+          signal: AbortSignal.timeout(5000),
+        });
         if (ytRes.ok) {
           const buf = await ytRes.arrayBuffer();
           await r2.put(r2Key, buf, {
@@ -43,18 +56,20 @@ export const POST: APIRoute = async (context) => {
           results.push({ id, status: 'fetch_failed' });
         }
       } catch (err: any) {
-        results.push({ id, status: 'error', error: err.message });
+        console.error(`Asset warm fetch error for ${id}:`, err);
+        results.push({ id, status: 'error' });
       }
     }
 
     return new Response(JSON.stringify({ count: results.length, details: results }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message }), {
+    console.error('assets/warm POST error:', e);
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 };

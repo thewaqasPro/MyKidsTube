@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../utils/constants.dart';
 
 /// Kid-Safe YouTube Embed Player Widget for Mobile
 /// Runs a sandboxed YouTube embed with child-protective shields
@@ -23,6 +24,7 @@ class KidEmbedPlayer extends StatefulWidget {
 class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -45,10 +47,25 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
-            if (mounted) setState(() => _isLoading = true);
+            if (mounted) {
+              setState(() {
+                _isLoading = true;
+                _hasError = false;
+              });
+            }
           },
           onPageFinished: (_) {
-            if (mounted) setState(() => _isLoading = false);
+            if (mounted) {
+              setState(() => _isLoading = false);
+            }
+          },
+          onWebResourceError: (WebResourceError error) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                _hasError = true;
+              });
+            }
           },
           onNavigationRequest: (NavigationRequest request) {
             final url = request.url;
@@ -68,6 +85,11 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   }
 
   void _loadVideo(String id) {
+    setState(() {
+      _hasError = false;
+      _isLoading = true;
+    });
+
     final html = '''
 <!DOCTYPE html>
 <html>
@@ -97,6 +119,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   <iframe
     id="player"
     src="https://www.youtube-nocookie.com/embed/$id?autoplay=${widget.autoPlay ? 1 : 0}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1&fs=1"
+    sandbox="allow-scripts allow-same-origin allow-presentation"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
     allowfullscreen>
   </iframe>
@@ -115,7 +138,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
         WebViewWidget(controller: _controller),
 
         // 2. Loading Spinner
-        if (_isLoading)
+        if (_isLoading && !_hasError)
           Container(
             color: Colors.black,
             child: const Center(
@@ -130,29 +153,62 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
             ),
           ),
 
-        // 3. SHIELD 1: Top External Link Shield (Blocks external title/avatar taps)
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 48,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () {}, // absorbs tap
+        // 3. Error UI with Retry
+        if (_hasError)
+          Container(
+            color: Colors.black,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_off_rounded, color: KidColors.red, size: 36),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Unable to stream embed.',
+                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: KidColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    onPressed: () => _loadVideo(widget.youtubeId),
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Retry', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
 
-        // 4. SHIELD 2: Bottom-Right YouTube Logo Shield (Blocks external logo tap)
-        Positioned(
-          bottom: 0,
-          right: 0,
-          width: 80,
-          height: 46,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () {}, // absorbs tap
+        // 4. SHIELD 1: Top External Link Shield
+        if (!_hasError)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 48,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {},
+            ),
           ),
-        ),
+
+        // 5. SHIELD 2: Bottom-Right YouTube Logo Shield
+        if (!_hasError)
+          Positioned(
+            bottom: 0,
+            right: 0,
+            width: 80,
+            height: 46,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {},
+            ),
+          ),
       ],
     );
 

@@ -7,6 +7,22 @@ class VpsApiService {
     receiveTimeout: const Duration(seconds: 15),
   ));
 
+  String? _authToken;
+
+  void setAuthToken(String? token) {
+    _authToken = token;
+  }
+
+  String? get authToken => _authToken;
+
+  Options _authOptions([Options? base]) {
+    final headers = Map<String, dynamic>.from(base?.headers ?? {});
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_authToken';
+    }
+    return (base ?? Options()).copyWith(headers: headers);
+  }
+
   Future<bool> checkHealth(String baseUrl) async {
     try {
       final cleanUrl = _normalizeUrl(baseUrl);
@@ -37,9 +53,17 @@ class VpsApiService {
   Future<Map<String, dynamic>?> checkDeviceStatus(String baseUrl, String pairingCode) async {
     try {
       final cleanUrl = _normalizeUrl(baseUrl);
-      final res = await _dio.get('$cleanUrl/api/v1/devices/status/$pairingCode');
+      final res = await _dio.get(
+        '$cleanUrl/api/v1/devices/status/$pairingCode',
+        options: _authOptions(),
+      );
       if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
         return res.data as Map<String, dynamic>;
+      }
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return {'status': 'expired', 'message': 'Pairing code expired or invalid'};
       }
       return null;
     } catch (_) {
@@ -51,9 +75,15 @@ class VpsApiService {
   Future<List<ChildProfile>> fetchProfiles(String baseUrl) async {
     try {
       final cleanUrl = _normalizeUrl(baseUrl);
-      final res = await _dio.get('$cleanUrl/api/v1/profiles');
+      final res = await _dio.get(
+        '$cleanUrl/api/v1/profiles',
+        options: _authOptions(),
+      );
       if (res.statusCode == 200 && res.data is List) {
-        return (res.data as List).map((p) => ChildProfile.fromMap(p)).toList();
+        return (res.data as List)
+            .map((p) => ChildProfile.fromMap(p as Map<String, dynamic>))
+            .whereType<ChildProfile>()
+            .toList();
       }
       return [];
     } catch (_) {
@@ -68,7 +98,10 @@ class VpsApiService {
       if (profileId != null && profileId.isNotEmpty) {
         endpoint += '?profile_id=$profileId';
       }
-      final res = await _dio.get(endpoint);
+      final res = await _dio.get(
+        endpoint,
+        options: _authOptions(),
+      );
       if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
         return res.data as Map<String, dynamic>;
       }
@@ -95,23 +128,11 @@ class VpsApiService {
           'quality': quality,
           'allowed_profile_ids': allowedProfileIds,
         },
+        options: _authOptions(),
       );
       return res.statusCode == 200;
     } catch (_) {
       return false;
-    }
-  }
-
-  Future<List<dynamic>> fetchTasks(String baseUrl) async {
-    try {
-      final cleanUrl = _normalizeUrl(baseUrl);
-      final res = await _dio.get('$cleanUrl/api/v1/tasks');
-      if (res.statusCode == 200 && res.data is List) {
-        return res.data as List<dynamic>;
-      }
-      return [];
-    } catch (_) {
-      return [];
     }
   }
 
@@ -120,8 +141,14 @@ class VpsApiService {
     if (trimmed.endsWith('/')) {
       trimmed = trimmed.substring(0, trimmed.length - 1);
     }
-    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-      trimmed = 'http://$trimmed';
+    if (trimmed.startsWith('http://')) {
+      // Warn on explicit http://
+      // ignore: avoid_print
+      print('⚠️ Warning: Using explicit cleartext HTTP connection for $trimmed');
+      return trimmed;
+    }
+    if (!trimmed.startsWith('https://')) {
+      trimmed = 'https://$trimmed';
     }
     return trimmed;
   }

@@ -38,6 +38,32 @@ All commands are run from the root of the project, from a terminal:
 | `pnpm astro ...`       | Run CLI commands like `astro add`, `astro check` |
 | `pnpm astro -- --help` | Get help using the Astro CLI                     |
 
+## 🗄️ Database & Migrations
+
+KidsTube uses Cloudflare D1 for catalog, device pairing, and parent session storage.
+
+### Running Migrations
+
+Migration files are located in `migrations/`:
+- `0001_admin_settings.sql` — Settings key-value store (parent PIN)
+- `0002_watch_events.sql` — Watch analytics telemetry
+- `0003_parent_sessions.sql` — 256-bit parent session tokens
+
+**Apply migrations locally:**
+```sh
+npx wrangler d1 migrations apply kidstube-db --local
+```
+
+**Apply migrations to production D1:**
+```sh
+npx wrangler d1 migrations apply kidstube-db --remote
+```
+
+**Initialize fresh database from schema:**
+```sh
+npx wrangler d1 execute kidstube-db --local --file=../../d1_ready.sql
+```
+
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).

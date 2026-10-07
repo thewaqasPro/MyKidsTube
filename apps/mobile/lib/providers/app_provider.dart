@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/video_item.dart';
 import '../models/category_item.dart';
 import '../models/child_profile.dart';
@@ -10,9 +14,9 @@ class AppProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
   final VpsApiService _api = VpsApiService();
   final DownloadService _downloader = DownloadService.instance;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
   String _vpsUrl = 'https://mykidstube.kidstube.workers.dev';
-  String _parentPin = '1234';
   String _deviceName = 'Kids Tablet';
 
   // Multi-User state
@@ -35,7 +39,6 @@ class AppProvider extends ChangeNotifier {
 
   // Getters
   String get vpsUrl => _vpsUrl;
-  String get parentPin => _parentPin;
   String get deviceName => _deviceName;
   ChildProfile? get activeProfile => _activeProfile;
   List<ChildProfile> get availableProfiles => _availableProfiles;
@@ -55,16 +58,88 @@ class AppProvider extends ChangeNotifier {
   bool get isOfflineOnly => _isOfflineOnly;
   int get cachedBytes => _cachedBytes;
 
+  // --- PIN Security & Salted Hash Storage ---
+  Future<String> _getOrCreateSalt() async {
+    var salt = await _secureStorage.read(key: 'parent_pin_salt');
+    if (salt == null || salt.isEmpty) {
+      final random = Random.secure();
+      final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+      salt = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      await _secureStorage.write(key: 'parent_pin_salt', value: salt);
+    }
+    return salt;
+  }
+
+  String _hashPin(String pin, String salt) {
+    return sha256.convert(utf8.encode('$salt:$pin')).toString();
+  }
+
+  Future<void> _initPinSecurity() async {
+    final salt = await _getOrCreateSalt();
+    final storedHash = await _secureStorage.read(key: 'parent_pin_hash');
+    if (storedHash == null || storedHash.isEmpty) {
+      // Check legacy setting from SQLite
+      final legacyPin = await _db.getSetting('parent_pin');
+      final pinToUse = (legacyPin != null && legacyPin.isNotEmpty) ? legacyPin : '1234';
+      final newHash = _hashPin(pinToUse, salt);
+      await _secureStorage.write(key: 'parent_pin_hash', value: newHash);
+      // Wipe plaintext pin from SQLite settings
+      await _db.setSetting('parent_pin', '');
+    }
+  }
+
+  Future<bool> verifyParentPin(String enteredPin) async {
+    final salt = await _getOrCreateSalt();
+    final storedHash = await _secureStorage.read(key: 'parent_pin_hash');
+    if (storedHash == null || storedHash.isEmpty) {
+      return enteredPin == '1234';
+    }
+    final enteredHash = _hashPin(enteredPin, salt);
+    return enteredHash == storedHash;
+  }
+
+  Future<bool> changeParentPin({required String currentPin, required String newPin}) async {
+    if (!await verifyParentPin(currentPin)) {
+      return false;
+    }
+    if (newPin.length < 4 || !RegExp(r'^\d+$').hasMatch(newPin)) {
+      return false;
+    }
+    final salt = await _getOrCreateSalt();
+    final newHash = _hashPin(newPin, salt);
+    await _secureStorage.write(key: 'parent_pin_hash', value: newHash);
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> isUsingDefaultPin() async {
+    final salt = await _getOrCreateSalt();
+    final storedHash = await _secureStorage.read(key: 'parent_pin_hash');
+    if (storedHash == null) return true;
+    return storedHash == _hashPin('1234', salt);
+  }
+
   Future<void> init() async {
     _isLoading = true;
     notifyListeners();
 
-    // 1. Point to fast Cloudflare Edge API
-    _vpsUrl = 'https://mykidstube.kidstube.workers.dev';
-    await _db.setSetting('vps_url', _vpsUrl);
+    // 1. Read vps_url from settings first; only write default when none exists (survives restart)
+    final savedUrl = await _db.getSetting('vps_url');
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      _vpsUrl = savedUrl;
+    } else {
+      _vpsUrl = 'https://mykidstube.kidstube.workers.dev';
+      await _db.setSetting('vps_url', _vpsUrl);
+    }
 
-    final savedPin = await _db.getSetting('parent_pin');
-    if (savedPin != null && savedPin.isNotEmpty) _parentPin = savedPin;
+    // 2. Initialize PIN security in secure storage
+    await _initPinSecurity();
+
+    // 3. Load device auth token from secure storage
+    final savedToken = await _secureStorage.read(key: 'device_auth_token');
+    if (savedToken != null && savedToken.isNotEmpty) {
+      _api.setAuthToken(savedToken);
+    }
 
     final pairedSetting = await _db.getSetting('is_device_paired');
     _isDevicePaired = pairedSetting == 'true';
@@ -80,16 +155,16 @@ class AppProvider extends ChangeNotifier {
       );
     }
 
-    // 2. Clear stale catalog cache so fresh Cloudflare D1 data replaces old single-video seeds
+    // 4. Clear stale catalog cache so fresh Cloudflare D1 data replaces old seeds
     await _db.clearStaleCatalogCache();
 
-    // 3. Load initial database state
+    // 5. Load initial database state
     await _loadFromLocalDb();
 
     _isLoading = false;
     notifyListeners();
 
-    // 4. Background sync with Edge API
+    // 6. Background sync with Edge API
     await syncCatalog();
   }
 
@@ -114,38 +189,55 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Fetch curated catalog from Edge
       final catalogData = await _api.fetchCatalog(_vpsUrl, profileId: _activeProfile?.id);
       if (catalogData != null && catalogData['sections'] is List) {
         _isServerOnline = true;
         final sections = catalogData['sections'] as List;
 
+        final categoriesToSync = <CategoryItem>[];
+        final videosToSync = <VideoItem>[];
+        final seenVideoIds = <String>{};
+
         for (final sec in sections) {
           final catJson = sec['category'];
-          final category = CategoryItem(
-            id: catJson['id'],
-            name: catJson['name'],
-            icon: catJson['icon'] ?? 'category',
-            displayOrder: catJson['display_order'] ?? 0,
-          );
-          await _db.upsertCategory(category);
+          if (catJson != null && catJson['id'] != null) {
+            categoriesToSync.add(CategoryItem(
+              id: catJson['id'].toString(),
+              name: (catJson['name'] ?? 'Category').toString(),
+              icon: (catJson['icon'] ?? 'category').toString(),
+              displayOrder: (catJson['display_order'] as num?)?.toInt() ?? 0,
+            ));
+          }
 
           final videosJson = sec['videos'] as List? ?? [];
           for (final vJson in videosJson) {
-            final video = VideoItem.fromApi(vJson);
-            await _db.upsertVideo(video);
+            if (vJson is Map<String, dynamic>) {
+              final video = VideoItem.fromApi(vJson);
+              if (video != null && !seenVideoIds.contains(video.id)) {
+                seenVideoIds.add(video.id);
+                videosToSync.add(video);
+              }
+            }
           }
         }
 
-        // Also upsert complete all_videos list to guarantee 100% video inclusion
+        // Also add complete all_videos list
         if (catalogData['all_videos'] is List) {
           for (final vJson in (catalogData['all_videos'] as List)) {
-            final video = VideoItem.fromApi(vJson);
-            await _db.upsertVideo(video);
+            if (vJson is Map<String, dynamic>) {
+              final video = VideoItem.fromApi(vJson);
+              if (video != null && !seenVideoIds.contains(video.id)) {
+                seenVideoIds.add(video.id);
+                videosToSync.add(video);
+              }
+            }
           }
         }
 
-        // 2. Sync profiles
+        // Atomic transaction batch upsert to prevent half-synced states
+        await _db.batchUpsertCatalog(categoriesToSync, videosToSync);
+
+        // Sync profiles
         _availableProfiles = await _api.fetchProfiles(_vpsUrl);
       } else {
         _isServerOnline = await _api.checkHealth(_vpsUrl);
@@ -164,38 +256,46 @@ class AppProvider extends ChangeNotifier {
     _deviceName = name;
     final res = await _api.registerDevice(_vpsUrl, name);
     if (res != null && res['pairing_code'] != null) {
-      _pairingCode = res['pairing_code'];
+      _pairingCode = res['pairing_code'].toString();
       notifyListeners();
       return _pairingCode;
     }
     return null;
   }
 
-  Future<bool> checkPairingStatus() async {
-    if (_pairingCode == null) return false;
+  Future<String> checkPairingStatus() async {
+    if (_pairingCode == null) return 'expired';
     final res = await _api.checkDeviceStatus(_vpsUrl, _pairingCode!);
-    if (res != null && res['status'] == 'paired') {
-      _isDevicePaired = true;
-      await _db.setSetting('is_device_paired', 'true');
+    if (res != null) {
+      if (res['status'] == 'paired') {
+        _isDevicePaired = true;
+        await _db.setSetting('is_device_paired', 'true');
 
-      if (res['profile'] != null) {
-        final profJson = res['profile'];
-        _activeProfile = ChildProfile.fromMap(profJson);
-        await _db.setSetting('current_profile_id', _activeProfile!.id);
-        await _db.setSetting('current_profile_name', _activeProfile!.name);
-        await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+        final token = res['auth_token'] as String?;
+        if (token != null && token.isNotEmpty) {
+          await _secureStorage.write(key: 'device_auth_token', value: token);
+          _api.setAuthToken(token);
+        }
+
+        if (res['profile'] != null) {
+          final prof = ChildProfile.fromMap(res['profile'] as Map<String, dynamic>);
+          if (prof != null) {
+            _activeProfile = prof;
+            await _db.setSetting('current_profile_id', _activeProfile!.id);
+            await _db.setSetting('current_profile_name', _activeProfile!.name);
+            await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+          }
+        }
+
+        notifyListeners();
+        await syncCatalog();
+        return 'paired';
+      } else if (res['status'] == 'expired') {
+        return 'expired';
       }
-
-      notifyListeners();
-      await syncCatalog();
-      return true;
+      return 'pending';
     }
-    return false;
-  }
-
-  void skipPairingForDev() {
-    _isDevicePaired = true;
-    notifyListeners();
+    return 'pending';
   }
 
   Future<void> switchProfile(ChildProfile profile) async {
@@ -267,12 +367,6 @@ class AppProvider extends ChangeNotifier {
     await _db.setSetting('vps_url', newUrl);
     notifyListeners();
     await syncCatalog();
-  }
-
-  Future<void> setParentPin(String newPin) async {
-    _parentPin = newPin;
-    await _db.setSetting('parent_pin', newPin);
-    notifyListeners();
   }
 
   Future<void> toggleFavorite(String videoId) async {

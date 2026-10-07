@@ -155,7 +155,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
               margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
-                color: KidColors.primary.withOpacity(0.18),
+                color: KidColors.primary.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: KidColors.primary, width: 0.8),
               ),

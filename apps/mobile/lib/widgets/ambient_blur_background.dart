@@ -36,7 +36,7 @@ class AmbientBlurBackground extends StatelessWidget {
         BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
           child: Container(
-            color: Colors.black.withOpacity(0.45),
+            color: Colors.black.withValues(alpha: 0.45),
           ),
         ),
 

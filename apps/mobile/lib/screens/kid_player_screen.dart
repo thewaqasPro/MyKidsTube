@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
@@ -75,6 +76,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       DeviceOrientation.landscapeRight,
     ]);
 
+    WakelockPlus.enable();
+
     _initControllerForVideo(_currentVideo);
   }
 
@@ -122,29 +125,43 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         _resetControlsTimer();
       }
     } catch (e) {
-      // Direct MP4 unavailable or 404 on VPS -> Seamlessly switch to YouTube embed!
-      if (mounted) {
-        setState(() {
-          _useEmbed = true;
-          _hasError = false;
-        });
+      if (video.effectiveYoutubeId.isNotEmpty && !_useEmbed) {
+        if (mounted) {
+          setState(() {
+            _useEmbed = true;
+            _hasError = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Playback error: $e';
+          });
+        }
       }
     }
   }
 
+  DateTime? _lastPlayerTickTime;
   void _playerListener() {
-    if (!mounted) return;
-    if (_controller != null &&
-        _controller!.value.isInitialized &&
-        !_controller!.value.isPlaying &&
+    if (!mounted || _controller == null) return;
+    final val = _controller!.value;
+    if (val.isInitialized &&
+        !val.isPlaying &&
         !_isAutoAdvancing &&
-        _controller!.value.position >= (_controller!.value.duration - const Duration(milliseconds: 600)) &&
-        _controller!.value.duration > const Duration(seconds: 3)) {
+        val.position >= (val.duration - const Duration(milliseconds: 600)) &&
+        val.duration > const Duration(seconds: 3)) {
       _isAutoAdvancing = true;
       _playNextVideo();
       return;
     }
-    setState(() {});
+    // Throttle progress updates to ~4Hz (250ms) to prevent per-tick UI jank
+    final now = DateTime.now();
+    if (_lastPlayerTickTime == null || now.difference(_lastPlayerTickTime!).inMilliseconds >= 250) {
+      _lastPlayerTickTime = now;
+      setState(() {});
+    }
   }
 
   void _seekRelative(int seconds) {
@@ -223,14 +240,14 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     });
   }
 
-  void _toggleOrientation(bool isLandscape) {
-    if (isLandscape) {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    } else {
+  void _toggleOrientation({required bool toLandscape}) {
+    if (toLandscape) {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
+    } else {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     }
   }
 
@@ -259,6 +276,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _hideControlsTimer?.cancel();
     _controller?.removeListener(_playerListener);
     _controller?.dispose();
@@ -271,16 +289,29 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     super.dispose();
   }
 
+  Orientation? _lastOrientation;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final orientation = MediaQuery.of(context).orientation;
+    if (_lastOrientation != orientation) {
+      _lastOrientation = orientation;
+      if (orientation == Orientation.landscape) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final orientation = MediaQuery.of(context).orientation;
     final isLandscape = orientation == Orientation.landscape;
 
     if (isLandscape) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       return _buildLandscapeFullscreen(context);
     } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       return _buildPortraitInlinePlayer(context);
     }
   }
@@ -328,7 +359,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 top: 16,
                 left: 16,
                 child: GestureDetector(
-                  onTap: () => _toggleOrientation(true),
+                  onTap: () => _toggleOrientation(toLandscape: false),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -379,7 +410,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
-                    onPressed: () => _toggleOrientation(true),
+                    onPressed: () => _toggleOrientation(toLandscape: false),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -470,7 +501,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 24),
-                        onPressed: () => _toggleOrientation(true),
+                        onPressed: () => _toggleOrientation(toLandscape: false),
                       ),
                     ],
                   ),
@@ -608,7 +639,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                               child: IconButton(
                                 visualDensity: VisualDensity.compact,
                                 icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 24),
-                                onPressed: () => _toggleOrientation(false),
+                                onPressed: () => _toggleOrientation(toLandscape: true),
                               ),
                             ),
                           ],
@@ -774,7 +805,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                             icon: Icons.fullscreen_rounded,
                             iconColor: Colors.white,
                             label: 'Landscape',
-                            onTap: () => _toggleOrientation(false),
+                            onTap: () => _toggleOrientation(toLandscape: true),
                           ),
                           const SizedBox(width: 10),
 

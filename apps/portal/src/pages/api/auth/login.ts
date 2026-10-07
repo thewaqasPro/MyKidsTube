@@ -1,9 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getDatabase } from '../../../lib/db';
+import { createParentSession, buildSessionCookie } from '../../../lib/parentAuth';
 
 export const POST: APIRoute = async (context) => {
   try {
-    const body = await context.request.json();
+    const body = await context.request.json().catch(() => ({}));
     const pin = String(body.pin || '').trim();
 
     if (!pin) {
@@ -17,31 +18,62 @@ export const POST: APIRoute = async (context) => {
     let expectedPin = '1234';
 
     if (db) {
-      const res = await db.prepare("SELECT value FROM admin_settings WHERE key = 'parent_pin'").first();
-      if (res?.value) {
-        expectedPin = String(res.value);
+      try {
+        const res: any = await db
+          .prepare("SELECT value FROM admin_settings WHERE key = 'parent_pin'")
+          .first();
+        if (res && res.value !== undefined && res.value !== null) {
+          expectedPin = String(res.value);
+        }
+      } catch (dbErr: any) {
+        console.error('Database error querying admin_settings:', dbErr);
+        return new Response(
+          JSON.stringify({
+            error: 'Database tables missing or uninitialized. Please apply migrations.',
+          }),
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
     }
 
-    if (pin !== expectedPin && pin !== '1234') {
+    // Strictly match expected PIN - no hardcoded '1234' fallback when custom PIN is set
+    if (pin !== expectedPin) {
       return new Response(JSON.stringify({ error: 'Incorrect Parent PIN' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Set secure cookie valid for 7 days
-    const cookie = `kidstube_parent_session=authenticated; Path=/; Max-Age=604800; SameSite=Lax; HttpOnly`;
+    // Create a real server-side session with 256-bit token & D1 storage
+    let sessionToken: string;
+    try {
+      sessionToken = await createParentSession(db);
+    } catch (sessionErr: any) {
+      console.error('Session creation failed:', sessionErr);
+      return new Response(
+        JSON.stringify({ error: 'internal_error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    return new Response(JSON.stringify({ success: true, message: 'Parent authenticated successfully' }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Set-Cookie': cookie,
-      },
-    });
+    const cookieHeader = buildSessionCookie(sessionToken);
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Parent authenticated successfully' }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Set-Cookie': cookieHeader,
+        },
+      }
+    );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Login error:', error);
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

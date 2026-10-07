@@ -1,9 +1,20 @@
 import type { APIRoute } from 'astro';
-import { getDatabase, extractYoutubeId, fetchYoutubeOembed } from '../../../lib/db';
+import { getDatabase, extractYoutubeId, isValidYoutubeHost, fetchYoutubeOembed, upsertVideo } from '../../../lib/db';
+import { requireParent } from '../../../lib/parentAuth';
+import { getCorsHeaders, handleOptions } from '../../../lib/cors';
+
+export const OPTIONS: APIRoute = async ({ request }) => {
+  return handleOptions(request, ['POST', 'OPTIONS']);
+};
 
 export const POST: APIRoute = async (context) => {
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
+
+  const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
+
   try {
-    const body = await context.request.json();
+    const body = await context.request.json().catch(() => ({}));
     const urls: string[] = Array.isArray(body.urls) 
       ? body.urls 
       : (body.url ? [body.url] : []);
@@ -13,69 +24,89 @@ export const POST: APIRoute = async (context) => {
     if (urls.length === 0) {
       return new Response(JSON.stringify({ error: 'No URLs provided' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
+    // Cap batch size at max 20 URLs per request
+    if (urls.length > 20) {
+      return new Response(
+        JSON.stringify({ error: 'Batch size exceeds maximum limit of 20 URLs per request' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    // Strictly validate every URL host
+    for (const rawUrl of urls) {
+      const trimmed = String(rawUrl).trim();
+      if (!isValidYoutubeHost(trimmed)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid URL: Only youtube.com, youtu.be, and m.youtube.com URLs are permitted. Received: ${trimmed}` }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      }
+    }
+
     const db = await getDatabase(context);
-    const addedVideos = [];
-    const now = new Date().toISOString();
+    const validItems: { url: string; ytId: string; isShort: boolean }[] = [];
 
     for (const rawUrl of urls) {
       const trimmed = String(rawUrl).trim();
-      if (!trimmed) continue;
-
       const ytId = extractYoutubeId(trimmed);
-      if (!ytId) continue;
+      if (!ytId) {
+        return new Response(
+          JSON.stringify({ error: `Could not parse valid 11-character YouTube video ID from: ${trimmed}` }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      }
+      validItems.push({
+        url: trimmed,
+        ytId,
+        isShort: trimmed.includes('/shorts/'),
+      });
+    }
 
-      const meta = await fetchYoutubeOembed(ytId);
-      const isShort = trimmed.includes('/shorts/');
-      const videoId = isShort ? `short_${ytId}` : ytId;
-      const videoFile = `${ytId}.mp4`;
-      const thumbFile = `${ytId}.webp`;
+    // Fetch oEmbed metadata concurrently with timeout
+    const metaList = await Promise.all(
+      validItems.map((item) => fetchYoutubeOembed(item.ytId, 5000))
+    );
+
+    const addedVideos = [];
+
+    for (let i = 0; i < validItems.length; i++) {
+      const item = validItems[i];
+      const meta = metaList[i];
+      const catId = item.isShort ? 'shorts' : categoryId;
 
       if (db) {
-        await db.prepare(`
-          INSERT INTO videos (
-            id, title, duration, duration_formatted, category_id, source_url, 
-            video_file, thumbnail_file, file_size_bytes, quality, created_at, 
-            channel_name, channel_icon, status, youtube_id, file_verified, views, watch_seconds
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
-          ON CONFLICT(id) DO UPDATE SET 
-            status = excluded.status,
-            youtube_id = excluded.youtube_id,
-            title = excluded.title
-        `).bind(
-          videoId,
-          meta.title,
-          180,
-          '03:00',
-          isShort ? 'shorts' : categoryId,
-          trimmed,
-          videoFile,
-          thumbFile,
-          0,
-          '720p',
-          now,
-          meta.channel_name,
-          '',
-          'pending_download',
-          ytId,
-          0
-        ).run();
-
-        // Assign to child profiles
-        for (const pId of profileIds) {
-          await db.prepare(`
-            INSERT OR IGNORE INTO profile_video_assignments (profile_id, video_id, category_id, created_at)
-            VALUES (?, ?, ?, ?)
-          `).bind(pId, videoId, isShort ? 'shorts' : categoryId, now).run();
-        }
+        await upsertVideo(db, {
+          id: item.ytId,
+          title: meta.title,
+          duration: 0,
+          durationFormatted: '--:--',
+          categoryId: catId,
+          sourceUrl: item.url,
+          channelName: meta.channel_name,
+          channelIcon: meta.thumbnail_url,
+          thumbnailUrl: meta.thumbnail_url,
+          quality: '720p',
+          status: 'pending_download',
+          allowedProfileIds: profileIds,
+        });
       }
 
       addedVideos.push({
-        id: videoId,
-        youtube_id: ytId,
+        id: item.ytId,
+        youtube_id: item.ytId,
         title: meta.title,
         channel_name: meta.channel_name,
         thumbnail_url: meta.thumbnail_url,
@@ -83,20 +114,23 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      count: addedVideos.length,
-      videos: addedVideos,
-      message: `${addedVideos.length} video(s) added to wishlist! Immediately playable via YouTube embed.`,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        count: addedVideos.length,
+        videos: addedVideos,
+        message: `${addedVideos.length} video(s) added to wishlist!`,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      }
+    );
   } catch (error: any) {
     console.error('Queue add error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Failed to add video to queue' }), {
+    return new Response(JSON.stringify({ error: 'internal_error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 };

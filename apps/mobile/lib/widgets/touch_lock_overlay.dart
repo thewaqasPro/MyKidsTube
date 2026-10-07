@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/constants.dart';
@@ -24,7 +23,6 @@ class TouchLockOverlay extends StatefulWidget {
 class _TouchLockOverlayState extends State<TouchLockOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _progressController;
-  Timer? _holdTimer;
 
   @override
   void initState() {
@@ -46,7 +44,6 @@ class _TouchLockOverlayState extends State<TouchLockOverlay>
   @override
   void dispose() {
     _progressController.dispose();
-    _holdTimer?.cancel();
     super.dispose();
   }
 
@@ -74,7 +71,7 @@ class _TouchLockOverlayState extends State<TouchLockOverlay>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
+              color: Colors.black.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white30),
             ),
@@ -117,7 +114,7 @@ class _TouchLockOverlayState extends State<TouchLockOverlay>
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.85),
+                    color: Colors.black.withValues(alpha: 0.85),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: KidColors.accent, width: 1.5),
                   ),

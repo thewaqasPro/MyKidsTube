@@ -47,6 +47,9 @@ CREATE TABLE devices (
         pairing_code TEXT UNIQUE,
         status TEXT DEFAULT 'pending', -- 'pending', 'paired', 'revoked'
         auth_token TEXT,
+        expires_at TEXT,
+        used INTEGER DEFAULT 0,
+        raw_token_pending TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (family_id) REFERENCES families (id),
         FOREIGN KEY (profile_id) REFERENCES child_profiles (id)
@@ -61,6 +64,29 @@ CREATE TABLE profile_video_assignments (
         FOREIGN KEY (profile_id) REFERENCES child_profiles (id),
         FOREIGN KEY (video_id) REFERENCES videos (id)
     );
+DROP TABLE IF EXISTS admin_settings;
+CREATE TABLE admin_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    );
+INSERT INTO admin_settings (key, value) VALUES ('parent_pin', '1234');
+DROP TABLE IF EXISTS watch_events;
+CREATE TABLE watch_events (
+        id TEXT PRIMARY KEY,
+        video_id TEXT NOT NULL,
+        device_id TEXT,
+        seconds_watched INTEGER NOT NULL DEFAULT 0,
+        event_at TEXT NOT NULL,
+        FOREIGN KEY (video_id) REFERENCES videos (id)
+    );
+CREATE INDEX IF NOT EXISTS idx_watch_events_video_id ON watch_events (video_id);
+DROP TABLE IF EXISTS parent_sessions;
+CREATE TABLE parent_sessions (
+        token_hash TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+    );
+CREATE INDEX IF NOT EXISTS idx_parent_sessions_expires_at ON parent_sessions (expires_at);
 INSERT INTO "categories" VALUES('cartoons','Cartoons','tv',1);
 INSERT INTO "categories" VALUES('learning','Learning & Fun','school',2);
 INSERT INTO "categories" VALUES('music','Songs & Music','music_note',3);
@@ -69,10 +95,10 @@ INSERT INTO "categories" VALUES('shorts','⚡ Shorts & Reels','bolt',0);
 INSERT INTO "categories" VALUES('nature','Animals & Nature','pets',4);
 INSERT INTO "child_profiles" VALUES('kids_all','default_family','All Kids','stars','all','2026-10-05T17:15:28.452528');
 INSERT INTO "child_profiles" VALUES('kids_toddler','default_family','Little Kids','teddy','toddler','2026-10-05T17:15:28.452528');
-INSERT INTO "devices" VALUES('06a96bfc-659',NULL,NULL,'Maya Tablet','SPE-446','pending',NULL,'2026-10-05T18:04:32.919224');
-INSERT INTO "devices" VALUES('3a59866b-d0b','default_family','kids_all','Kids Tablet','HEV-811','paired','tok_1e35ea5050444baf8bf63470ce55f5ab','2026-10-05T19:42:57.351666');
-INSERT INTO "devices" VALUES('949f611b-840','default_family','kids_all','Kids Tablet','JZC-640','paired','tok_bd677b0dc61e487a977a727efcf744a8','2026-10-05T23:40:53.005893');
-INSERT INTO "devices" VALUES('5818f75e-432','default_family','kids_all','Kids Tablet','FXS-429','paired','tok_846b5843ad0f44b4a3c7280075f3d885','2026-10-06T06:04:24.370819');
+INSERT INTO "devices" (id, family_id, profile_id, device_name, pairing_code, status, auth_token, created_at) VALUES('06a96bfc-659',NULL,NULL,'Maya Tablet','SPE-446','pending',NULL,'2026-10-05T18:04:32.919224');
+INSERT INTO "devices" (id, family_id, profile_id, device_name, pairing_code, status, auth_token, created_at) VALUES('3a59866b-d0b','default_family','kids_all','Kids Tablet','HEV-811','paired','tok_1e35ea5050444baf8bf63470ce55f5ab','2026-10-05T19:42:57.351666');
+INSERT INTO "devices" (id, family_id, profile_id, device_name, pairing_code, status, auth_token, created_at) VALUES('949f611b-840','default_family','kids_all','Kids Tablet','JZC-640','paired','tok_bd677b0dc61e487a977a727efcf744a8','2026-10-05T23:40:53.005893');
+INSERT INTO "devices" (id, family_id, profile_id, device_name, pairing_code, status, auth_token, created_at) VALUES('5818f75e-432','default_family','kids_all','Kids Tablet','FXS-429','paired','tok_846b5843ad0f44b4a3c7280075f3d885','2026-10-06T06:04:24.370819');
 INSERT INTO "families" VALUES('default_family','My Family','1234','2026-10-05T17:15:28.452528');
 INSERT INTO "profile_video_assignments" VALUES('kids_all','XqZsoesa55w','music','2026-10-06T05:32:42.334654');
 INSERT INTO "profile_video_assignments" VALUES('kids_toddler','XqZsoesa55w','music','2026-10-06T05:32:42.334654');

@@ -46,6 +46,13 @@ venv/
 
 # Secrets & Keys
 VPS/
+vps/
 *.key
+**/*.key
 *.pem
+**/*.pem
+*.crt
+**/*.crt
 *.pub
+apps/server/.env
+apps/server/nginx/ssl/

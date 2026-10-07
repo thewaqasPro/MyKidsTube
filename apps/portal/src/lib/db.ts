@@ -92,23 +92,37 @@ export async function getPendingVideos(context?: any): Promise<Video[]> {
   return all.videos.filter((v) => v.status === 'pending_download');
 }
 
-export async function recordWatchMetric(videoId: string, profileId: string = 'kids_all', secondsWatched: number = 5, context?: any) {
+export async function recordWatchMetric(
+  videoId: string,
+  deviceId: string = 'kids_all',
+  secondsWatched: number = 5,
+  context?: any
+): Promise<boolean> {
   const db = await getDatabase(context);
   if (!db) return false;
 
   try {
-    const eventId = 'ev_' + Math.random().toString(36).substring(2, 10);
+    // Validate video existence
+    const exists = await db.prepare('SELECT id FROM videos WHERE id = ? OR youtube_id = ? LIMIT 1').bind(videoId, videoId).first();
+    if (!exists) {
+      console.warn(`recordWatchMetric rejected: Video ${videoId} does not exist`);
+      return false;
+    }
+
+    // Clamp seconds_watched
+    const clampedSeconds = Math.max(0, Math.min(86400, Math.floor(secondsWatched)));
+    const eventId = 'ev_' + crypto.randomUUID();
     const now = new Date().toISOString();
 
     await db.batch([
-      db.prepare('INSERT INTO watch_events (id, video_id, profile_id, seconds_watched, created_at) VALUES (?, ?, ?, ?, ?)')
-        .bind(eventId, videoId, profileId, secondsWatched, now),
+      db.prepare('INSERT INTO watch_events (id, video_id, device_id, seconds_watched, event_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(eventId, videoId, deviceId, clampedSeconds, now),
       db.prepare('UPDATE videos SET views = COALESCE(views, 0) + 1, watch_seconds = COALESCE(watch_seconds, 0) + ? WHERE id = ?')
-        .bind(secondsWatched, videoId),
+        .bind(clampedSeconds, videoId),
     ]);
     return true;
-  } catch (e) {
-    console.error('Error recording watch metric:', e);
+  } catch (e: any) {
+    console.error('Graceful degradation in recordWatchMetric:', e?.message || e);
     return false;
   }
 }
@@ -124,7 +138,7 @@ export async function getStudioStats(context?: any) {
       pending_videos: all.videos.length - ready,
       total_views: all.videos.reduce((sum, v) => sum + (v.views || 0), 0),
       total_watch_seconds: all.videos.reduce((sum, v) => sum + (v.watch_seconds || 0), 0),
-      storage_used_bytes: 2500000000,
+      storage_used_bytes: null, // Unavailable without database connection
       categories_count: all.categories.length,
       profiles_count: all.profiles.length,
       top_videos: all.videos.slice(0, 5),
@@ -163,15 +177,62 @@ export async function getStudioStats(context?: any) {
   }
 }
 
-export function extractYoutubeId(inputUrl: string): string | null {
-  const match = inputUrl.match(/(?:v=|\/shorts\/|youtu\.be\/|\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : null;
+export function isValidYoutubeHost(inputUrl: string): boolean {
+  try {
+    const url = new URL(inputUrl);
+    const host = url.hostname.toLowerCase();
+    return ['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'].includes(host);
+  } catch {
+    return false;
+  }
 }
 
-export async function fetchYoutubeOembed(youtubeId: string) {
+export function extractYoutubeId(inputUrl: string): string | null {
+  const trimmed = inputUrl.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    const host = url.hostname.toLowerCase();
+    if (!['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'].includes(host)) {
+      return null;
+    }
+
+    if (host === 'youtu.be') {
+      const seg = url.pathname.slice(1).split('/')[0];
+      return /^[a-zA-Z0-9_-]{11}$/.test(seg) ? seg : null;
+    }
+
+    if (url.pathname.includes('/shorts/')) {
+      const match = url.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+      return match ? match[1] : null;
+    }
+
+    if (url.pathname.includes('/embed/')) {
+      const match = url.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+      return match ? match[1] : null;
+    }
+
+    const v = url.searchParams.get('v');
+    if (v && /^[a-zA-Z0-9_-]{11}$/.test(v)) {
+      return v;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export async function fetchYoutubeOembed(youtubeId: string, timeoutMs = 5000) {
   try {
     const url = `https://www.youtube.com/watch?v=${youtubeId}`;
-    const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { signal: AbortSignal.timeout(timeoutMs) }
+    );
     if (res.ok) {
       const data: any = await res.json();
       return {
@@ -183,7 +244,7 @@ export async function fetchYoutubeOembed(youtubeId: string) {
       };
     }
   } catch (e) {
-    console.error('oEmbed fetch error:', e);
+    console.error(`oEmbed fetch error for ${youtubeId}:`, e);
   }
 
   return {
@@ -193,4 +254,83 @@ export async function fetchYoutubeOembed(youtubeId: string) {
     channel_url: '',
     thumbnail_url: `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
   };
+}
+
+export interface UpsertVideoParams {
+  id: string; // Plain 11-char YouTube ID
+  title: string;
+  duration?: number;
+  durationFormatted?: string;
+  categoryId?: string;
+  sourceUrl?: string;
+  channelName?: string;
+  channelIcon?: string;
+  thumbnailUrl?: string;
+  quality?: string;
+  status?: string;
+  allowedProfileIds?: string[];
+  fileVerified?: number;
+}
+
+export async function upsertVideo(db: any, params: UpsertVideoParams): Promise<void> {
+  if (!db) return;
+
+  const now = new Date().toISOString();
+  const videoId = params.id;
+  const isShort = params.categoryId === 'shorts' || params.sourceUrl?.includes('/shorts/');
+  const duration = params.duration !== undefined ? params.duration : 0;
+  const durationFormatted = params.durationFormatted || (duration > 0 ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}` : '--:--');
+  const categoryId = params.categoryId || (isShort ? 'shorts' : 'cartoons');
+  const sourceUrl = params.sourceUrl || (isShort ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`);
+  const videoFile = `${videoId}.mp4`;
+  const thumbFile = `${videoId}.webp`;
+  const channelIcon = params.channelIcon || params.thumbnailUrl || '';
+  const channelName = params.channelName || 'YouTube Kids';
+  const quality = params.quality || '720p';
+  const status = params.status || 'pending_download';
+  const fileVerified = params.fileVerified ?? 0;
+
+  await db.prepare(`
+    INSERT INTO videos (
+      id, title, duration, duration_formatted, category_id, source_url, 
+      video_file, thumbnail_file, file_size_bytes, quality, created_at, 
+      channel_name, channel_icon, status, youtube_id, file_verified, views, watch_seconds
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+    ON CONFLICT(id) DO UPDATE SET 
+      title = excluded.title,
+      category_id = excluded.category_id,
+      channel_name = excluded.channel_name,
+      channel_icon = excluded.channel_icon,
+      source_url = excluded.source_url,
+      youtube_id = excluded.youtube_id,
+      status = excluded.status
+  `).bind(
+    videoId,
+    params.title,
+    duration,
+    durationFormatted,
+    categoryId,
+    sourceUrl,
+    videoFile,
+    thumbFile,
+    0,
+    quality,
+    now,
+    channelName,
+    channelIcon,
+    status,
+    videoId,
+    fileVerified
+  ).run();
+
+  const profileIds = params.allowedProfileIds && params.allowedProfileIds.length > 0 
+    ? params.allowedProfileIds 
+    : ['kids_all'];
+
+  for (const pId of profileIds) {
+    await db.prepare(`
+      INSERT OR IGNORE INTO profile_video_assignments (profile_id, video_id, category_id, created_at)
+      VALUES (?, ?, ?, ?)
+    `).bind(pId, videoId, categoryId, now).run();
+  }
 }

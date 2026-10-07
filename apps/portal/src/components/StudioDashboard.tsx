@@ -48,6 +48,9 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  const [devicesList, setDevicesList] = useState<any[]>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+
   // Sync hash with active tab
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -57,6 +60,17 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'devices') {
+      setLoadingDevices(true);
+      fetch('/api/studio/devices')
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => setDevicesList(data))
+        .catch(() => setDevicesList([]))
+        .finally(() => setLoadingDevices(false));
+    }
+  }, [activeTab]);
 
   const handleSelectTab = (tab: string) => {
     setActiveTab(tab);
@@ -205,8 +219,19 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
                     <HardDrive className="w-4 h-4 text-purple-400" />
                   </div>
                   <div className="mt-4">
-                    <span className="text-[28px] font-extrabold text-white">80 GB</span>
-                    <span className="text-[13px] text-[#AAAAAA] ml-1.5">Disk</span>
+                    {stats?.storage_used_bytes !== null && stats?.storage_used_bytes !== undefined ? (
+                      <>
+                        <span className="text-[28px] font-extrabold text-white">
+                          {(stats.storage_used_bytes / (1024 * 1024 * 1024)).toFixed(2)} GB
+                        </span>
+                        <span className="text-[13px] text-[#AAAAAA] ml-1.5">Used</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[22px] font-bold text-[#888888]">Unavailable</span>
+                        <span className="text-[11px] text-[#666666] block">Direct storage telemetry offline</span>
+                      </>
+                    )}
                   </div>
                   <div className="mt-2 text-[12px] text-emerald-400 font-medium flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -410,34 +435,82 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
           {/* TAB 3: TABLET DEVICES */}
           {activeTab === 'devices' && (
             <div className="space-y-6">
-              <div>
-                <h1 className="text-[22px] font-bold text-white tracking-tight">Kid Tablet Devices</h1>
-                <p className="text-[13px] text-[#888888]">Pair and manage mobile tablet apps running MyKidsTube Flutter client.</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-[22px] font-bold text-white tracking-tight">Kid Tablet Devices</h1>
+                  <p className="text-[13px] text-[#888888]">Pair and manage mobile tablet apps running MyKidsTube Flutter client.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setLoadingDevices(true);
+                    fetch('/api/studio/devices')
+                      .then((res) => (res.ok ? res.json() : []))
+                      .then((data) => setDevicesList(data))
+                      .catch(() => setDevicesList([]))
+                      .finally(() => setLoadingDevices(false));
+                  }}
+                  className="px-3.5 py-1.5 bg-[#222222] hover:bg-[#2C2C2C] text-[12px] font-medium text-white rounded-xl border border-[#333333] transition-colors cursor-pointer"
+                >
+                  Refresh Devices
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-6 bg-[#181818] border border-[#262626] rounded-2xl space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-blue-500/10 text-[#3EA6FF]">
-                      <Tablet className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white">Kids Tablet (iPad / Fire HD)</h3>
-                      <p className="text-[12px] text-[#888888]">Status: Paired & Active</p>
-                    </div>
+              {loadingDevices ? (
+                <div className="p-12 text-center text-[#888888] text-[13px]">Loading paired devices...</div>
+              ) : devicesList.length === 0 ? (
+                <div className="p-12 bg-[#181818] border border-[#262626] rounded-2xl text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-[#222222] border border-[#333333] flex items-center justify-center text-[#888888] mx-auto">
+                    <Tablet className="w-6 h-6" />
                   </div>
-                  <div className="p-4 rounded-xl bg-[#121212] border border-[#222222] text-[12px] space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-[#888888]">Profile Assigned:</span>
-                      <span className="text-white font-medium">All Kids</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[#888888]">Device Token:</span>
-                      <span className="font-mono text-emerald-400">tok_bd677b0dc...</span>
-                    </div>
-                  </div>
+                  <h3 className="text-[16px] font-bold text-white">No paired devices found</h3>
+                  <p className="text-[12px] text-[#888888] max-w-sm mx-auto">
+                    Launch the MyKidsTube mobile app on your kid's tablet to generate a pairing code, then pair it with your family account.
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {devicesList.map((dev: any) => (
+                    <div key={dev.id} className="p-6 bg-[#181818] border border-[#262626] rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2.5 rounded-xl ${dev.status === 'paired' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                            <Tablet className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-white">{dev.device_name || 'Kids Device'}</h3>
+                            <p className="text-[12px] text-[#888888]">
+                              Status: <span className={dev.status === 'paired' ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>{dev.status === 'paired' ? 'Paired & Active' : 'Pending Authorization'}</span>
+                            </p>
+                          </div>
+                        </div>
+                        {dev.pairing_code && (
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#222222] text-[#AAAAAA] border border-[#333333]">
+                            {dev.pairing_code}
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-4 rounded-xl bg-[#121212] border border-[#222222] text-[12px] space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-[#888888]">Profile Assigned:</span>
+                          <span className="text-white font-medium">{dev.profile_name || 'All Kids'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#888888]">Device Token:</span>
+                          <span className="font-mono text-emerald-400">
+                            {dev.has_token ? 'Issued & Secured (SHA-256)' : 'None'}
+                          </span>
+                        </div>
+                        {dev.created_at && (
+                          <div className="flex justify-between">
+                            <span className="text-[#888888]">Registered:</span>
+                            <span className="text-[#888888]">{new Date(dev.created_at).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

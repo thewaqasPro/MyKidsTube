@@ -13,28 +13,36 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _vpsController = TextEditingController();
-  final TextEditingController _pinController = TextEditingController();
+  final TextEditingController _currentPinController = TextEditingController();
+  final TextEditingController _newPinController = TextEditingController();
+  final TextEditingController _confirmPinController = TextEditingController();
 
   String _selectedCategory = 'cartoons';
   String _selectedQuality = '720p';
   bool _isSubmitting = false;
+  bool _isChangingPin = false;
+  bool _isUsingDefaultPin = false;
 
   @override
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
     _vpsController.text = provider.vpsUrl;
-    _pinController.text = provider.parentPin;
     if (provider.categories.isNotEmpty) {
       _selectedCategory = provider.categories.first.id;
     }
+    provider.isUsingDefaultPin().then((val) {
+      if (mounted) setState(() => _isUsingDefaultPin = val);
+    });
   }
 
   @override
   void dispose() {
     _urlController.dispose();
     _vpsController.dispose();
-    _pinController.dispose();
+    _currentPinController.dispose();
+    _newPinController.dispose();
+    _confirmPinController.dispose();
     super.dispose();
   }
 
@@ -73,6 +81,69 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
   }
 
+  Future<void> _handleChangePin() async {
+    final current = _currentPinController.text.trim();
+    final newPin = _newPinController.text.trim();
+    final confirm = _confirmPinController.text.trim();
+
+    if (current.isEmpty || newPin.isEmpty || confirm.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter current PIN, new PIN, and confirmation.'),
+          backgroundColor: KidColors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newPin.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New PIN must be at least 4 digits.'),
+          backgroundColor: KidColors.red,
+        ),
+      );
+      return;
+    }
+
+    if (newPin != confirm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('New PIN and confirmation do not match.'),
+          backgroundColor: KidColors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isChangingPin = true);
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final success = await provider.changeParentPin(currentPin: current, newPin: newPin);
+    setState(() => _isChangingPin = false);
+
+    if (mounted) {
+      if (success) {
+        _currentPinController.clear();
+        _newPinController.clear();
+        _confirmPinController.clear();
+        setState(() => _isUsingDefaultPin = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Parent PIN successfully updated!'),
+            backgroundColor: KidColors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Incorrect current PIN. Please try again.'),
+            backgroundColor: KidColors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -92,6 +163,31 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Security Alert Banner if using default PIN
+                if (_isUsingDefaultPin) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: KidColors.yellow.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: KidColors.yellow.withValues(alpha: 0.5)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: KidColors.yellow, size: 24),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Security Notice: Default PIN (1234) is in use. Please set a custom PIN below.',
+                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // 1. Ingest Link Section
                 _buildCard(
                   title: 'Add Video by Link',
@@ -100,7 +196,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Paste a link from YouTube, Vimeo, TikTok, or direct MP4. The server will download and transcode it in moderate quality.',
+                        'Paste a link from YouTube. The server will queue and download it.',
                         style: TextStyle(color: KidColors.textMuted, fontSize: 13),
                       ),
                       const SizedBox(height: 14),
@@ -124,8 +220,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               isExpanded: true,
-                              value: provider.categories.any((c) => c.id == _selectedCategory)
-                                  ? _selectedCategory
+                              initialValue: provider.categories.any((c) => c.id == _selectedCategory)
+                                   ? _selectedCategory
                                   : (provider.categories.isNotEmpty ? provider.categories.first.id : 'cartoons'),
                               dropdownColor: KidColors.cardDark,
                               style: const TextStyle(color: Colors.white, fontSize: 13),
@@ -152,7 +248,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               isExpanded: true,
-                              value: _selectedQuality,
+                              initialValue: _selectedQuality,
                               dropdownColor: KidColors.cardDark,
                               style: const TextStyle(color: Colors.white, fontSize: 13),
                               decoration: InputDecoration(
@@ -206,7 +302,102 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
                 const SizedBox(height: 20),
 
-                // 2. VPS Server Settings
+                // 2. Change Parent PIN Section
+                _buildCard(
+                  title: 'Parent PIN Security',
+                  icon: Icons.pin_rounded,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Set a 4+ digit numeric PIN to protect grown-up controls and settings.',
+                        style: TextStyle(color: KidColors.textMuted, fontSize: 13),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: _currentPinController,
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        decoration: InputDecoration(
+                          labelText: 'Current PIN',
+                          labelStyle: const TextStyle(color: KidColors.textMuted),
+                          filled: true,
+                          fillColor: KidColors.bgDark,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: KidColors.borderDark),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _newPinController,
+                              obscureText: true,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              decoration: InputDecoration(
+                                labelText: 'New PIN (min 4 digits)',
+                                labelStyle: const TextStyle(color: KidColors.textMuted),
+                                filled: true,
+                                fillColor: KidColors.bgDark,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(color: KidColors.borderDark),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _confirmPinController,
+                              obscureText: true,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              decoration: InputDecoration(
+                                labelText: 'Confirm New PIN',
+                                labelStyle: const TextStyle(color: KidColors.textMuted),
+                                filled: true,
+                                fillColor: KidColors.bgDark,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  borderSide: const BorderSide(color: KidColors.borderDark),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: KidColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: _isChangingPin ? null : _handleChangePin,
+                          icon: _isChangingPin
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.check_rounded, color: KidColors.primary),
+                          label: Text(
+                            _isChangingPin ? 'Updating PIN...' : 'Change Parent PIN',
+                            style: const TextStyle(color: KidColors.primary, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // 3. VPS Server Settings
                 _buildCard(
                   title: 'VPS Server Connection',
                   icon: Icons.dns_rounded,
@@ -284,7 +475,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
                 const SizedBox(height: 20),
 
-                // 3. Storage & Offline Manager
+                // 4. Storage & Offline Manager
                 _buildCard(
                   title: 'Device Storage & Offline Media',
                   icon: Icons.storage_rounded,

@@ -63,7 +63,7 @@ class ProfileSelectorDialog extends StatelessWidget {
                           width: 100,
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                           decoration: BoxDecoration(
-                            color: isSelected ? KidColors.primary.withOpacity(0.2) : KidColors.bgDark,
+                            color: isSelected ? KidColors.primary.withValues(alpha: 0.2) : KidColors.bgDark,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isSelected ? KidColors.primary : KidColors.borderDark,

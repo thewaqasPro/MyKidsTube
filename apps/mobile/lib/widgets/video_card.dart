@@ -330,7 +330,7 @@ class VideoCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             KidColors.cardDark,
-            _avatarColor.withOpacity(0.35),
+            _avatarColor.withValues(alpha: 0.35),
             KidColors.surfaceDark,
           ],
         ),
@@ -340,7 +340,7 @@ class VideoCard extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.55),
+            color: Colors.black.withValues(alpha: 0.55),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white24, width: 1.5),
           ),

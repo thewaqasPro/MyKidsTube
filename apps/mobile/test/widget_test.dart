@@ -1,19 +1,15 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:safe_tube/main.dart';
-import 'package:safe_tube/providers/app_provider.dart';
 
 void main() {
-  testWidgets('App renders KidsTube title', (WidgetTester tester) async {
-    final appProvider = AppProvider();
-    appProvider.skipPairingForDev();
-
+  testWidgets('SplashScreen renders KidsTube title', (WidgetTester tester) async {
     await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: appProvider,
-        child: const KidsTubeApp(),
+      const MaterialApp(
+        home: KidsTubeSplashScreen(),
       ),
     );
-    expect(find.textContaining('KidsTube'), findsWidgets);
+    expect(find.text('KidsTube'), findsOneWidget);
+    expect(find.text('Safe & Fun Video Space'), findsOneWidget);
   });
 }

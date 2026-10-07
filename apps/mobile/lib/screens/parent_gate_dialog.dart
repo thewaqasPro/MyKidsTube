@@ -42,15 +42,19 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
     super.dispose();
   }
 
-  void _verify() {
+  Future<void> _verify() async {
     final entered = int.tryParse(_answerController.text.trim());
     final provider = Provider.of<AppProvider>(context, listen: false);
 
-    // Also accepts the saved PIN
+    // Also accepts the saved salted PIN via secure verification
     final enteredStr = _answerController.text.trim();
-    if (entered == _expectedAnswer || enteredStr == provider.parentPin) {
-      Navigator.of(context).pop();
-      Navigator.of(context).push(
+    final isPinValid = await provider.verifyParentPin(enteredStr);
+    if (!mounted) return;
+
+    if (entered == _expectedAnswer || isPinValid) {
+      final nav = Navigator.of(context);
+      nav.pop();
+      nav.push(
         MaterialPageRoute(builder: (context) => const ParentDashboardScreen()),
       );
     } else {

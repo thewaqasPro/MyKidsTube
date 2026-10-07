@@ -97,17 +97,14 @@ export const UploadPage: React.FC<UploadPageProps> = ({
     window.location.href = '/api/queue/pending?format=txt';
   };
 
+  const [dropNotice, setDropNotice] = useState<string>('');
+
   const handleFilesDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const newFiles = Array.from(e.dataTransfer.files)
-        .filter((f) => f.name.endsWith('.mp4') || f.name.endsWith('.webm'))
-        .map((f) => ({ file: f, status: 'queued' as const, progress: 0 }));
-
-      setUploadFiles((prev) => [...prev, ...newFiles]);
-    }
+    setDropNotice(
+      'Direct in-browser file uploads are not supported yet. To upload HandBrake-encoded MP4 files to your private VPS/storage, place them in ~/Downloads/MyKidsTube_Optimized and run: ./scripts/sync-mykidstube.sh upload'
+    );
   };
 
   const toggleProfile = (id: string) => {
@@ -317,21 +314,21 @@ export const UploadPage: React.FC<UploadPageProps> = ({
           </div>
         </section>
 
-        {/* Step 3: Batch Upload Dropzone */}
+        {/* Step 3: Private Storage Sync (Direct In-Browser Uploads Not Supported Yet) */}
         <section className="p-6 bg-[#181818] border border-[#262626] rounded-2xl shadow-sm">
           <div className="flex items-center justify-between pb-4 border-b border-[#262626]">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500 text-black font-bold">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500 text-black font-bold">
                 3
               </div>
               <div>
-                <h2 className="text-[17px] font-bold text-white">Drop HandBrake MP4s (Auto-Matches YouTube IDs)</h2>
+                <h2 className="text-[17px] font-bold text-white">Private Storage Sync • Browser Uploads Not Supported Yet</h2>
                 <p className="text-[12px] text-[#888888]">
-                  Drag and drop 1 to 50 encoded MP4 files. Automatically matches pending catalog items!
+                  Direct browser uploads are not supported yet. Use the local sync script to push HandBrake files to your VPS storage.
                 </p>
               </div>
             </div>
-            <FileVideo className="w-5 h-5 text-emerald-400" />
+            <FileVideo className="w-5 h-5 text-amber-400" />
           </div>
 
           <div
@@ -341,33 +338,25 @@ export const UploadPage: React.FC<UploadPageProps> = ({
             }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleFilesDrop}
-            className={`mt-5 p-10 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center transition-all ${
+            className={`mt-5 p-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center transition-all ${
               dragOver
-                ? 'border-[#3EA6FF] bg-[#3EA6FF]/10 scale-[1.01]'
+                ? 'border-amber-400 bg-amber-400/10 scale-[1.01]'
                 : 'border-[#333333] hover:border-[#444444] bg-[#121212]'
             }`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-[#202020] border border-[#2E2E2E] flex items-center justify-center text-[#AAAAAA] mb-3">
-              <Upload className="w-6 h-6 text-[#3EA6FF]" />
+            <div className="w-12 h-12 rounded-2xl bg-[#202020] border border-[#2E2E2E] flex items-center justify-center text-[#AAAAAA] mb-3">
+              <AlertCircle className="w-6 h-6 text-amber-400" />
             </div>
-            <h3 className="text-[16px] font-bold text-white">Drag & drop your HandBrake MP4 files here</h3>
-            <p className="text-[12px] text-[#888888] mt-1 max-w-sm">
-              Files named with the YouTube ID (e.g. <code className="text-[#3EA6FF]">XqZsoesa55w.mp4</code> or <code className="text-[#3EA6FF]">Video [XqZsoesa55w].mp4</code>) will auto-pair.
+            <h3 className="text-[15px] font-bold text-white">Direct browser uploads aren't supported yet</h3>
+            <p className="text-[12px] text-[#888888] mt-1 max-w-md">
+              To stream verified self-hosted files, encode your videos using HandBrake and run <code className="text-[#3EA6FF]">./scripts/sync-mykidstube.sh upload</code> on your Mac.
             </p>
           </div>
 
-          {/* Queued Files List */}
-          {uploadFiles.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <h4 className="text-[13px] font-semibold text-white">Queued Files ({uploadFiles.length})</h4>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {uploadFiles.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2.5 bg-[#121212] rounded-xl border border-[#262626] text-[12px]">
-                    <span className="font-mono text-white truncate max-w-xs">{item.file.name}</span>
-                    <span className="text-[#888888]">{(item.file.size / (1024 * 1024)).toFixed(1)} MB</span>
-                  </div>
-                ))}
-              </div>
+          {dropNotice && (
+            <div className="mt-4 p-3.5 bg-amber-950/40 border border-amber-800/60 rounded-xl text-[12px] text-amber-200 flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+              <span>{dropNotice}</span>
             </div>
           )}
         </section>

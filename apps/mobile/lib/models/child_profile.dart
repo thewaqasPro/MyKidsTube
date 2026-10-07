@@ -20,12 +20,14 @@ class ChildProfile {
     };
   }
 
-  factory ChildProfile.fromMap(Map<String, dynamic> map) {
+  static ChildProfile? fromMap(Map<String, dynamic> map) {
+    final id = map['id'];
+    if (id == null || id.toString().trim().isEmpty) return null;
     return ChildProfile(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      avatarIcon: map['avatar_icon'] as String? ?? 'bear',
-      ageBracket: map['age_bracket'] as String? ?? 'all',
+      id: id.toString(),
+      name: (map['name'] ?? 'Child').toString(),
+      avatarIcon: (map['avatar_icon'] ?? 'bear').toString(),
+      ageBracket: (map['age_bracket'] ?? 'all').toString(),
     );
   }
 

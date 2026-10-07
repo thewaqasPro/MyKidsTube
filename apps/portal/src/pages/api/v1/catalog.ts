@@ -1,7 +1,15 @@
 import type { APIRoute } from 'astro';
 import { getDbData } from '../../../lib/db';
+import { getYoutubeId } from '../../../lib/constants';
+import { getCorsHeaders, handleOptions } from '../../../lib/cors';
+
+export const OPTIONS: APIRoute = async ({ request }) => {
+  return handleOptions(request, ['GET', 'OPTIONS']);
+};
 
 export const GET: APIRoute = async (context) => {
+  const corsHeaders = getCorsHeaders(context.request, { methods: ['GET', 'OPTIONS'], isStateChanging: false });
+
   try {
     const data = await getDbData(context);
     const { videos = [], categories = [], profiles = [] } = data;
@@ -9,6 +17,7 @@ export const GET: APIRoute = async (context) => {
     const formattedVideos = videos.map((v: any) => {
       const vidFile = v.video_file || `${v.id}.mp4`;
       const thumbFile = v.thumbnail_file || `${v.id}.webp`;
+      const ytId = getYoutubeId({ id: v.id, youtube_id: v.youtube_id });
 
       return {
         id: v.id,
@@ -16,7 +25,7 @@ export const GET: APIRoute = async (context) => {
         duration: v.duration || 0,
         duration_formatted: v.duration_formatted || '00:00',
         category_id: v.category_id || 'cartoons',
-        source_url: v.source_url || `https://www.youtube.com/watch?v=${v.id}`,
+        source_url: v.source_url || (v.category_id === 'shorts' ? `https://www.youtube.com/shorts/${ytId}` : `https://www.youtube.com/watch?v=${ytId}`),
         stream_url: `https://kidsapi.waqas.pro/media/videos/${vidFile}`,
         thumbnail_url: `https://mykidstube.kidstube.workers.dev/api/assets/thumbs/${thumbFile}`,
         channel_name: v.channel_name || 'YouTube Kids',
@@ -26,11 +35,11 @@ export const GET: APIRoute = async (context) => {
         status: v.status || (v.file_verified ? 'ready' : 'pending_download'),
         views: v.views || 0,
         watch_seconds: v.watch_seconds || 0,
-        youtube_id: v.youtube_id || v.id,
+        youtube_id: ytId,
       };
     });
 
-    // Group into sections by category for Flutter AppProvider
+    // Group into sections by category for mobile client
     const sections = categories.map((cat: any) => ({
       category: {
         id: cat.id,
@@ -53,15 +62,22 @@ export const GET: APIRoute = async (context) => {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          'Cache-Control': 'private, max-age=60',
+          ...corsHeaders,
         },
       }
     );
   } catch (error: any) {
+    console.error('v1/catalog error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
+      JSON.stringify({ error: 'internal_error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+      }
     );
   }
 };

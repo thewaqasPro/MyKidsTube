@@ -1,35 +1,65 @@
 import type { APIRoute } from 'astro';
-import { getDatabase, extractYoutubeId, fetchYoutubeOembed } from '../../../lib/db';
+import { getDatabase, extractYoutubeId, isValidYoutubeHost, fetchYoutubeOembed, upsertVideo } from '../../../lib/db';
 import { getR2Bucket } from '../../../lib/r2';
+import { requireParent } from '../../../lib/parentAuth';
+import { getCorsHeaders, handleOptions } from '../../../lib/cors';
+
+export const OPTIONS: APIRoute = async ({ request }) => {
+  return handleOptions(request, ['POST', 'OPTIONS']);
+};
 
 export const POST: APIRoute = async (context) => {
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
+
+  const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
+
   try {
     const body = await context.request.json().catch(() => ({}));
-    const { url, category_id = 'cartoons', quality = '720p' } = body;
+    const { url, category_id = 'cartoons', quality = '720p', allowed_profile_ids = ['kids_all'] } = body;
 
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       return new Response(JSON.stringify({ error: 'URL is required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const youtubeId = extractYoutubeId(url);
+    const trimmedUrl = url.trim();
+
+    // Strictly validate host
+    if (!isValidYoutubeHost(trimmedUrl)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid URL: Only youtube.com, youtu.be, and m.youtube.com URLs are permitted' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    const youtubeId = extractYoutubeId(trimmedUrl);
     if (!youtubeId) {
-      return new Response(JSON.stringify({ error: 'Could not extract YouTube ID from URL' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Could not extract valid 11-character YouTube video ID from URL' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
     }
 
-    // 1. Fetch metadata via oEmbed
-    const meta = await fetchYoutubeOembed(youtubeId);
+    const isShort = trimmedUrl.includes('/shorts/');
+    const finalCategory = isShort ? 'shorts' : category_id;
+
+    // 1. Fetch metadata via oEmbed with timeout
+    const meta = await fetchYoutubeOembed(youtubeId, 5000);
 
     // 2. Pre-cache thumbnail to R2 if available
     const r2 = await getR2Bucket(context);
     if (r2 && meta.thumbnail_url) {
       try {
-        const thumbRes = await fetch(meta.thumbnail_url);
+        const thumbRes = await fetch(meta.thumbnail_url, { signal: AbortSignal.timeout(5000) });
         if (thumbRes.ok) {
           const thumbBuffer = await thumbRes.arrayBuffer();
           await r2.put(`thumbs/${youtubeId}.webp`, thumbBuffer, {
@@ -41,43 +71,23 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    // 3. Insert or update in D1
+    // 3. Insert or update in D1 using unified helper
     const db = await getDatabase(context);
-    const now = new Date().toISOString();
-
     if (db) {
-      await db
-        .prepare(`
-          INSERT INTO videos (
-            id, title, duration, duration_formatted, category_id, source_url,
-            video_file, thumbnail_file, file_size_bytes, quality, created_at,
-            channel_name, channel_icon, status, views, watch_seconds, file_verified
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            title = excluded.title,
-            category_id = excluded.category_id,
-            status = 'pending_download'
-        `)
-        .bind(
-          youtubeId,
-          meta.title,
-          0,
-          '--:--',
-          category_id,
-          url,
-          `${youtubeId}.mp4`,
-          `${youtubeId}.webp`,
-          0,
-          quality,
-          now,
-          meta.channel_name,
-          meta.thumbnail_url,
-          'pending_download',
-          0,
-          0,
-          0
-        )
-        .run();
+      await upsertVideo(db, {
+        id: youtubeId,
+        title: meta.title,
+        duration: 0,
+        durationFormatted: '--:--',
+        categoryId: finalCategory,
+        sourceUrl: trimmedUrl,
+        channelName: meta.channel_name,
+        channelIcon: meta.thumbnail_url,
+        thumbnailUrl: meta.thumbnail_url,
+        quality,
+        status: 'pending_download',
+        allowedProfileIds: allowed_profile_ids,
+      });
     }
 
     return new Response(
@@ -87,7 +97,7 @@ export const POST: APIRoute = async (context) => {
         video: {
           id: youtubeId,
           title: meta.title,
-          category_id,
+          category_id: finalCategory,
           status: 'pending_download',
           stream_url: `https://kidsapi.waqas.pro/media/videos/${youtubeId}.mp4`,
           thumbnail_url: `https://mykidstube.kidstube.workers.dev/api/assets/thumbs/${youtubeId}.webp`,
@@ -96,13 +106,14 @@ export const POST: APIRoute = async (context) => {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   } catch (error: any) {
+    console.error('v1/ingest error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'internal_error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 };

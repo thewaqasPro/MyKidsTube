@@ -19,8 +19,8 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
   initialProfiles,
 }) => {
   const [videos, setVideos] = useState<Video[]>(initialVideos);
-  const [categories] = useState<Category[]>(initialCategories);
-  const [profiles] = useState<ChildProfile[]>(initialProfiles);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [profiles, setProfiles] = useState<ChildProfile[]>(initialProfiles);
   const [selectedProfileId, setSelectedProfileId] = useState<string>(
     initialProfiles[0]?.id || 'kids_all'
   );
@@ -191,7 +191,15 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
       const res = await fetch('/api/catalog');
       if (res.ok) {
         const data = await res.json();
-        if (data.videos) setVideos(data.videos);
+        if (data.all_videos && Array.isArray(data.all_videos)) {
+          setVideos(data.all_videos);
+        }
+        if (data.categories && Array.isArray(data.categories)) {
+          setCategories(data.categories);
+        }
+        if (data.profiles && Array.isArray(data.profiles)) {
+          setProfiles(data.profiles);
+        }
       }
     } catch {
       // ignore

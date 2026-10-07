@@ -148,54 +148,66 @@ class VideoItem {
     };
   }
 
-  factory VideoItem.fromMap(Map<String, dynamic> map) {
+  static VideoItem? fromMap(Map<String, dynamic> map) {
+    final id = map['id'];
+    if (id == null || id.toString().trim().isEmpty) return null;
+
+    final rawStatus = map['download_status'];
+    final statusIndex = rawStatus is int ? rawStatus : int.tryParse(rawStatus?.toString() ?? '0') ?? 0;
+    final downloadStatus = (statusIndex >= 0 && statusIndex < DownloadStatus.values.length)
+        ? DownloadStatus.values[statusIndex]
+        : DownloadStatus.notDownloaded;
+
     return VideoItem(
-      id: map['id'] as String,
-      title: map['title'] as String,
-      duration: map['duration'] as int? ?? 0,
-      durationFormatted: map['duration_formatted'] as String? ?? '00:00',
-      categoryId: map['category_id'] as String? ?? 'cartoons',
-      sourceUrl: map['source_url'] as String? ?? '',
-      streamUrl: map['stream_url'] as String? ?? '',
-      thumbnailUrl: map['thumbnail_url'] as String? ?? '',
-      channelName: map['channel_name'] as String?,
-      channelIconUrl: map['channel_icon_url'] as String?,
-      localFilePath: map['local_file_path'] as String?,
-      localThumbnailPath: map['local_thumbnail_path'] as String?,
-      fileSizeBytes: map['file_size_bytes'] as int? ?? 0,
-      quality: map['quality'] as String? ?? '720p',
-      downloadStatus: DownloadStatus.values[map['download_status'] as int? ?? 0],
-      status: map['status'] as String? ?? 'pending_download',
-      youtubeId: map['youtube_id'] as String?,
+      id: id.toString(),
+      title: (map['title'] ?? 'Untitled Video').toString(),
+      duration: (map['duration'] as num?)?.toInt() ?? 0,
+      durationFormatted: (map['duration_formatted'] ?? '00:00').toString(),
+      categoryId: (map['category_id'] ?? 'cartoons').toString(),
+      sourceUrl: (map['source_url'] ?? '').toString(),
+      streamUrl: (map['stream_url'] ?? '').toString(),
+      thumbnailUrl: (map['thumbnail_url'] ?? '').toString(),
+      channelName: map['channel_name']?.toString(),
+      channelIconUrl: map['channel_icon_url']?.toString(),
+      localFilePath: map['local_file_path']?.toString(),
+      localThumbnailPath: map['local_thumbnail_path']?.toString(),
+      fileSizeBytes: (map['file_size_bytes'] as num?)?.toInt() ?? 0,
+      quality: (map['quality'] ?? '720p').toString(),
+      downloadStatus: downloadStatus,
+      status: (map['status'] ?? 'pending_download').toString(),
+      youtubeId: map['youtube_id']?.toString(),
     );
   }
 
-  factory VideoItem.fromApi(Map<String, dynamic> json, {String? localPath, String? localThumb, DownloadStatus? status}) {
-    final title = json['title'] as String? ?? 'Untitled Video';
-    String? chName = json['channel_name'] as String?;
+  static VideoItem? fromApi(Map<String, dynamic> json, {String? localPath, String? localThumb, DownloadStatus? status}) {
+    final id = json['id'];
+    if (id == null || id.toString().trim().isEmpty) return null;
+
+    final title = (json['title'] ?? 'Untitled Video').toString();
+    String? chName = json['channel_name']?.toString();
     if (chName == null || chName.isEmpty) {
       if (title.contains('•')) {
         chName = title.split('•').first.trim();
       }
     }
     return VideoItem(
-      id: json['id'] as String,
+      id: id.toString(),
       title: title,
-      duration: json['duration'] as int? ?? 0,
-      durationFormatted: json['duration_formatted'] as String? ?? '00:00',
-      categoryId: json['category_id'] as String? ?? 'cartoons',
-      sourceUrl: json['source_url'] as String? ?? '',
-      streamUrl: json['stream_url'] as String? ?? '',
-      thumbnailUrl: json['thumbnail_url'] as String? ?? '',
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      durationFormatted: (json['duration_formatted'] ?? '00:00').toString(),
+      categoryId: (json['category_id'] ?? 'cartoons').toString(),
+      sourceUrl: (json['source_url'] ?? '').toString(),
+      streamUrl: (json['stream_url'] ?? '').toString(),
+      thumbnailUrl: (json['thumbnail_url'] ?? '').toString(),
       channelName: chName,
-      channelIconUrl: json['channel_icon_url'] as String?,
+      channelIconUrl: json['channel_icon_url']?.toString(),
       localFilePath: localPath,
       localThumbnailPath: localThumb,
-      fileSizeBytes: json['file_size_bytes'] as int? ?? 0,
-      quality: json['quality'] as String? ?? '720p',
+      fileSizeBytes: (json['file_size_bytes'] as num?)?.toInt() ?? 0,
+      quality: (json['quality'] ?? '720p').toString(),
       downloadStatus: status ?? DownloadStatus.notDownloaded,
-      status: json['status'] as String? ?? 'pending_download',
-      youtubeId: json['youtube_id'] as String?,
+      status: (json['status'] ?? 'pending_download').toString(),
+      youtubeId: json['youtube_id']?.toString(),
     );
   }
 }

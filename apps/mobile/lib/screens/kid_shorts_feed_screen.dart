@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
@@ -33,6 +34,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   late PageController _pageController;
   int _currentIndex = 0;
   final Map<int, VideoPlayerController> _controllers = {};
+  final Map<int, int> _controllerGeneration = {};
   final Set<int> _failedIndices = {};
 
   bool _isLocked = false;
@@ -66,16 +68,20 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
+    WakelockPlus.enable();
+
     _initControllersForWindow(_currentIndex);
   }
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _playPauseTimer?.cancel();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
     _controllers.clear();
+    _controllerGeneration.clear();
     _pageController.dispose();
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -94,6 +100,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     final keysToRemove = <int>[];
     _controllers.forEach((idx, ctrl) {
       if (!neededIndices.contains(idx)) {
+        _controllerGeneration[idx] = (_controllerGeneration[idx] ?? 0) + 1;
         ctrl.dispose();
         keysToRemove.add(idx);
       }
@@ -122,10 +129,13 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     final video = _shorts[index];
 
     final hasLocal = video.localFilePath != null && File(video.localFilePath!).existsSync();
-    // If video is not downloaded locally and status is pending sync, use KidEmbedPlayer directly
+    // If video needs embed and has no local file, skip native controller
     if (!hasLocal && video.needsEmbed) {
       return;
     }
+
+    final gen = (_controllerGeneration[index] ?? 0) + 1;
+    _controllerGeneration[index] = gen;
 
     VideoPlayerController ctrl;
     if (hasLocal) {
@@ -137,12 +147,14 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     _controllers[index] = ctrl;
 
     ctrl.initialize().then((_) {
-      if (!mounted) return;
+      if (!mounted || _controllerGeneration[index] != gen || !_controllers.containsKey(index)) {
+        return;
+      }
       ctrl.setVolume(_isMuted ? 0.0 : 1.0);
 
       // Listener for video completion / auto advance
       ctrl.addListener(() {
-        if (!mounted) return;
+        if (!mounted || _controllerGeneration[index] != gen) return;
         if (ctrl.value.isInitialized &&
             ctrl.value.position >= ctrl.value.duration &&
             ctrl.value.duration > Duration.zero) {
@@ -155,7 +167,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       }
       setState(() {});
     }).catchError((err) {
-      if (!mounted) return;
+      if (!mounted || _controllerGeneration[index] != gen) return;
       setState(() {
         _failedIndices.add(index);
       });
@@ -245,71 +257,77 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   @override
   Widget build(BuildContext context) {
     if (_shorts.isEmpty) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.movie_filter_rounded, color: KidColors.textMuted, size: 54),
-              const SizedBox(height: 16),
-              const Text('No videos in this feed', style: TextStyle(color: Colors.white, fontSize: 18)),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Back to Home'),
-              )
-            ],
+      return PopScope(
+        canPop: !_isLocked,
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.movie_filter_rounded, color: KidColors.textMuted, size: 54),
+                const SizedBox(height: 16),
+                const Text('No videos in this feed', style: TextStyle(color: Colors.white, fontSize: 18)),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Back to Home'),
+                )
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // 1. Vertical Fullscreen PageView
-          PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            physics: _isLocked ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
-            itemCount: _shorts.length,
-            onPageChanged: _onPageChanged,
-            itemBuilder: (context, index) {
-              return _buildVideoPage(index);
-            },
-          ),
+    return PopScope(
+      canPop: !_isLocked,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // 1. Vertical Fullscreen PageView
+            PageView.builder(
+              controller: _pageController,
+              scrollDirection: Axis.vertical,
+              physics: _isLocked ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+              itemCount: _shorts.length,
+              onPageChanged: _onPageChanged,
+              itemBuilder: (context, index) {
+                return _buildVideoPage(index);
+              },
+            ),
 
-          // 2. Play/Pause Big Center Indicator
-          if (_showPlayPauseIcon)
-            Center(
-              child: AnimatedOpacity(
-                opacity: _showPlayPauseIcon ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _lastActionWasPlay ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                    color: Colors.white,
-                    size: 60,
+            // 2. Play/Pause Big Center Indicator
+            if (_showPlayPauseIcon)
+              Center(
+                child: AnimatedOpacity(
+                  opacity: _showPlayPauseIcon ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _lastActionWasPlay ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                      color: Colors.white,
+                      size: 60,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-          // 3. Toddler Touch Lock Overlay
-          TouchLockOverlay(
-            isLocked: _isLocked,
-            showLockButton: false,
-            onLock: () => setState(() => _isLocked = true),
-            onUnlock: () => setState(() => _isLocked = false),
-          ),
-        ],
+            // 3. Toddler Touch Lock Overlay
+            TouchLockOverlay(
+              isLocked: _isLocked,
+              showLockButton: false,
+              onLock: () => setState(() => _isLocked = true),
+              onUnlock: () => setState(() => _isLocked = false),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -318,8 +336,12 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     final video = _shorts[index];
     final ctrl = _controllers[index];
     final isInitialized = ctrl != null && ctrl.value.isInitialized;
+    final isInitializing = ctrl != null && !ctrl.value.isInitialized;
     final isFavorite = context.watch<AppProvider>().isFavorite(video.id);
-    final isEmbed = !isInitialized && video.effectiveYoutubeId.isNotEmpty;
+    final isCurrent = index == _currentIndex;
+
+    // Only activate embed when on current visible index, not initializing, and video genuinely needs embed
+    final isEmbed = isCurrent && !isInitializing && (video.needsEmbed || _failedIndices.contains(index));
 
     return GestureDetector(
       behavior: isEmbed ? HitTestBehavior.deferToChild : HitTestBehavior.opaque,
@@ -354,15 +376,27 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                         aspectRatio: 9 / 16,
                         child: KidEmbedPlayer(
                           youtubeId: video.effectiveYoutubeId,
-                          autoPlay: index == _currentIndex,
+                          autoPlay: isCurrent,
                           aspectRatio: 9 / 16,
                         ),
                       )
                     : (_failedIndices.contains(index)
                         ? _buildShortPendingState(video)
-                        : const Center(
-                            child: CircularProgressIndicator(color: KidColors.primary),
-                          ))),
+                        : (isInitializing
+                            ? const Center(
+                                child: CircularProgressIndicator(color: KidColors.primary),
+                              )
+                            : (video.thumbnailUrl.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: video.thumbnailUrl,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) => const Center(
+                                      child: CircularProgressIndicator(color: KidColors.primary),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: CircularProgressIndicator(color: KidColors.primary),
+                                  ))))),
           ),
 
           // C. Top Navigation Bar (Back + Parent Shield)

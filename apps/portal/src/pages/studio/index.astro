@@ -1,11 +1,13 @@
 ---
 import '../../styles/global.css';
 import { StudioDashboard } from '../../components/StudioDashboard';
-import { getDbData, getStudioStats } from '../../lib/db';
+import { getDatabase, getDbData, getStudioStats } from '../../lib/db';
+import { verifyParentSession } from '../../lib/parentAuth';
 
-// Check parent authentication cookie
-const cookie = Astro.cookies.get('kidstube_parent_session');
-if (!cookie || cookie.value !== 'authenticated') {
+// Verify authentic server-side parent session
+const db = await getDatabase(Astro);
+const isAuthed = await verifyParentSession(Astro.request, db);
+if (!isAuthed) {
   return Astro.redirect('/login?redirect=/studio');
 }
 

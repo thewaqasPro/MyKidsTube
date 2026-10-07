@@ -20,16 +20,15 @@ export function getStreamUrl(video: { video_file?: string; stream_url?: string }
 }
 
 export function getChannelIconUrl(video: { channel_icon?: string; channel_icon_url?: string }): string | null {
-  if (video.channel_icon_url) return video.channel_icon_url;
-  if (!video.channel_icon) return null;
-  if (video.channel_icon.startsWith("http")) return video.channel_icon;
-  return `/api/assets/thumbs/${video.channel_icon}`;
+  const icon = video.channel_icon_url || video.channel_icon;
+  if (!icon) return null;
+  if (icon.startsWith("http")) return icon;
+  return `/api/assets/thumbs/${icon}`;
 }
 
 export function getYoutubeId(video: { id: string; youtube_id?: string }): string {
-  if (video.youtube_id) return video.youtube_id;
-  if (video.id.startsWith("short_")) return video.id.replace("short_", "");
-  return video.id;
+  const raw = video.youtube_id || video.id;
+  return raw.startsWith("short_") ? raw.replace("short_", "") : raw;
 }
 
 export function getYoutubeEmbedUrl(youtubeId: string, autoplay: boolean = true): string {

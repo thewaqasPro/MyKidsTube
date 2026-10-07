@@ -133,7 +133,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
 
         <div className="text-[11px] text-[#777777] flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Default Parent PIN is <strong className="text-white">1234</strong></span>
+          <span>Protected parental management session</span>
         </div>
       </div>
     </div>

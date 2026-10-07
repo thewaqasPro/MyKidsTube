@@ -1,207 +1,147 @@
 # KidsTube: REST API Reference
 
-The backend exposes a lightweight, standard REST API on port `8080` (fronted by Nginx) or `8000` (FastAPI direct).
+The KidsTube API is hosted on Cloudflare Workers / Pages Edge runtime backed by Cloudflare D1 SQL database and Cloudflare R2 storage, with media binary files served by an optimized Nginx instance running on the storage host.
 
-Base URL: `http://<SERVER_HOST>:8080/api/v1`
+- **Cloudflare API Base URL:** `https://mykidstube.kidstube.workers.dev/api`
+- **Media Host Base URL:** `https://<VPS_HOST>/media/videos/` and `/media/thumbs/`
+- **Reverse Proxy Route (Optional):** `https://<VPS_HOST>/api/` (proxied transparently to Cloudflare Worker)
 
 ---
 
-## 1. System & Health
+## 1. Authentication & Security Model
 
-### `GET /api/v1/health`
-Check if the backend server is reachable.
+KidsTube enforces strict separation between parent administrative operations and device consumption:
+
+1. **Parent Administration:**
+   - Parent APIs require an active session verified via the `kidstube_parent_session` cookie.
+   - Sessions are 256-bit cryptographically random tokens stored as SHA-256 hashes in D1 `parent_sessions` with 24-hour expiration.
+   - Unauthenticated or expired requests receive `401 Unauthorized`.
+
+2. **Mobile Device Access:**
+   - Paired devices authenticate using a bearer token issued during the 6-digit pairing handshake: `Authorization: Bearer <device_auth_token>`.
+   - Device pairing codes expire after 10 minutes and are single-use.
+
+3. **CORS & Rate Limiting:**
+   - State-changing APIs enforce strict CORS and reject unauthorized cross-origin requests.
+   - Pairing and sensitive endpoints are rate-limited to 10 requests per minute per IP.
+
+---
+
+## 2. Parent Authentication & Session
+
+### `POST /api/auth/login`
+Authenticates a parent using their PIN and sets a secure HttpOnly session cookie.
+- **Request Body:**
+  ```json
+  {
+    "pin": "1234"
+  }
+  ```
 - **Response `200 OK`:**
   ```json
   {
-    "status": "ok",
-    "service": "KidsTube Multi-User Media Server"
+    "success": true,
+    "message": "Authenticated successfully"
+  }
+  ```
+- **Response Headers:**
+  `Set-Cookie: kidstube_parent_session=<token>; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`
+
+### `POST /api/auth/logout`
+Terminates the parent session, revoking the token in D1 and clearing the cookie.
+- **Response `200 OK`:**
+  ```json
+  {
+    "success": true
   }
   ```
 
 ---
 
-## 2. Media Catalog
+## 3. Media Catalog & Profiles
 
 ### `GET /api/v1/catalog`
-Fetches all categories and videos. Optionally filter by child profile.
-
+Fetches all categories and videos. Filterable by child profile.
 - **Query Parameters:**
-  - `profile_id` (optional, string): If provided, returns only videos curated for this specific child profile.
+  - `profile_id` (optional, string): Filters videos assigned to this child profile.
+- **Headers:**
+  - `Cache-Control: private, max-age=60`
 - **Response `200 OK`:**
   ```json
   {
-    "server_time": "2026-10-05T20:30:00.000000",
+    "server_time": "2026-10-07T12:00:00.000Z",
     "profile_id": "all",
     "total_videos": 12,
-    "sections": [
-      {
-        "category": {
-          "id": "cartoons",
-          "name": "Cartoons",
-          "icon": "tv",
-          "display_order": 1
-        },
-        "videos": [
-          {
-            "id": "a1b2c3d4",
-            "title": "Sample Cartoon Episode 1",
-            "duration": 600,
-            "duration_formatted": "10:00",
-            "category_id": "cartoons",
-            "source_url": "https://youtube.com/watch?v=...",
-            "video_file": "a1b2c3d4.mp4",
-            "thumbnail_file": "a1b2c3d4.webp",
-            "stream_url": "http://SERVER_HOST:8080/media/videos/a1b2c3d4.mp4",
-            "thumbnail_url": "http://SERVER_HOST:8080/media/thumbs/a1b2c3d4.webp",
-            "file_size_bytes": 84500000,
-            "quality": "720p"
-          }
-        ]
-      }
-    ],
+    "sections": [...],
     "all_videos": [...]
   }
   ```
 
----
-
-## 3. Video Ingestion & Tasks
-
-### `POST /api/v1/ingest`
-Queues a video URL for background downloading and transcoding.
-- **Request Body:**
-  ```json
-  {
-    "url": "https://www.youtube.com/watch?v=example",
-    "category_id": "cartoons",
-    "quality": "720p",
-    "allowed_profile_ids": ["kids_all", "kids_toddler"]
-  }
-  ```
-- **Response `200 OK`:**
-  ```json
-  {
-    "status": "queued",
-    "task_id": "task_4a1b",
-    "message": "Video queued for download and transcoding"
-  }
-  ```
-
-### `GET /api/v1/tasks`
-Lists active and recently completed download/transcoding jobs.
-- **Response `200 OK`:**
-  ```json
-  [
-    {
-      "task_id": "task_4a1b",
-      "url": "https://www.youtube.com/watch?v=example",
-      "status": "downloading",
-      "progress": 68.4,
-      "speed": "2.4 MB/s",
-      "eta": "12s",
-      "title": "Sample Video Title",
-      "error_message": "",
-      "result": null
-    }
-  ]
-  ```
-
-### `DELETE /api/v1/videos/{video_id}`
-Deletes a video, its thumbnail file from disk, and removes database records.
+### `GET /api/v1/profiles`
+Returns all child profiles for the family account.
+- **Headers:**
+  - `Cache-Control: private, max-age=60`
 
 ---
 
-## 4. Device Registration & 6-Digit Pairing
+## 4. Device Registration & Pairing
 
 ### `POST /api/v1/devices/register`
-Called by a new tablet/phone to obtain a 6-digit pairing code.
+Called by mobile device on fresh install to request a 6-digit pairing code.
 - **Request Body:**
   ```json
   {
-    "device_name": "Living Room Tablet"
+    "device_name": "Kids Tablet"
   }
   ```
 - **Response `200 OK`:**
   ```json
   {
-    "device_id": "dev_9x8y7z",
-    "device_name": "Living Room Tablet",
-    "pairing_code": "KID-482",
-    "status": "pending"
+    "device_id": "3f48a1...uuid",
+    "device_name": "Kids Tablet",
+    "pairing_code": "842915",
+    "status": "pending",
+    "expires_at": "2026-10-07T12:10:00.000Z"
   }
   ```
 
 ### `GET /api/v1/devices/status/{pairing_code}`
-Polled by the mobile device every 2–3 seconds while displaying the pairing screen.
+Polled by the mobile device while awaiting parent authorization. Rate-limited (10 req/min).
 - **Response (Pending):**
   ```json
   {
-    "device_id": "dev_9x8y7z",
     "status": "pending",
-    "pairing_code": "KID-482"
+    "pairing_code": "842915"
   }
   ```
-- **Response (Once Paired by Parent):**
+- **Response (Paired - One-Time Token Delivery):**
   ```json
   {
-    "device_id": "dev_9x8y7z",
     "status": "paired",
-    "pairing_code": "KID-482",
-    "auth_token": "tok_abcdef123456",
-    "family_id": "default_family",
-    "profile": {
-      "id": "profile_maya",
-      "name": "Maya",
-      "avatar_icon": "bear",
-      "age_bracket": "toddler"
-    }
+    "auth_token": "dev_tok_random64hex...",
+    "profile_id": "profile_maya",
+    "profile_name": "Maya"
   }
   ```
 
-### `POST /api/v1/devices/pair`
-Called by the Parent Web Dashboard to authorize a device.
+### `POST /api/v1/devices/pair` (Requires Parent Session)
+Called from the parent portal to bind the device to a profile.
 - **Request Body:**
   ```json
   {
-    "pairing_code": "KID-482",
-    "profile_id": "profile_maya",
-    "family_id": "default_family"
+    "pairing_code": "842915",
+    "profile_id": "profile_maya"
   }
   ```
-
-### `GET /api/v1/devices`
-Lists all active paired devices.
 
 ---
 
-## 5. Child Profiles
+## 5. Studio & Queue Management (Requires Parent Session)
 
-### `GET /api/v1/profiles`
-Returns all child profiles for the family.
-- **Response `200 OK`:**
-  ```json
-  [
-    {
-      "id": "profile_maya",
-      "family_id": "default_family",
-      "name": "Maya",
-      "avatar_icon": "bear",
-      "age_bracket": "toddler"
-    }
-  ]
-  ```
-
-### `POST /api/v1/profiles`
-Creates a new child profile.
-- **Request Body:**
-  ```json
-  {
-    "name": "Noah",
-    "avatar_icon": "rocket",
-    "age_bracket": "big_kid",
-    "family_id": "default_family"
-  }
-  ```
-
-### `DELETE /api/v1/profiles/{profile_id}`
-Removes a child profile and its video permissions.
+- `GET /api/studio/videos`: List all catalog videos with curation metadata.
+- `PATCH /api/studio/videos`: Update video title, category, or status.
+- `DELETE /api/studio/videos?id={id}`: Remove video from catalog.
+- `GET /api/studio/stats`: Returns library counts, pending queue stats, and storage metrics.
+- `GET /api/studio/devices`: Returns real paired device list.
+- `POST /api/queue/add`: Add YouTube URLs to ingest queue (max 20 URLs per batch, parent-authed).
+- `GET /api/queue/pending`: Returns links.txt for batch processing script.

@@ -278,6 +278,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                       src={embedUrl}
                       title={video.title}
                       className="w-full h-full border-0 pointer-events-auto"
+                      sandbox="allow-scripts allow-same-origin allow-presentation"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
@@ -359,16 +360,27 @@ export const WatchPage: React.FC<WatchPageProps> = ({
                   </div>
                 </div>
 
-                {/* Video Description Box */}
+                {/* Video Description Box & Privacy Transparency */}
                 <div className="mt-4 p-4 rounded-2xl bg-[#1C1C1C] border border-[#2A2A2A] text-[13px] text-[#CCCCCC] leading-relaxed">
                   <div className="flex items-center gap-3 font-semibold text-white mb-2">
-                    <span>{video.views || 0} safe views</span>
+                    <span>{video.views || 0} views</span>
                     <span>•</span>
                     <span>Category: {video.category_id}</span>
                   </div>
-                  <p className="line-clamp-3">
-                    Curated for young children. 100% ad-free, secure, and monitored by parental controls.
+                  <p>
+                    Curated content managed through parental controls.
                   </p>
+                  <div className="mt-2.5 pt-2.5 border-t border-[#2A2A2A] text-[11px] text-[#999999]">
+                    {selfHostedAvailable ? (
+                      <span className="text-emerald-400 font-medium">
+                        🛡️ Self-Hosted Stream: Playing from your verified private storage. Zero external telemetry sent to Google.
+                      </span>
+                    ) : (
+                      <span>
+                        ℹ️ <strong>Privacy Notice:</strong> Playing via YouTube Privacy-Enhanced Mode (nocookie). Google receives standard request metadata (IP address, user agent, video ID) when streaming YouTube embeds. Self-hosted local/VPS playback is preferred once files are verified.
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

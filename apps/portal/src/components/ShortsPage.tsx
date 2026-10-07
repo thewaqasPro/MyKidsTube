@@ -194,7 +194,7 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
     } else if (iframeRef.current && iframeRef.current.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
         JSON.stringify({ event: 'command', func: 'seekTo', args: [newTime, true] }),
-        '*'
+        'https://www.youtube-nocookie.com'
       );
     }
   };
@@ -294,6 +294,7 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
                     src={embedUrl}
                     title={currentShort.title}
                     className="w-full h-full border-0 pointer-events-auto"
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
