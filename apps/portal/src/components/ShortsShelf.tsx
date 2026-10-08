@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Video } from '../types/video';
 import { getThumbnailUrl } from '../lib/constants';
-import { Play } from 'lucide-react';
+import { Play, Zap } from 'lucide-react';
 
 interface ShortsShelfProps {
   shorts: Video[];
@@ -12,20 +12,27 @@ export const ShortsShelf: React.FC<ShortsShelfProps> = ({ shorts, onPlayShort })
   if (!shorts || shorts.length === 0) return null;
 
   return (
-    <section className="my-6 px-4 sm:px-6">
+    <section className="my-8 px-4 sm:px-6">
       {/* Header */}
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#FF0000] text-white">
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-            <path d="M17.77 10.32l-1.2-.5a3.86 3.86 0 00-.77-.24l1.43-.84a4.42 4.42 0 001.62-5.91 4.5 4.5 0 00-6.1-1.62l-7.2 4.22a4.42 4.42 0 00-1.62 5.91 4.5 4.5 0 006.1 1.62l1.2.5.77.24-1.43.84a4.42 4.42 0 00-1.62 5.91 4.5 4.5 0 006.1 1.62l7.2-4.22a4.42 4.42 0 001.62-5.91 4.5 4.5 0 00-6.1-1.62zM10 14.5v-5l4.5 2.5-4.5 2.5z" />
-          </svg>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#FF5E62] to-[#FFB300] text-white shadow-md shadow-[#FF5E62]/30 -rotate-3 hover:rotate-0 transition-transform">
+            <Zap className="w-5 h-5 fill-current" />
+          </div>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-display font-black text-white tracking-wide flex items-center gap-2">
+              Fun Reels
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#FF5E62]/20 text-[#FF5E62] border border-[#FF5E62]/30 font-sans font-bold">
+                Quick Bites
+              </span>
+            </h2>
+            <p className="text-xs text-[#94A3B8] font-medium">Bite-sized smiles and mini adventures</p>
+          </div>
         </div>
-        <h2 className="text-[19px] font-bold text-white tracking-tight">Shorts</h2>
-        <span className="text-[12px] text-[#AAAAAA] ml-1">Quick & fun clips</span>
       </div>
 
       {/* Horizontal Scroll Shelf */}
-      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
+      <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
         {shorts.map((short) => (
           <ShortCard key={short.id} short={short} onPlay={onPlayShort} />
         ))}
@@ -41,7 +48,7 @@ const ShortCard: React.FC<{ short: Video; onPlay: (s: Video) => void }> = ({ sho
   return (
     <a
       href={`/shorts?v=${short.id}`}
-      className="group relative flex-none w-[160px] sm:w-[185px] aspect-[9/16] rounded-2xl overflow-hidden bg-[#202020] cursor-pointer select-none border border-[#262626] hover:border-[#383838] transition-all hover:scale-[1.02] active:scale-[0.98] text-inherit no-underline"
+      className="group relative flex-none w-[165px] sm:w-[195px] aspect-[9/16] rounded-[24px] overflow-hidden bg-[#151D33] cursor-pointer select-none border-2 border-[#1E294B] hover:border-[#FF5E62] transition-all duration-300 hover:shadow-xl hover:shadow-[#FF5E62]/20 hover:-translate-y-1 text-inherit no-underline"
     >
       {!imgErr ? (
         <img
@@ -49,26 +56,27 @@ const ShortCard: React.FC<{ short: Video; onPlay: (s: Video) => void }> = ({ sho
           alt={short.title}
           loading="lazy"
           onError={() => setImgErr(true)}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-[#1c1c1c] text-[#717171]">
-          <Play className="w-8 h-8 opacity-40 text-white" />
+        <div className="w-full h-full flex flex-col items-center justify-center bg-[#151D33] text-[#64748B]">
+          <Play className="w-10 h-10 opacity-60 text-[#FF5E62]" />
         </div>
       )}
 
-      {/* Dark Gradient Overlay for Readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-3 pointer-events-none">
-        <h4 className="text-[13px] font-medium text-white line-clamp-2 leading-tight drop-shadow-sm">
+      {/* Play Hover Overlay Bubble */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F19]/95 via-[#0B0F19]/30 to-transparent flex flex-col justify-end p-3.5 pointer-events-none">
+        <h4 className="text-[13px] font-bold text-white line-clamp-2 leading-snug drop-shadow-sm group-hover:text-[#FFB300] transition-colors">
           {short.title}
         </h4>
-        <span className="text-[11px] text-[#DDDDDD] mt-1 font-normal opacity-90 truncate">
-          {short.channel_name || 'KidsTube Short'}
+        <span className="text-[11px] text-[#94A3B8] mt-1 font-semibold truncate flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
+          {short.channel_name || 'WonderKids Channel'}
         </span>
       </div>
 
       {/* Duration Pill */}
-      <div className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded bg-black/70 text-[10px] font-bold text-white">
+      <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-[#0B0F19]/80 backdrop-blur-md border border-white/10 text-[10px] font-black text-white shadow-sm">
         {short.duration_formatted || '00:30'}
       </div>
     </a>

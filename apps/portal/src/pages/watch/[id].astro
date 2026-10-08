@@ -36,20 +36,20 @@ const relatedVideos = allVideos.filter((v) => v.id !== video.id && !isVideoShort
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{video.title} • KidsTube</title>
+    <title>{video.title} • MyKidsTube</title>
     <meta
       name="description"
-      content={`Watch ${video.title} on KidsTube. Curated safe video streaming for children.`}
+      content={`Watch ${video.title} on MyKidsTube. Safe, curated video streaming for children.`}
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body class="bg-[#0F0F0F] text-[#F1F1F1] antialiased">
+  <body class="bg-[#0D1322] text-[#FFFFFF] antialiased font-sans">
     <WatchPage
       client:load
       video={video}

@@ -248,7 +248,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
                 height: 32,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Color(0xFFFF0000),
+                  color: KidColors.primary,
                 ),
               ),
             ),

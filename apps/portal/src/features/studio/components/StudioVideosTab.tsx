@@ -116,7 +116,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
 
           <a
             href="/upload"
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#FF0000] hover:bg-[#CC0000] text-white text-[12px] font-semibold rounded-xl transition-colors shrink-0 shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] hover:from-[#FF8E53] hover:to-[#FF5E62] text-white text-xs font-display font-black rounded-full transition-all shrink-0 shadow-md shadow-[#FF5E62]/20 no-underline active:scale-95 border border-white/10"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Video</span>

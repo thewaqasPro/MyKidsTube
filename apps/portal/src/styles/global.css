@@ -1,37 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap');
+@import "./design-tokens.css";
 @import "tailwindcss";
 
-:root {
-  --color-brand: #FF0000;
-  --color-bg-canvas: #0F0F0F;
-  --color-bg-surface: #272727;
-  --color-bg-hover: #383838;
-  --color-border: #303030;
-  --color-text-primary: #F1F1F1;
-  --color-text-secondary: #AAAAAA;
-}
-
 body {
-  background-color: #0F0F0F;
-  color: #F1F1F1;
-  font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: var(--wonder-bg-canvas);
+  color: var(--wonder-text-primary);
+  font-family: var(--wonder-font-body);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-/* Custom scrollbars to look like YouTube */
+/* Display font class for joyful headers, logos, badges */
+.font-display {
+  font-family: var(--wonder-font-display);
+}
+
+/* Custom Kid-Friendly Chunky Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0F0F0F;
+  background: var(--wonder-bg-canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #383838;
-  border-radius: 4px;
+  background: #243052;
+  border-radius: 9999px;
+  border: 2px solid var(--wonder-bg-canvas);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555555;
+  background: var(--wonder-sky);
+}
+
+/* Playful Tactile 3D Buttons */
+.btn-tactile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  font-family: var(--wonder-font-display);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-tactile:active {
+  transform: translateY(3px);
+  box-shadow: none !important;
+}
+
+.btn-tactile-coral {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF5E62 100%);
+  color: white;
+  box-shadow: 0 4px 0 0 #D93B3E;
+}
+
+.btn-tactile-sky {
+  background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
+  color: white;
+  box-shadow: 0 4px 0 0 #0369A1;
+}
+
+.btn-tactile-sun {
+  background: linear-gradient(135deg, #FBBF24 0%, #FFB300 100%);
+  color: #1E1B4B;
+  box-shadow: 0 4px 0 0 #D97706;
+}
+
+.btn-tactile-mint {
+  background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+  color: white;
+  box-shadow: 0 4px 0 0 #047857;
+}
+
+.btn-tactile-violet {
+  background: linear-gradient(135deg, #C084FC 0%, #A855F7 100%);
+  color: white;
+  box-shadow: 0 4px 0 0 #7E22CE;
+}
+
+/* Card Hover Pop Easing */
+.card-hover-pop {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+}
+
+.card-hover-pop:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 12px 24px -8px rgba(56, 189, 248, 0.18);
 }

@@ -1,0 +1,56 @@
+/* ==========================================================================
+   WonderKids Design Tokens: Custom Kid-Friendly Design System
+   ========================================================================== */
+
+:root {
+  /* 1. Canvas & Atmospheric Night Fort */
+  --wonder-bg-deep: #080C16;
+  --wonder-bg-canvas: #0D1322;
+  --wonder-bg-surface: #151D33;
+  --wonder-bg-elevated: #1D2845;
+  --wonder-bg-card: #151D33;
+  --wonder-bg-card-hover: #1D2845;
+  --wonder-bg-glass: rgba(21, 29, 51, 0.85);
+
+  /* 2. Playful Domain Accents */
+  --wonder-coral: #FF5E62;
+  --wonder-coral-hover: #FF4757;
+  --wonder-sun: #FFB300;
+  --wonder-sun-hover: #FFA000;
+  --wonder-sky: #38BDF8;
+  --wonder-sky-hover: #0EA5E9;
+  --wonder-mint: #10B981;
+  --wonder-mint-hover: #059669;
+  --wonder-violet: #A855F7;
+  --wonder-violet-hover: #9333EA;
+  --wonder-bubblegum: #F472B6;
+  --wonder-bubblegum-hover: #EC4899;
+
+  /* 3. Text & Readability */
+  --wonder-text-primary: #FFFFFF;
+  --wonder-text-secondary: #94A3B8;
+  --wonder-text-muted: #64748B;
+  --wonder-text-dark: #0D1322;
+
+  /* 4. Borders & Glows */
+  --wonder-border: #243052;
+  --wonder-border-subtle: rgba(255, 255, 255, 0.08);
+  --wonder-border-glow: rgba(56, 189, 248, 0.3);
+
+  /* 5. Radii & Physical Shapes */
+  --wonder-radius-card: 22px;
+  --wonder-radius-pill: 9999px;
+  --wonder-radius-button: 16px;
+
+  /* 6. Tactile 3D Shadows (Chunky Buttons) */
+  --wonder-shadow-tactile: 0 4px 0 0 #0D152A;
+  --wonder-shadow-coral: 0 4px 0 0 #D93B3E;
+  --wonder-shadow-sun: 0 4px 0 0 #D98200;
+  --wonder-shadow-sky: 0 4px 0 0 #0284C7;
+  --wonder-shadow-mint: 0 4px 0 0 #047857;
+  --wonder-shadow-violet: 0 4px 0 0 #7E22CE;
+
+  /* 7. Typography */
+  --wonder-font-display: 'Fredoka', cursive, sans-serif;
+  --wonder-font-body: 'Nunito', sans-serif;
+}

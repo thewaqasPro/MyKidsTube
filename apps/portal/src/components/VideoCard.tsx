@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { Video } from '../types/video';
-import { getThumbnailUrl, getChannelIconUrl, isVideoShort } from '../lib/constants';
-import { Play, Heart } from 'lucide-react';
+import type { Video } from '@/types/video';
+import { getThumbnailUrl, getChannelIconUrl, isVideoShort } from '@/lib/constants';
+import { Play, Heart, ShieldCheck } from 'lucide-react';
 
 interface VideoCardProps {
   video: Video;
@@ -28,10 +28,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   return (
     <a
       href={isVideoShort(video) ? `/shorts?v=${video.id}` : `/watch/${video.id}`}
-      className="group flex flex-col cursor-pointer select-none transition-transform duration-150 active:scale-[0.99] text-inherit no-underline"
+      className="group flex flex-col cursor-pointer select-none no-underline transition-all duration-200 card-hover-pop"
     >
-      {/* 16:9 Thumbnail Container */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-[#202020] border border-[#222222]">
+      {/* 16:9 Thumbnail Container with WonderKids 20px Rounded Frame */}
+      <div className="relative aspect-video w-full overflow-hidden rounded-[20px] bg-[#151D33] border border-[#243052] shadow-sm group-hover:border-[#38BDF8]/40 transition-colors">
         {!imgError ? (
           <img
             src={thumbUrl}
@@ -41,54 +41,54 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-[#1c1c1c] text-[#717171]">
-            <Play className="w-10 h-10 opacity-30 text-white" />
-            <span className="text-[11px] mt-1 font-medium">Safe Video</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-[#151D33] text-[#64748B]">
+            <Play className="w-10 h-10 opacity-40 text-[#38BDF8]" />
+            <span className="text-[12px] mt-1 font-display font-medium text-[#94A3B8]">Safe Video</span>
           </div>
         )}
 
-        {/* Favorite Heart Button (Top Right) */}
+        {/* Favorite Heart Button with Playful Pop */}
         {onToggleFavorite && (
           <button
             onClick={(e) => onToggleFavorite(video.id, e)}
             title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-            className={`absolute top-2 right-2 p-1.5 rounded-full bg-black/60 backdrop-blur-md transition-all ${
+            className={`absolute top-2.5 right-2.5 p-2 rounded-full bg-[#0B0F19]/75 backdrop-blur-md transition-all cursor-pointer ${
               isFavorite
-                ? 'opacity-100 text-[#FF0000]'
-                : 'opacity-0 group-hover:opacity-100 text-white hover:text-[#FF4E45] hover:bg-black/80'
+                ? 'opacity-100 text-[#FF5E62] scale-110'
+                : 'opacity-0 group-hover:opacity-100 text-white/80 hover:text-[#FF5E62] hover:scale-110'
             }`}
           >
-            <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
+            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
           </button>
         )}
 
-        {/* Hover Overlay Play Icon */}
-        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-          <div className="w-12 h-12 rounded-full bg-[#FF0000]/90 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-            <Play className="w-5 h-5 fill-current ml-0.5" />
+        {/* Playful Floating Play Bubble on Hover */}
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+          <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#FF5E62] to-[#FFA000] text-white flex items-center justify-center shadow-lg shadow-[#FF5E62]/40 transform scale-90 group-hover:scale-100 transition-transform">
+            <Play className="w-6 h-6 fill-current ml-0.5" />
           </div>
         </div>
 
-        {/* Duration Badge */}
-        <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[11px] font-bold text-white tracking-wide">
+        {/* Duration Badge Pill */}
+        <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-full bg-[#0B0F19]/85 backdrop-blur-md border border-white/10 text-[11px] font-bold text-white tracking-wide font-mono">
           {video.duration_formatted || '03:00'}
         </div>
       </div>
 
       {/* Info Section */}
-      <div className="flex gap-3 pt-3 pb-1">
-        {/* Channel Avatar (36x36px) */}
-        <div className="shrink-0">
+      <div className="flex gap-3 pt-3.5 pb-1">
+        {/* Channel Avatar with Cheerful Ring */}
+        <div className="shrink-0 mt-0.5">
           {avatarUrl && !avatarError ? (
             <img
               src={avatarUrl}
               alt={cleanChannelName}
               loading="lazy"
               onError={() => setAvatarError(true)}
-              className="w-9 h-9 rounded-full object-cover bg-[#2a2a2a] border border-[#333333]"
+              className="w-9 h-9 rounded-full object-cover bg-[#151D33] ring-2 ring-[#38BDF8]/40 ring-offset-2 ring-offset-[#0D1322]"
             />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white text-[13px] font-bold">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF5E62] to-[#FFA000] flex items-center justify-center text-white text-[13px] font-display font-bold shadow-sm ring-2 ring-[#FF5E62]/30 ring-offset-2 ring-offset-[#0D1322]">
               {cleanChannelName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -97,20 +97,23 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         {/* Title & Metadata */}
         <div className="flex flex-col min-w-0 flex-1">
           <h3
-            className="text-[14px] font-medium leading-snug text-[#F1F1F1] group-hover:text-white line-clamp-2"
+            className="text-[14.5px] font-bold leading-snug text-white group-hover:text-[#38BDF8] line-clamp-2 transition-colors"
             title={video.title}
           >
             {cleanTitle || video.title}
           </h3>
 
-          <div className="mt-1 flex flex-col text-[12px] text-[#AAAAAA]">
-            <span className="truncate hover:text-[#F1F1F1] transition-colors">
+          <div className="mt-1 flex flex-col text-[12px] text-[#94A3B8]">
+            <span className="truncate hover:text-white transition-colors font-medium">
               {cleanChannelName}
             </span>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#888888] mt-0.5">
-              <span>Verified Safe</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#64748B] mt-0.5 font-medium">
+              <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
+                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                Kid Safe
+              </span>
               <span>•</span>
-              <span>HD 720p</span>
+              <span>HD</span>
             </div>
           </div>
         </div>

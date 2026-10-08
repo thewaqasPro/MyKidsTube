@@ -182,7 +182,7 @@ class VideoCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(Icons.bolt_rounded, color: Colors.red, size: 14),
+                        const Icon(Icons.bolt_rounded, color: KidColors.coral, size: 14),
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
@@ -365,7 +365,7 @@ class VideoCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.9),
+                      color: KidColors.coral.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: const Row(
@@ -514,7 +514,7 @@ class VideoCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: video.isShort ? Colors.red.withValues(alpha: 0.9) : KidColors.durationBadgeBg,
+                  color: video.isShort ? KidColors.coral.withValues(alpha: 0.9) : KidColors.durationBadgeBg,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(

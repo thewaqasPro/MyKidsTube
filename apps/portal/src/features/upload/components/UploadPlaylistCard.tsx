@@ -244,7 +244,7 @@ export const UploadPlaylistCard: React.FC<UploadPlaylistCardProps> = ({
             type="button"
             disabled={isImportingPlaylist || selectedIds.size === 0}
             onClick={handleImportSelected}
-            className="w-full h-11 bg-[#FF0000] hover:bg-[#E00000] disabled:opacity-50 text-white font-semibold text-[14px] rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full h-12 bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] hover:from-[#FF8E53] hover:to-[#FF5E62] disabled:opacity-50 text-white font-display font-black text-sm rounded-2xl shadow-lg shadow-[#FF5E62]/20 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95 border border-white/10"
           >
             {isImportingPlaylist ? (
               <>

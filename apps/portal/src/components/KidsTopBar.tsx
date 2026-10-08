@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Menu, Play, Search, Mic, Plus, Tv, Lock, X } from 'lucide-react';
-import type { ChildProfile } from '../types/video';
+import { Menu, Sparkles, Search, Plus, ShieldCheck, Lock, X } from 'lucide-react';
+import type { ChildProfile } from '@/types/video';
 
 export interface KidsTopBarProps {
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   onToggleSidebar?: () => void;
-  badgeText?: string; // e.g. "Safe", "Shorts", "Kids"
+  badgeText?: string;
   tapToNextEnabled?: boolean;
   onToggleTapToNext?: () => void;
   profiles?: ChildProfile[];
@@ -43,119 +43,122 @@ export const KidsTopBar: React.FC<KidsTopBarProps> = ({
     }
   };
 
+  const selectedProfile = profiles.find((p) => p.id === selectedProfileId);
+
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-between h-14 px-3 sm:px-6 bg-[#0F0F0F] border-b border-[#222222] select-none">
-      {/* 1. Left: Hamburger Menu & Brand Logo */}
+    <header className="sticky top-0 z-50 flex items-center justify-between h-16 px-3 sm:px-6 bg-[#0B0F19]/90 backdrop-blur-md border-b border-[#1E294B] select-none shadow-sm">
+      {/* 1. Left: Hamburger Menu & Bespoke WonderKids Logo */}
       <div className="flex items-center gap-2 sm:gap-3">
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
             aria-label="Toggle navigation sidebar"
-            className="p-2 -ml-1 rounded-full text-[#AAAAAA] hover:text-white hover:bg-[#222222] transition-colors cursor-pointer"
+            className="p-2 -ml-1 rounded-2xl text-[#94A3B8] hover:text-white hover:bg-[#151D33] transition-all cursor-pointer"
             title="Toggle Sidebar"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
-        <a href="/" className="flex items-center gap-2 group select-none">
-          <div className="flex items-center justify-center w-7 h-5 sm:w-8 sm:h-6 bg-[#FF0000] rounded-lg shadow-sm group-hover:scale-105 transition-transform">
-            <Play className="w-3.5 h-3.5 text-white fill-current ml-0.5" />
-          </div>
-          <div className="flex items-center">
-            <span className="text-[17px] sm:text-[18px] font-bold tracking-tight text-white font-sans">
-              Kids<span className="text-[#FF0000]">Tube</span>
+        <a href="/" className="flex items-center gap-2.5 group select-none">
+          {/* Custom Joyful Mascot Emblem (Curved TV with Star) */}
+          <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-[#FF5E62] via-[#FF8A65] to-[#FFA000] rounded-2xl shadow-md shadow-[#FF5E62]/25 group-hover:scale-105 group-hover:rotate-2 transition-all">
+            <Sparkles className="w-5 h-5 text-white fill-current" />
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFA000] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FFB300]" />
             </span>
-            <span className="ml-1.5 px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider bg-[#FF0000]/15 text-[#FF0000] rounded border border-[#FF0000]/30">
-              {badgeText}
+          </div>
+
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className="font-display text-[19px] sm:text-[21px] font-bold tracking-tight text-white leading-none">
+                MyKids<span className="text-[#38BDF8]">Tube</span>
+              </span>
+              <span className="px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wider bg-[#38BDF8]/15 text-[#38BDF8] rounded-full border border-[#38BDF8]/30">
+                {badgeText}
+              </span>
+            </div>
+            <span className="text-[10px] font-semibold text-[#64748B] hidden sm:block tracking-wide">
+              100% Curated &amp; Safe
             </span>
           </div>
         </a>
       </div>
 
-      {/* 2. Center: Authentic YouTube Search Bar + Voice Mic Button */}
+      {/* 2. Center: Friendly Search Bubble with Soft Glow */}
       <div className="flex-1 max-w-xl mx-4 sm:mx-8 hidden sm:flex items-center justify-center">
         <form onSubmit={handleSearchSubmit} className="flex items-center w-full max-w-md">
-          <div className="relative flex-1 flex items-center bg-[#121212] border border-[#303030] rounded-l-full focus-within:border-[#1C62B9] transition-colors">
+          <div className="relative flex-1 flex items-center bg-[#151D33] border border-[#243052] rounded-full focus-within:border-[#38BDF8] focus-within:shadow-[0_0_15px_rgba(56,189,248,0.25)] transition-all">
+            <Search className="w-4 h-4 text-[#64748B] ml-3.5 shrink-0" />
             <input
               type="text"
               value={localQuery}
               onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Search safe kids videos & songs..."
-              className="w-full h-9 pl-4 pr-8 bg-transparent text-[13px] text-white placeholder-[#717171] outline-none"
+              placeholder="Search fun cartoons, songs, or games... ✨"
+              className="w-full h-10 pl-2.5 pr-8 bg-transparent text-[13.5px] text-white placeholder-[#64748B] outline-none font-medium"
             />
             {localQuery && (
               <button
                 type="button"
                 onClick={() => handleQueryChange('')}
-                className="absolute right-2.5 text-[#888888] hover:text-white p-1"
+                className="absolute right-3 text-[#94A3B8] hover:text-white p-1 rounded-full hover:bg-white/10"
                 title="Clear"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
-          <button
-            type="submit"
-            className="h-9 px-5 flex items-center justify-center bg-[#222222] hover:bg-[#272727] border-y border-r border-[#303030] rounded-r-full text-[#AAAAAA] hover:text-white transition-colors cursor-pointer"
-            title="Search"
-          >
-            <Search className="w-4 h-4" />
-          </button>
         </form>
-
-        <button
-          type="button"
-          className="ml-2.5 p-2.5 rounded-full bg-[#181818] hover:bg-[#272727] text-[#AAAAAA] hover:text-white transition-colors cursor-pointer shrink-0"
-          title="Search with voice"
-        >
-          <Mic className="w-4 h-4" />
-        </button>
       </div>
 
-      {/* 3. Right: Action Buttons, Kid Lock & Avatar */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
-        {/* Optional Touch-to-Next Kid Shield Switch */}
+      {/* 3. Right: Tactile Buttons, Parent Lock & Profile Switcher */}
+      <div className="flex items-center gap-2 sm:gap-3">
         {onToggleTapToNext && (
           <button
             onClick={onToggleTapToNext}
-            className={`flex items-center gap-1.5 h-8.5 px-3 rounded-full text-[12px] font-medium border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[12px] font-bold border transition-all cursor-pointer ${
               tapToNextEnabled
-                ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800'
-                : 'bg-[#222222] text-[#888888] border-[#333333]'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                : 'bg-[#151D33] text-[#94A3B8] border-[#243052]'
             }`}
-            title={tapToNextEnabled ? 'Touch-to-Next: ON (Touching screen advances video)' : 'Touch-to-Next: OFF'}
+            title={tapToNextEnabled ? 'Touch-to-Next: ON' : 'Touch-to-Next: OFF'}
           >
             <Lock className="w-3.5 h-3.5" />
             <span className="hidden md:inline">
-              {tapToNextEnabled ? 'Touch-to-Next: ON' : 'Touch-to-Next: OFF'}
+              {tapToNextEnabled ? 'Tap Next: ON' : 'Tap Next: OFF'}
             </span>
           </button>
         )}
 
-        {/* Add Video / Wishlist */}
+        {/* Add Wishlist Video */}
         <a
           href="/upload"
-          className="flex items-center gap-1.5 h-8.5 px-3 bg-[#222222] hover:bg-[#2c2c2c] text-[#F1F1F1] text-[12px] font-medium rounded-full border border-[#333333] transition-colors"
+          className="flex items-center gap-1.5 h-9 px-3.5 bg-[#151D33] hover:bg-[#1D2845] text-white text-[12.5px] font-bold rounded-full border border-[#243052] transition-all"
           title="Add safe videos"
         >
-          <Plus className="w-3.5 h-3.5 text-[#FF0000]" />
+          <Plus className="w-3.5 h-3.5 text-[#FF5E62]" />
           <span className="hidden sm:inline">Add</span>
         </a>
 
-        {/* Parent Studio */}
+        {/* Parent Gate Button */}
         <a
           href="/studio"
-          className="flex items-center gap-1.5 h-8.5 px-3 bg-[#222222] hover:bg-[#2c2c2c] text-[#F1F1F1] text-[12px] font-medium rounded-full border border-[#333333] transition-colors"
-          title="Open Parent Studio"
+          className="flex items-center gap-1.5 h-9 px-3.5 bg-gradient-to-r from-indigo-950/80 to-[#151D33] hover:border-[#38BDF8]/50 text-white text-[12.5px] font-bold rounded-full border border-[#243052] transition-all shadow-sm"
+          title="Open Parental Controls"
         >
-          <Tv className="w-3.5 h-3.5 text-[#3EA6FF]" />
-          <span className="hidden sm:inline">Studio</span>
+          <ShieldCheck className="w-4 h-4 text-[#38BDF8]" />
+          <span className="hidden sm:inline">Parent Studio</span>
         </a>
 
-        {/* Kid Profile Badge */}
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white text-[12px] font-bold shadow-sm shrink-0">
-          K
+        {/* Kid Profile Badge with Joyful Glow */}
+        <div
+          className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF5E62] via-[#FFA000] to-[#F472B6] p-0.5 shadow-md shadow-[#FF5E62]/20 shrink-0 cursor-pointer"
+          title={selectedProfile ? `Profile: ${selectedProfile.name}` : 'Kid Profile'}
+        >
+          <div className="w-full h-full bg-[#151D33] rounded-full flex items-center justify-center text-white text-[13px] font-display font-bold">
+            {selectedProfile?.name ? selectedProfile.name.charAt(0).toUpperCase() : '⭐'}
+          </div>
         </div>
       </div>
     </header>

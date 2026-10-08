@@ -117,24 +117,43 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // YouTube Red Logo Badge
+          // WonderKids Gradient Logo Badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
             decoration: BoxDecoration(
-              color: KidColors.primary,
-              borderRadius: BorderRadius.circular(6),
+              gradient: const LinearGradient(
+                colors: [KidColors.primary, KidColors.accent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: KidColors.primary.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 17),
           ),
-          const SizedBox(width: 7),
-          const Text(
-            'KidsTube',
-            style: TextStyle(
-              fontFamily: 'Roboto',
-              fontWeight: FontWeight.w800,
-              fontSize: 19,
-              letterSpacing: -0.5,
-              color: Colors.white,
+          const SizedBox(width: 8),
+          RichText(
+            text: const TextSpan(
+              style: TextStyle(
+                fontFamily: 'Roboto',
+                fontWeight: FontWeight.w900,
+                fontSize: 19,
+                letterSpacing: -0.3,
+                color: Colors.white,
+              ),
+              children: [
+                TextSpan(text: 'MyKids'),
+                TextSpan(
+                  text: 'Tube',
+                  style: TextStyle(color: KidColors.primary),
+                ),
+              ],
             ),
           ),
         ],
@@ -207,7 +226,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
         id: 'shorts',
         label: 'Shorts & Reels',
         icon: Icons.bolt_rounded,
-        iconColor: Colors.red,
+        iconColor: KidColors.coral,
       ),
       if (provider.favoriteVideos.isNotEmpty)
         const _CategoryFilterItem(

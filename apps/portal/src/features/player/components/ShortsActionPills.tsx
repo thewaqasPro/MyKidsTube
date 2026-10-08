@@ -23,46 +23,46 @@ export const ShortsActionPills: React.FC<ShortsActionPillsProps> = ({
   setIsMuted,
 }) => {
   return (
-    <div className="flex flex-col items-center gap-3 z-30">
+    <div className="flex flex-col items-center gap-3.5 z-30">
       <button
         onClick={handlePrev}
         disabled={currentIndex === 0}
-        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] disabled:opacity-25 disabled:pointer-events-none flex items-center justify-center text-white border border-[#333333] transition-all cursor-pointer shadow-xl active:scale-90"
+        className="w-12 h-12 rounded-2xl bg-[#151D33] hover:bg-[#1E294B] disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center text-white border-2 border-[#1E294B] transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105"
         title="Previous Short"
       >
-        <ChevronUp className="w-6 h-6" />
+        <ChevronUp className="w-6 h-6 text-[#38BDF8]" />
       </button>
 
       <button
         onClick={() => setIsLiked((prev) => !prev)}
-        className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex flex-col items-center justify-center border transition-all cursor-pointer shadow-xl active:scale-90 ${
+        className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border-2 transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105 ${
           isLiked
-            ? 'bg-[#FF0000] text-white border-[#FF0000]'
-            : 'bg-[#1F1F1F] hover:bg-[#2C2C2C] text-white border-[#333333]'
+            ? 'bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] text-white border-[#FF5E62] shadow-[#FF5E62]/40'
+            : 'bg-[#151D33] hover:bg-[#1E294B] text-white border-[#1E294B]'
         }`}
         title="Favorite this short"
       >
-        <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+        <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : 'text-[#FF5E62]'}`} />
       </button>
 
       <button
         onClick={() => setIsMuted((prev) => !prev)}
-        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] flex items-center justify-center text-white border border-[#333333] transition-all cursor-pointer shadow-xl active:scale-90"
+        className="w-12 h-12 rounded-2xl bg-[#151D33] hover:bg-[#1E294B] flex items-center justify-center text-white border-2 border-[#1E294B] transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105"
         title={isMuted ? 'Unmute' : 'Mute'}
       >
-        {isMuted ? <VolumeX className="w-5 h-5 text-[#FF0000]" /> : <Volume2 className="w-5 h-5" />}
+        {isMuted ? <VolumeX className="w-5 h-5 text-[#FF5E62]" /> : <Volume2 className="w-5 h-5 text-[#FFB300]" />}
       </button>
 
       <button
         onClick={handleNext}
         disabled={currentIndex === totalCount - 1}
-        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] disabled:opacity-25 disabled:pointer-events-none flex items-center justify-center text-white border border-[#333333] transition-all cursor-pointer shadow-xl active:scale-90"
+        className="w-12 h-12 rounded-2xl bg-[#151D33] hover:bg-[#1E294B] disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center text-white border-2 border-[#1E294B] transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105"
         title="Next Short"
       >
-        <ChevronDown className="w-6 h-6" />
+        <ChevronDown className="w-6 h-6 text-[#38BDF8]" />
       </button>
 
-      <div className="mt-1 px-2.5 py-1 rounded-full bg-[#181818] border border-[#2D2D2D] text-[11px] font-mono text-[#AAAAAA] text-center">
+      <div className="mt-1 px-3 py-1 rounded-full bg-[#151D33] border border-[#1E294B] text-xs font-mono font-bold text-[#94A3B8] text-center shadow-sm">
         {currentIndex + 1}/{totalCount}
       </div>
     </div>

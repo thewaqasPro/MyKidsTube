@@ -198,7 +198,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0B0F19] text-[#F1F1F1] flex flex-col font-sans">
       <StudioTopBar
         onToggleSidebar={() => {
           if (window.innerWidth < 1024) {
@@ -219,29 +219,29 @@ export const UploadPage: React.FC<UploadPageProps> = ({
 
         <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 space-y-8 max-w-5xl">
           {/* Step 1: Ingestion Card */}
-          <section className="p-6 bg-[#181818] border border-[#262626] rounded-2xl shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#262626] gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#FF0000] text-white font-bold">
+          <section className="p-6 sm:p-8 bg-[#151D33] border-2 border-[#1E294B] rounded-[32px] shadow-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b-2 border-[#1E294B] gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex items-center justify-center w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#FF5E62] to-[#FFB300] text-white font-display font-black text-base shadow-md shadow-[#FF5E62]/30">
                   1
                 </div>
                 <div>
-                  <h2 className="text-[17px] font-bold text-white">Add YouTube Videos</h2>
-                  <p className="text-[12px] text-[#888888]">
+                  <h2 className="text-xl font-display font-black text-white tracking-wide">Add Family Videos</h2>
+                  <p className="text-xs text-[#94A3B8] font-medium mt-0.5">
                     Import entire playlists or paste custom URLs. Automatically caches thumbnails and enables instant playback.
                   </p>
                 </div>
               </div>
 
               {/* Mode Switcher Tabs */}
-              <div className="flex items-center p-1 bg-[#121212] border border-[#333333] rounded-xl self-start sm:self-auto">
+              <div className="flex items-center p-1.5 bg-[#0B0F19] border-2 border-[#1E294B] rounded-2xl self-start sm:self-auto">
                 <button
                   type="button"
                   onClick={() => setIngestMode('playlist')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     ingestMode === 'playlist'
-                      ? 'bg-[#FF0000] text-white shadow-sm'
-                      : 'text-[#888888] hover:text-white'
+                      ? 'bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] text-white shadow-md shadow-[#FF5E62]/30'
+                      : 'text-[#94A3B8] hover:text-white'
                   }`}
                 >
                   <ListVideo className="w-4 h-4" />
@@ -250,10 +250,10 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                 <button
                   type="button"
                   onClick={() => setIngestMode('urls')}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     ingestMode === 'urls'
-                      ? 'bg-[#FF0000] text-white shadow-sm'
-                      : 'text-[#888888] hover:text-white'
+                      ? 'bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] text-white shadow-md shadow-[#FF5E62]/30'
+                      : 'text-[#94A3B8] hover:text-white'
                   }`}
                 >
                   <Plus className="w-4 h-4" />

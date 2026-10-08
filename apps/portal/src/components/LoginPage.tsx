@@ -161,48 +161,56 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col justify-center items-center p-4">
-      {/* Brand Mark */}
-      <div className="flex items-center gap-2 mb-6 select-none">
-        <div className="flex items-center justify-center w-10 h-7.5 bg-[#FF0000] rounded-lg shadow-sm">
-          <Play className="w-4 h-4 text-white fill-current ml-0.5" />
+    <div className="min-h-screen bg-[#070A10] text-white flex flex-col justify-center items-center p-4">
+      {/* Brand Mark: WonderKids TubeStar */}
+      <a href="/" className="flex items-center gap-3 mb-6 select-none group no-underline">
+        <div className="relative flex items-center justify-center w-12 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5E62] via-[#FF8E53] to-[#FFB300] text-white shadow-lg shadow-[#FF5E62]/30 group-hover:scale-105 group-hover:rotate-2 transition-transform">
+          {/* Antenna */}
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-1 h-2 bg-[#FFB300] rounded-full" />
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#38BDF8] shadow-sm" />
+          <Play className="w-5 h-5 fill-current ml-0.5 drop-shadow" />
         </div>
-        <span className="text-[22px] font-bold tracking-tight text-white font-sans">
-          Kids<span className="text-[#FF0000]">Tube</span>
-        </span>
-      </div>
+        <div className="flex flex-col">
+          <span className="font-display font-black text-2xl tracking-wide bg-gradient-to-r from-white via-slate-100 to-[#38BDF8] bg-clip-text text-transparent">
+            MyKids<span className="text-[#FF5E62]">Tube</span>
+          </span>
+          <span className="text-[10px] text-[#94A3B8] font-bold tracking-widest uppercase">
+            Safe • Fun • Spark Joy
+          </span>
+        </div>
+      </a>
 
       {/* Main Card */}
-      <div className="w-full max-w-md bg-[#161616] border border-[#2A2A2A] rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col items-center">
+      <div className="w-full max-w-md bg-[#151D33] border-2 border-[#1E294B] rounded-[32px] p-6 sm:p-8 shadow-2xl flex flex-col items-center">
         {/* Header Icon */}
-        <div className="w-13 h-13 rounded-2xl bg-[#FF0000]/10 border border-[#FF0000]/25 flex items-center justify-center text-[#FF0000] mb-3">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#38BDF8]/20 to-[#A855F7]/20 border-2 border-[#38BDF8]/30 flex items-center justify-center text-[#38BDF8] mb-3 shadow-md shadow-[#38BDF8]/10">
           <Lock className="w-6 h-6" />
         </div>
 
-        <h2 className="text-[21px] font-bold text-white text-center">
-          {authMode === 'account' ? (isRegistering ? 'Create Master Account' : 'Parent Authentication') : 'Quick Parent PIN'}
+        <h2 className="text-2xl font-display font-black text-white text-center tracking-wide">
+          {authMode === 'account' ? (isRegistering ? 'Create Master Account' : 'Parent Control Center') : 'Quick Parent PIN'}
         </h2>
-        <p className="text-[12.5px] text-[#888888] mt-1 text-center max-w-[280px]">
+        <p className="text-xs text-[#94A3B8] mt-1.5 text-center max-w-[280px] font-medium">
           {authMode === 'account'
-            ? 'Sign in to access KidsTube Studio & administration'
-            : 'Enter your 4-digit PIN for quick local access'}
+            ? 'Sign in to access parental settings, video controls, and playlists'
+            : 'Enter your 4-digit PIN for instant access'}
         </p>
 
         {/* Auth Mode Toggle Pill */}
-        <div className="flex bg-[#0F0F0F] p-1 rounded-2xl border border-[#2A2A2A] my-5 w-full max-w-[320px]">
+        <div className="flex bg-[#0B0F19] p-1.5 rounded-2xl border-2 border-[#1E294B] my-5 w-full max-w-[320px]">
           <button
             type="button"
             onClick={() => {
               setAuthMode('account');
               setError('');
             }}
-            className={`flex-1 py-1.5 px-3 rounded-xl text-[12px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               authMode === 'account'
-                ? 'bg-[#2A2A2A] text-white shadow-sm'
-                : 'text-[#888888] hover:text-white'
+                ? 'bg-gradient-to-r from-[#38BDF8] to-[#0284C7] text-white shadow-md'
+                : 'text-[#94A3B8] hover:text-white'
             }`}
           >
-            <KeyRound className="w-3.5 h-3.5 text-[#3EA6FF]" />
+            <KeyRound className="w-3.5 h-3.5" />
             Master Account
           </button>
           <button
@@ -211,20 +219,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
               setAuthMode('pin');
               setError('');
             }}
-            className={`flex-1 py-1.5 px-3 rounded-xl text-[12px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               authMode === 'pin'
-                ? 'bg-[#2A2A2A] text-white shadow-sm'
-                : 'text-[#888888] hover:text-white'
+                ? 'bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] text-white shadow-md'
+                : 'text-[#94A3B8] hover:text-white'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#FF0000]" />
+            <Sparkles className="w-3.5 h-3.5" />
             Quick PIN
           </button>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 w-full p-2.5 bg-red-950/60 border border-red-800 text-red-200 rounded-xl text-[12px] flex items-center justify-center gap-1.5">
+          <div className="mb-4 w-full p-3 bg-red-950/60 border border-red-800 text-red-200 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -232,7 +240,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
 
         {/* Success Alert */}
         {successMsg && (
-          <div className="mb-4 w-full p-2.5 bg-emerald-950/60 border border-emerald-800 text-emerald-200 rounded-xl text-[12px] flex items-center justify-center gap-1.5">
+          <div className="mb-4 w-full p-3 bg-emerald-950/60 border border-emerald-800 text-emerald-200 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2">
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -264,8 +272,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
           />
         )}
 
-        <div className="mt-5 text-[11px] text-[#777777] flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="mt-6 text-xs text-[#94A3B8] font-bold flex items-center gap-1.5">
+          <ShieldCheck className="w-4 h-4 text-[#10B981]" />
           <span>Protected parental management session</span>
         </div>
       </div>

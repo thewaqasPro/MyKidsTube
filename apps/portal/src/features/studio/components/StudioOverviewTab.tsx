@@ -32,19 +32,19 @@ export const StudioOverviewTab: React.FC<StudioOverviewTabProps> = ({
       {/* Analytics Metric Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Videos Card */}
-        <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-          <div className="flex items-center justify-between text-[#888888]">
-            <span className="text-[12px] font-semibold uppercase tracking-wider">Catalog Inventory</span>
-            <Film className="w-4 h-4 text-[#FF0000]" />
+        <div className="p-5 bg-[#151D33] border-2 border-[#1E294B] rounded-3xl flex flex-col justify-between shadow-lg">
+          <div className="flex items-center justify-between text-[#94A3B8]">
+            <span className="text-xs font-bold uppercase tracking-wider">Catalog Inventory</span>
+            <Film className="w-4 h-4 text-[#FF5E62]" />
           </div>
           <div className="mt-4">
-            <span className="text-[28px] font-extrabold text-white">{totalVideos}</span>
-            <span className="text-[13px] text-[#AAAAAA] ml-1.5">Videos</span>
+            <span className="text-3xl font-display font-black text-white">{totalVideos}</span>
+            <span className="text-xs text-[#94A3B8] ml-2 font-medium">Videos</span>
           </div>
           {onNavigateToVideos && (
             <button
               onClick={onNavigateToVideos}
-              className="mt-3 text-[12px] text-[#3EA6FF] hover:underline flex items-center gap-1 font-medium cursor-pointer"
+              className="mt-3 text-xs text-[#38BDF8] hover:underline flex items-center gap-1 font-bold cursor-pointer"
             >
               <span>Manage catalog</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -53,64 +53,64 @@ export const StudioOverviewTab: React.FC<StudioOverviewTabProps> = ({
         </div>
 
         {/* Self-Hosted Card */}
-        <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-          <div className="flex items-center justify-between text-[#888888]">
-            <span className="text-[12px] font-semibold uppercase tracking-wider">Self-Hosted MP4</span>
-            <CheckCircle className="w-4 h-4 text-emerald-500" />
+        <div className="p-5 bg-[#151D33] border-2 border-[#1E294B] rounded-3xl flex flex-col justify-between shadow-lg">
+          <div className="flex items-center justify-between text-[#94A3B8]">
+            <span className="text-xs font-bold uppercase tracking-wider">Self-Hosted MP4</span>
+            <CheckCircle className="w-4 h-4 text-[#10B981]" />
           </div>
           <div className="mt-4">
-            <span className="text-[28px] font-extrabold text-white">{readyCount}</span>
-            <span className="text-[13px] text-[#AAAAAA] ml-1.5">Ready for Tablet</span>
+            <span className="text-3xl font-display font-black text-white">{readyCount}</span>
+            <span className="text-xs text-[#94A3B8] ml-2 font-medium">Ready for Tablet</span>
           </div>
-          <div className="mt-3 text-[12px] text-[#888888]">
+          <div className="mt-3 text-xs text-[#94A3B8] font-medium">
             Direct Nginx offline-ready storage
           </div>
         </div>
 
         {/* Wishlist Pending Card */}
-        <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-          <div className="flex items-center justify-between text-[#888888]">
-            <span className="text-[12px] font-semibold uppercase tracking-wider">YouTube Wishlist</span>
-            <Sparkles className="w-4 h-4 text-amber-500" />
+        <div className="p-5 bg-[#151D33] border-2 border-[#1E294B] rounded-3xl flex flex-col justify-between shadow-lg">
+          <div className="flex items-center justify-between text-[#94A3B8]">
+            <span className="text-xs font-bold uppercase tracking-wider">YouTube Wishlist</span>
+            <Sparkles className="w-4 h-4 text-[#FFB300]" />
           </div>
           <div className="mt-4">
-            <span className="text-[28px] font-extrabold text-white">{pendingCount}</span>
-            <span className="text-[13px] text-[#AAAAAA] ml-1.5">Awaiting Download</span>
+            <span className="text-3xl font-display font-black text-white">{pendingCount}</span>
+            <span className="text-xs text-[#94A3B8] ml-2 font-medium">Awaiting Download</span>
           </div>
-          <div className="mt-3 text-[12px] text-amber-400 font-medium">
+          <div className="mt-3 text-xs text-[#FFB300] font-bold">
             Streaming via safe embed iframe
           </div>
         </div>
 
         {/* VPS Disk Storage Card */}
-        <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-          <div className="flex items-center justify-between text-[#888888]">
-            <span className="text-[12px] font-semibold uppercase tracking-wider">VPS Disk Usage</span>
-            <HardDrive className="w-4 h-4 text-[#3EA6FF]" />
+        <div className="p-5 bg-[#151D33] border-2 border-[#1E294B] rounded-3xl flex flex-col justify-between shadow-lg">
+          <div className="flex items-center justify-between text-[#94A3B8]">
+            <span className="text-xs font-bold uppercase tracking-wider">VPS Disk Usage</span>
+            <HardDrive className="w-4 h-4 text-[#38BDF8]" />
           </div>
           <div className="mt-4">
-            <span className="text-[28px] font-extrabold text-white">
+            <span className="text-3xl font-display font-black text-white">
               {(storageUsedBytes / (1024 * 1024 * 1024)).toFixed(2)} GB
             </span>
-            <span className="text-[13px] text-[#AAAAAA] ml-1.5">/ {storageTotalGb} GB</span>
+            <span className="text-xs text-[#94A3B8] ml-2 font-medium">/ {storageTotalGb} GB</span>
           </div>
-          <div className="mt-3 text-[12px] text-emerald-400 font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="mt-3 text-xs text-[#10B981] font-bold flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
             <span>Nginx Direct Streamer Active</span>
           </div>
         </div>
       </section>
 
       {/* HandBrake Sync Pipeline Helper */}
-      <section className="p-6 bg-gradient-to-r from-[#1C1C1C] to-[#161616] border border-[#2A2A2A] rounded-2xl flex flex-col lg:flex-row items-center justify-between gap-6 shadow-sm">
+      <section className="p-6 sm:p-7 bg-gradient-to-r from-[#151D33] to-[#1E294B] border-2 border-[#1E294B] rounded-[32px] flex flex-col lg:flex-row items-center justify-between gap-6 shadow-xl">
         <div className="space-y-1.5 text-center lg:text-left">
           <div className="flex items-center justify-center lg:justify-start gap-2">
-            <Sparkles className="w-4 h-4 text-[#FF0000]" />
-            <span className="text-[14px] font-bold text-white uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-[#FFB300]" />
+            <span className="text-sm font-display font-black text-white tracking-wide">
               HandBrake Batch Encoding Pipeline
             </span>
           </div>
-          <p className="text-[13px] text-[#AAAAAA] max-w-2xl leading-relaxed">
+          <p className="text-xs text-[#94A3B8] max-w-2xl leading-relaxed font-medium">
             Export your pending wishlist to your Mac, batch encode with HandBrake (
             <span className="text-white font-mono">Fast 720p30, RF 24</span>), and upload to your {storageTotalGb}GB
             VPS storage for 70% smaller file sizes.
@@ -120,7 +120,7 @@ export const StudioOverviewTab: React.FC<StudioOverviewTabProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={onExportLinks}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#FF0000] hover:bg-[#CC0000] text-white text-[13px] font-semibold rounded-xl shadow-md transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] hover:from-[#FF8E53] hover:to-[#FF5E62] text-white text-xs font-display font-black rounded-2xl shadow-lg shadow-[#FF5E62]/20 transition-all cursor-pointer active:scale-95 border border-white/10"
           >
             <FolderDown className="w-4 h-4" />
             <span>1-Click Export links.txt ({pendingCount})</span>
@@ -128,9 +128,9 @@ export const StudioOverviewTab: React.FC<StudioOverviewTabProps> = ({
 
           <a
             href="/upload"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#252525] hover:bg-[#303030] text-[#DDDDDD] hover:text-white text-[13px] font-medium rounded-xl border border-[#333333] transition-colors"
+            className="flex items-center gap-2 px-4 py-3 bg-[#151D33] hover:bg-[#1E294B] text-[#94A3B8] hover:text-white text-xs font-bold rounded-2xl border-2 border-[#1E294B] transition-colors no-underline active:scale-95"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-4 h-4 text-[#38BDF8]" />
             <span>Dropzone</span>
           </a>
         </div>

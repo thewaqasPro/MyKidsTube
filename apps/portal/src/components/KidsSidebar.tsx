@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FolderHeart, User, ShieldCheck, Sparkles } from 'lucide-react';
+import { Home, Zap, Heart, Compass, ShieldCheck, Sparkles, Tv } from 'lucide-react';
 
 export interface ChannelItem {
   name: string;
@@ -11,7 +11,7 @@ export interface KidsSidebarProps {
   isExpanded: boolean;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
-  activeNav?: string; // 'home' | 'shorts' | 'watch' | 'channels' | 'you' | 'studio'
+  activeNav?: string; // 'home' | 'shorts' | 'watch' | 'channels' | 'favorites' | 'studio'
   onSelectNav?: (nav: string) => void;
   channels?: ChannelItem[] | string[];
 }
@@ -24,7 +24,6 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
   onSelectNav,
   channels = [],
 }) => {
-  // Normalize channels to { name: string }
   const normalizedChannels: ChannelItem[] = channels.map((c) =>
     typeof c === 'string' ? { name: c } : c
   );
@@ -45,22 +44,22 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
       {isMobileOpen && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm lg:hidden transition-opacity"
         />
       )}
 
-      {/* 2. Sidebar Body */}
+      {/* 2. WonderKids Sidebar Body */}
       <aside
-        className={`shrink-0 z-40 bg-[#0F0F0F] border-r border-[#222222] select-none flex flex-col transition-all duration-200 ${
+        className={`shrink-0 z-40 bg-[#0B0F19] border-r border-[#1E294B] select-none flex flex-col transition-all duration-200 ${
           isMobileOpen
-            ? 'fixed top-14 bottom-0 left-0 w-60 shadow-2xl z-50'
+            ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50'
             : isExpanded
-            ? 'w-60 hidden lg:flex'
-            : 'w-[72px] hidden md:flex'
+            ? 'w-64 hidden lg:flex'
+            : 'w-[78px] hidden md:flex'
         }`}
       >
-        <div className="py-2.5 px-2 flex flex-col gap-1 flex-1 overflow-y-auto">
-          {/* Item 1: Home */}
+        <div className="py-4 px-3 flex flex-col gap-2 flex-1 overflow-y-auto custom-scrollbar">
+          {/* Nav Item 1: Home */}
           <a
             href="/"
             onClick={(e) => {
@@ -69,24 +68,26 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
                 handleNavClick('home', '/');
               }
             }}
-            className={`flex items-center rounded-xl transition-colors ${
+            className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
-                ? 'px-3 py-2.5 gap-4 justify-start'
-                : 'flex-col py-3.5 px-1 gap-1.5 justify-center'
+                ? 'px-3.5 py-3 gap-3.5 justify-start'
+                : 'flex-col py-3 px-1 gap-1.5 justify-center'
             } ${
               activeNav === 'home'
-                ? 'bg-[#272727] text-white font-semibold'
-                : 'text-[#F1F1F1] hover:bg-[#202020]'
+                ? 'bg-[#151D33] text-white border border-[#38BDF8]/40 shadow-sm shadow-[#38BDF8]/10'
+                : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
             }`}
             title="Home"
           >
-            <Home className="w-5 h-5 shrink-0" />
-            <span className={isExpanded || isMobileOpen ? 'text-[14px]' : 'text-[10px]'}>
+            <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'home' ? 'bg-[#38BDF8] text-[#0B0F19]' : 'bg-[#151D33] text-[#38BDF8]'}`}>
+              <Home className="w-4 h-4" />
+            </div>
+            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
               Home
             </span>
           </a>
 
-          {/* Item 2: Shorts (Official YouTube Shorts SVG) */}
+          {/* Nav Item 2: Shorts & Fun Reels */}
           <a
             href="/shorts"
             onClick={(e) => {
@@ -95,31 +96,54 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
                 handleNavClick('shorts', '/shorts');
               }
             }}
-            className={`flex items-center rounded-xl transition-colors ${
+            className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
-                ? 'px-3 py-2.5 gap-4 justify-start'
-                : 'flex-col py-3.5 px-1 gap-1.5 justify-center'
+                ? 'px-3.5 py-3 gap-3.5 justify-start'
+                : 'flex-col py-3 px-1 gap-1.5 justify-center'
             } ${
               activeNav === 'shorts'
-                ? 'bg-[#272727] text-white font-semibold'
-                : 'text-[#F1F1F1] hover:bg-[#202020]'
+                ? 'bg-[#151D33] text-white border border-[#FF5E62]/40 shadow-sm shadow-[#FF5E62]/10'
+                : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
             }`}
             title="Shorts"
           >
-            <svg
-              className={`w-5 h-5 shrink-0 fill-current ${
-                activeNav === 'shorts' ? 'text-[#FF0000]' : 'text-white'
-              }`}
-              viewBox="0 0 24 24"
-            >
-              <path d="M17.77 10.32l-1.2-.5a3.86 3.86 0 00-.77-.24l1.43-.84a4.42 4.42 0 001.62-5.91 4.5 4.5 0 00-6.1-1.62l-7.2 4.22a4.42 4.42 0 00-1.62 5.91 4.5 4.5 0 006.1 1.62l1.2.5.77.24-1.43.84a4.42 4.42 0 00-1.62 5.91 4.5 4.5 0 006.1 1.62l7.2-4.22a4.42 4.42 0 001.62-5.91 4.5 4.5 0 00-6.1-1.62l-7.2 4.22zM10 14.5v-5l4.5 2.5-4.5 2.5z" />
-            </svg>
-            <span className={isExpanded || isMobileOpen ? 'text-[14px]' : 'text-[10px]'}>
-              Shorts
+            <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'shorts' ? 'bg-[#FF5E62] text-white' : 'bg-[#151D33] text-[#FF5E62]'}`}>
+              <Zap className="w-4 h-4 fill-current" />
+            </div>
+            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
+              Fun Reels
             </span>
           </a>
 
-          {/* Item 3: Channels */}
+          {/* Nav Item 3: Favorites */}
+          <a
+            href="/"
+            onClick={(e) => {
+              if (onSelectNav) {
+                e.preventDefault();
+                handleNavClick('favorites', '/');
+              }
+            }}
+            className={`flex items-center rounded-2xl transition-all ${
+              isExpanded || isMobileOpen
+                ? 'px-3.5 py-3 gap-3.5 justify-start'
+                : 'flex-col py-3 px-1 gap-1.5 justify-center'
+            } ${
+              activeNav === 'favorites'
+                ? 'bg-[#151D33] text-white border border-[#FFB300]/40 shadow-sm shadow-[#FFB300]/10'
+                : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
+            }`}
+            title="Favorites"
+          >
+            <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'favorites' ? 'bg-[#FFB300] text-[#0B0F19]' : 'bg-[#151D33] text-[#FFB300]'}`}>
+              <Heart className="w-4 h-4 fill-current" />
+            </div>
+            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
+              Favorites
+            </span>
+          </a>
+
+          {/* Nav Item 4: Channels */}
           <a
             href="/"
             onClick={(e) => {
@@ -128,99 +152,86 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
                 handleNavClick('channels', '/');
               }
             }}
-            className={`flex items-center rounded-xl transition-colors ${
+            className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
-                ? 'px-3 py-2.5 gap-4 justify-start'
-                : 'flex-col py-3.5 px-1 gap-1.5 justify-center'
+                ? 'px-3.5 py-3 gap-3.5 justify-start'
+                : 'flex-col py-3 px-1 gap-1.5 justify-center'
             } ${
               activeNav === 'channels'
-                ? 'bg-[#272727] text-white font-semibold'
-                : 'text-[#F1F1F1] hover:bg-[#202020]'
+                ? 'bg-[#151D33] text-white border border-[#10B981]/40 shadow-sm shadow-[#10B981]/10'
+                : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
             }`}
             title="Channels"
           >
-            <FolderHeart className="w-5 h-5 shrink-0" />
-            <span className={isExpanded || isMobileOpen ? 'text-[14px]' : 'text-[10px]'}>
+            <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'channels' ? 'bg-[#10B981] text-white' : 'bg-[#151D33] text-[#10B981]'}`}>
+              <Tv className="w-4 h-4" />
+            </div>
+            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
               Channels
             </span>
           </a>
 
-          {/* Item 4: You / History */}
-          <a
-            href="/"
-            onClick={(e) => {
-              if (onSelectNav) {
-                e.preventDefault();
-                handleNavClick('you', '/');
-              }
-            }}
-            className={`flex items-center rounded-xl transition-colors ${
-              isExpanded || isMobileOpen
-                ? 'px-3 py-2.5 gap-4 justify-start'
-                : 'flex-col py-3.5 px-1 gap-1.5 justify-center'
-            } ${
-              activeNav === 'you'
-                ? 'bg-[#272727] text-white font-semibold'
-                : 'text-[#F1F1F1] hover:bg-[#202020]'
-            }`}
-            title="You"
-          >
-            <User className="w-5 h-5 shrink-0" />
-            <span className={isExpanded || isMobileOpen ? 'text-[14px]' : 'text-[10px]'}>
-              You
-            </span>
-          </a>
-
-          {/* Item 5: Studio */}
+          {/* Nav Item 5: Parent Studio */}
           <a
             href="/studio"
-            className={`flex items-center rounded-xl text-[#F1F1F1] hover:bg-[#202020] transition-colors ${
+            className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
-                ? 'px-3 py-2.5 gap-4 justify-start'
-                : 'flex-col py-3.5 px-1 gap-1.5 justify-center'
+                ? 'px-3.5 py-3 gap-3.5 justify-start'
+                : 'flex-col py-3 px-1 gap-1.5 justify-center'
             } ${
-              activeNav === 'studio' ? 'bg-[#272727] text-white font-semibold' : ''
+              activeNav === 'studio'
+                ? 'bg-[#151D33] text-white border border-indigo-400/40 shadow-sm'
+                : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
             }`}
-            title="Studio"
+            title="Parent Studio"
           >
-            <ShieldCheck className="w-5 h-5 shrink-0 text-[#3EA6FF]" />
-            <span className={isExpanded || isMobileOpen ? 'text-[14px]' : 'text-[10px]'}>
-              Studio
+            <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'studio' ? 'bg-indigo-600 text-white' : 'bg-[#151D33] text-indigo-400'}`}>
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
+              Parent Lock
             </span>
           </a>
 
-          {/* Expanded Section: Kids Channels List */}
+          {/* Subscribed Channels Shelf */}
           {(isExpanded || isMobileOpen) && (
             <>
               {normalizedChannels.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-[#222222]">
-                  <span className="px-3 text-[11px] font-semibold text-[#888888] uppercase tracking-wider block mb-2">
-                    Subscribed Channels
+                <div className="mt-4 pt-4 border-t border-[#1E294B]">
+                  <span className="px-3.5 text-[11px] font-display font-bold text-[#64748B] uppercase tracking-wider block mb-2.5">
+                    Kids Channels
                   </span>
-                  {normalizedChannels.slice(0, 8).map((ch) => (
-                    <div
-                      key={ch.name}
-                      onClick={() => handleNavClick(`channel:${ch.name}`)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-[#CCCCCC] hover:bg-[#222222] transition-colors cursor-pointer truncate"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                        {ch.name.charAt(0)}
-                      </div>
-                      <span className="truncate">{ch.name}</span>
-                    </div>
-                  ))}
+                  <div className="space-y-1">
+                    {normalizedChannels.slice(0, 8).map((ch, idx) => {
+                      const colors = ['from-pink-500 to-rose-500', 'from-amber-400 to-orange-500', 'from-sky-400 to-blue-600', 'from-emerald-400 to-teal-600', 'from-purple-500 to-indigo-600'];
+                      const grad = colors[idx % colors.length];
+
+                      return (
+                        <div
+                          key={ch.name}
+                          onClick={() => handleNavClick(`channel:${ch.name}`)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] text-[#CBD5E1] hover:text-white hover:bg-[#151D33] transition-all cursor-pointer truncate group"
+                        >
+                          <div className={`w-7 h-7 rounded-full bg-gradient-to-tr ${grad} flex items-center justify-center text-white text-[11px] font-display font-bold shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
+                            {ch.name.charAt(0)}
+                          </div>
+                          <span className="truncate font-medium">{ch.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
-              {/* Safe Mode Card */}
-              <div className="mt-3 pt-3 border-t border-[#222222]">
-                <div className="px-3 py-2 rounded-xl bg-[#161616] border border-[#262626]">
-                  <div className="flex items-center gap-2 text-emerald-400 text-[12px] font-semibold">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Safe Kids Mode
+              {/* Safe Kids Mode Card */}
+              <div className="mt-4 pt-4 border-t border-[#1E294B]">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#151D33] to-[#1A233D] border border-emerald-500/30 shadow-sm">
+                  <div className="flex items-center gap-2 text-emerald-400 text-[12.5px] font-display font-bold">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <span>WonderKids Shield</span>
                   </div>
-                  <p className="text-[11px] text-[#888888] mt-1 leading-relaxed">
-                    100% ad-free & curated for children.
+                  <p className="text-[11px] text-[#94A3B8] mt-1.5 leading-relaxed font-sans">
+                    100% ad-free &amp; safely verified for happy young minds.
                   </p>
                 </div>
               </div>
@@ -229,8 +240,8 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-[#222222] text-[10px] text-[#717171] text-center">
-          Kids Safe Mode
+        <div className="p-3 border-t border-[#1E294B] text-[10.5px] font-semibold text-[#64748B] text-center font-display">
+          🌟 Safe Play Zone
         </div>
       </aside>
     </>

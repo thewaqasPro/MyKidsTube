@@ -89,33 +89,33 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
 
       {/* Studio Sidebar Container */}
       <aside
-        className={`shrink-0 z-40 bg-[#0F0F0F] border-r border-[#222222] select-none flex flex-col transition-all duration-200 ${
+        className={`shrink-0 z-40 bg-[#0B0F19] border-r-2 border-[#1E294B] select-none flex flex-col transition-all duration-200 ${
           isMobileOpen
-            ? 'fixed top-14 bottom-0 left-0 w-64 shadow-2xl z-50'
+            ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50'
             : isExpanded
             ? 'w-64 hidden md:flex'
-            : 'w-[72px] hidden md:flex'
+            : 'w-[76px] hidden md:flex'
         }`}
       >
         {/* Parent Admin Channel Header */}
-        <div className="p-4 border-b border-[#222222] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-[15px] font-bold shadow-md shrink-0 border border-blue-400/30">
-            <ShieldCheck className="w-5 h-5" />
+        <div className="p-4 border-b-2 border-[#1E294B] flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#38BDF8] to-[#A855F7] flex items-center justify-center text-white text-base font-bold shadow-md shrink-0 border-2 border-white/20">
+            <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           {(isExpanded || isMobileOpen) && (
             <div className="flex flex-col min-w-0">
-              <span className="text-[13px] font-semibold text-white truncate">
+              <span className="font-display font-black text-sm text-white truncate">
                 Parent Admin
               </span>
-              <span className="text-[11px] text-[#888888] truncate">
-                My Family Controls
+              <span className="text-xs text-[#94A3B8] font-semibold truncate">
+                Family Security Hub
               </span>
             </div>
           )}
         </div>
 
         {/* Sidebar Nav Links */}
-        <div className="py-3 px-2 flex flex-col gap-1 flex-1 overflow-y-auto">
+        <div className="py-4 px-3 flex flex-col gap-1.5 flex-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -128,22 +128,22 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
                     handleItemClick(item.id, item.href);
                   }
                 }}
-                className={`flex items-center rounded-xl transition-colors ${
+                className={`flex items-center rounded-2xl transition-all duration-200 no-underline cursor-pointer ${
                   isExpanded || isMobileOpen
-                    ? 'px-3 py-2.5 gap-3.5 justify-start'
+                    ? 'px-3.5 py-3 gap-3.5 justify-start'
                     : 'flex-col py-3 px-1 gap-1.5 justify-center'
                 } ${
                   isActive
-                    ? 'bg-[#272727] text-white font-semibold'
-                    : 'text-[#AAAAAA] hover:text-white hover:bg-[#1C1C1C]'
+                    ? 'bg-[#151D33] text-white font-black border-2 border-[#1E294B] shadow-sm'
+                    : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
                 }`}
                 title={item.label}
               >
-                <div className={isActive ? 'text-[#3EA6FF]' : 'text-[#AAAAAA]'}>
+                <div className={isActive ? 'text-[#38BDF8]' : 'text-[#64748B]'}>
                   {item.icon}
                 </div>
                 {(isExpanded || isMobileOpen) && (
-                  <span className="text-[13px]">{item.label}</span>
+                  <span className="text-xs font-bold tracking-wide">{item.label}</span>
                 )}
               </a>
             );
@@ -151,12 +151,12 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         </div>
 
         {/* Bottom Link: Return to Kids App */}
-        <div className="p-3 border-t border-[#222222]">
+        <div className="p-3 border-t-2 border-[#1E294B]">
           <a
             href="/"
-            className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl bg-[#1C1C1C] hover:bg-[#252525] text-white text-[12px] font-medium transition-colors border border-[#2D2D2D]"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-2xl bg-[#151D33] hover:bg-[#1E294B] text-white text-xs font-bold transition-all border border-[#1E294B] no-underline active:scale-95"
           >
-            <Home className="w-4 h-4 text-[#FF0000]" />
+            <Home className="w-4 h-4 text-[#FF5E62]" />
             {(isExpanded || isMobileOpen) && <span>Exit to KidsTube</span>}
           </a>
         </div>

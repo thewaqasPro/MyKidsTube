@@ -58,7 +58,7 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
   return (
     <div
       id="player-container"
-      className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#222222] group"
+      className="relative aspect-video w-full rounded-[28px] overflow-hidden bg-[#070A10] shadow-2xl border-2 border-[#1E294B] group"
     >
       {selfHostedAvailable ? (
         // MODE A: Native Self-Hosted HTML5 MP4 Player
@@ -85,47 +85,59 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
           />
 
           {/* Custom Control Bar Overlay */}
-          <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-[#0B0F19]/95 via-[#0B0F19]/60 to-transparent flex flex-col gap-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <input
               type="range"
               min="0"
               max={duration || 100}
               value={currentTime}
               onChange={handleSeek}
-              className="w-full h-1.5 bg-[#444444] accent-[#FF0000] rounded-lg appearance-none cursor-pointer"
+              className="w-full h-2 bg-[#1E294B] accent-[#FF5E62] rounded-full appearance-none cursor-pointer hover:h-2.5 transition-all"
             />
 
             <div className="flex items-center justify-between text-white text-[13px]">
               <div className="flex items-center gap-4">
-                <button onClick={togglePlay} className="hover:text-[#FF0000] transition-colors cursor-pointer">
-                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                <button
+                  onClick={togglePlay}
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#FF5E62] text-white flex items-center justify-center transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95"
+                  title={isPlaying ? 'Pause' : 'Play'}
+                >
+                  {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
                 </button>
-                <button onClick={toggleMute} className="hover:text-white transition-colors cursor-pointer">
-                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                <button
+                  onClick={toggleMute}
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-[#38BDF8] text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4 text-[#FF5E62]" /> : <Volume2 className="w-4 h-4" />}
                 </button>
-                <span className="text-[12px] text-[#DDDDDD] font-mono">
+                <span className="text-xs text-[#94A3B8] font-bold tracking-wider font-mono bg-[#151D33]/80 px-2.5 py-1 rounded-full border border-white/5">
                   {formatSeconds(currentTime)} / {formatSeconds(duration || video.duration)}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     if (videoRef.current) videoRef.current.currentTime = 0;
                   }}
-                  title="Replay"
-                  className="hover:text-white cursor-pointer"
+                  title="Replay from start"
+                  className="w-8 h-8 rounded-full hover:bg-white/10 text-[#94A3B8] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setIsTheater((prev) => !prev)}
-                  title="Toggle Theater Mode (T)"
-                  className="hover:text-white hidden sm:inline cursor-pointer"
+                  title="Theater Mode"
+                  className="w-8 h-8 rounded-full hover:bg-white/10 text-[#94A3B8] hover:text-white hidden sm:flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <Layers className="w-4 h-4" />
                 </button>
-                <button onClick={toggleFullscreen} title="Fullscreen (F)" className="hover:text-white cursor-pointer">
+                <button
+                  onClick={toggleFullscreen}
+                  title="Fullscreen"
+                  className="w-8 h-8 rounded-full hover:bg-white/10 text-[#94A3B8] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
                   <Maximize className="w-4 h-4" />
                 </button>
               </div>

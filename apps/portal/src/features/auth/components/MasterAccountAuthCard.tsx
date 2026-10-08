@@ -40,61 +40,61 @@ export const MasterAccountAuthCard: React.FC<MasterAccountAuthCardProps> = ({
           type="button"
           onClick={handlePasskeySignIn}
           disabled={loading}
-          className="w-full mb-4 py-3 px-4 bg-gradient-to-r from-[#202020] to-[#282828] hover:from-[#262626] hover:to-[#333333] border border-[#3E3E3E] text-white rounded-2xl text-[13.5px] font-bold flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-[0.98] cursor-pointer"
+          className="w-full mb-4 py-3.5 px-4 bg-gradient-to-r from-[#151D33] to-[#1E294B] hover:from-[#1E294B] hover:to-[#2A375E] border-2 border-[#38BDF8]/40 hover:border-[#38BDF8] text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-[0.98] cursor-pointer"
         >
-          <Fingerprint className="w-5 h-5 text-[#3EA6FF]" />
+          <Fingerprint className="w-5 h-5 text-[#38BDF8]" />
           <span>Sign in with Passkey / FaceID</span>
         </button>
       )}
 
       {!isRegistering && (
-        <div className="flex items-center gap-3 my-3">
-          <div className="flex-1 h-px bg-[#262626]" />
-          <span className="text-[11px] text-[#666666] font-semibold uppercase tracking-wider">or with password</span>
-          <div className="flex-1 h-px bg-[#262626]" />
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px bg-[#1E294B]" />
+          <span className="text-[11px] text-[#94A3B8] font-bold uppercase tracking-wider">or with master password</span>
+          <div className="flex-1 h-px bg-[#1E294B]" />
         </div>
       )}
 
-      <form onSubmit={isRegistering ? handleEmailSignUp : handleEmailSignIn} className="space-y-3">
+      <form onSubmit={isRegistering ? handleEmailSignUp : handleEmailSignIn} className="space-y-3.5">
         {isRegistering && (
           <div>
-            <label className="block text-[11.5px] font-semibold text-[#888888] mb-1">Parent Name</label>
+            <label className="block text-xs font-bold text-[#94A3B8] mb-1">Parent Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Sarah"
-              className="w-full bg-[#0F0F0F] border border-[#2D2D2D] rounded-xl px-3.5 py-2.5 text-white text-[13.5px] focus:outline-none focus:border-[#3EA6FF]"
+              className="w-full bg-[#0B0F19] border-2 border-[#1E294B] focus:border-[#38BDF8] rounded-xl px-4 py-3 text-white text-xs outline-none transition-colors"
               required
             />
           </div>
         )}
 
         <div>
-          <label className="block text-[11.5px] font-semibold text-[#888888] mb-1">Email Address</label>
+          <label className="block text-xs font-bold text-[#94A3B8] mb-1">Email Address</label>
           <div className="relative">
-            <Mail className="w-4 h-4 text-[#666666] absolute left-3.5 top-3" />
+            <Mail className="w-4 h-4 text-[#94A3B8] absolute left-3.5 top-3.5" />
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="parent@example.com"
-              className="w-full bg-[#0F0F0F] border border-[#2D2D2D] rounded-xl pl-10 pr-3.5 py-2.5 text-white text-[13.5px] focus:outline-none focus:border-[#3EA6FF]"
+              className="w-full bg-[#0B0F19] border-2 border-[#1E294B] focus:border-[#38BDF8] rounded-xl pl-10 pr-4 py-3 text-white text-xs outline-none transition-colors"
               required
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-[11.5px] font-semibold text-[#888888] mb-1">Password</label>
+          <label className="block text-xs font-bold text-[#94A3B8] mb-1">Master Password</label>
           <div className="relative">
-            <Lock className="w-4 h-4 text-[#666666] absolute left-3.5 top-3" />
+            <Lock className="w-4 h-4 text-[#94A3B8] absolute left-3.5 top-3.5" />
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-[#0F0F0F] border border-[#2D2D2D] rounded-xl pl-10 pr-3.5 py-2.5 text-white text-[13.5px] focus:outline-none focus:border-[#3EA6FF]"
+              className="w-full bg-[#0B0F19] border-2 border-[#1E294B] focus:border-[#38BDF8] rounded-xl pl-10 pr-4 py-3 text-white text-xs outline-none transition-colors"
               required
             />
           </div>
@@ -103,13 +103,13 @@ export const MasterAccountAuthCard: React.FC<MasterAccountAuthCardProps> = ({
         <button
           type="submit"
           disabled={loading}
-          className="w-full mt-2 py-3 bg-[#3EA6FF] hover:bg-[#2995EE] disabled:opacity-40 text-black font-bold text-[13.5px] rounded-xl transition-all cursor-pointer shadow-md shadow-[#3EA6FF]/20 flex items-center justify-center gap-2"
+          className="w-full mt-2 py-3.5 bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] hover:from-[#FF8E53] hover:to-[#FF5E62] disabled:opacity-40 text-white font-display font-black text-xs tracking-wide rounded-2xl transition-all cursor-pointer shadow-lg shadow-[#FF5E62]/25 flex items-center justify-center gap-2 border-2 border-white/10 active:scale-95"
         >
           {loading ? (
-            <span>Authenticating...</span>
+            <span>Securing session...</span>
           ) : (
             <>
-              <span>{isRegistering ? 'Create Master Account' : 'Sign In to Studio'}</span>
+              <span>{isRegistering ? 'Create Master Account' : 'Sign In to Control Center'}</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}
@@ -124,7 +124,7 @@ export const MasterAccountAuthCard: React.FC<MasterAccountAuthCardProps> = ({
             setIsRegistering(!isRegistering);
             setError('');
           }}
-          className="text-[12px] text-[#AAAAAA] hover:text-[#3EA6FF] font-medium transition-colors cursor-pointer"
+          className="text-xs text-[#94A3B8] hover:text-[#38BDF8] font-bold transition-colors cursor-pointer"
         >
           {isRegistering
             ? 'Already have an account? Sign In'

@@ -207,8 +207,8 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col font-sans selection:bg-[#FF0000] selection:text-white">
-      {/* Top YouTube Header */}
+    <div className="min-h-screen bg-[#0B0F19] text-[#F1F1F1] flex flex-col font-sans selection:bg-[#FF5E62] selection:text-white">
+      {/* Top Header */}
       <KidsTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -219,7 +219,7 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
         badgeText="Safe"
       />
 
-      {/* Main Layout Area with Reusable YouTube Sidebar */}
+      {/* Main Layout Area with WonderKids Sidebar */}
       <div className="flex flex-1 relative overflow-x-hidden">
         {/* Left Sidebar */}
         <KidsSidebar
@@ -246,12 +246,12 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
           {activeNav !== 'home' && (
             <div className="px-4 sm:px-6 pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] text-[#AAAAAA]">Viewing:</span>
-                <span className="px-3 py-1 rounded-full bg-[#272727] text-white text-[13px] font-semibold flex items-center gap-2">
+                <span className="text-xs text-[#94A3B8] font-bold">Viewing:</span>
+                <span className="px-3.5 py-1 rounded-full bg-[#151D33] border border-[#1E294B] text-white text-xs font-bold flex items-center gap-2">
                   {gridTitle}
                   <button
                     onClick={() => handleSelectNav('home')}
-                    className="hover:text-[#FF0000] text-[#AAAAAA] ml-1 text-[15px]"
+                    className="hover:text-[#FF5E62] text-[#94A3B8] ml-1 text-sm font-black cursor-pointer"
                     title="Clear filter"
                   >
                     ×
