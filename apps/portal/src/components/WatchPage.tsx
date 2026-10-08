@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Video, ChildProfile } from '@/types/video';
-import { 
-  getStreamUrl, 
-  getChannelIconUrl, 
-  getYoutubeId, 
-  getYoutubeEmbedUrl, 
-  isSelfHosted 
+import {
+  getStreamUrl,
+  getChannelIconUrl,
+  getYoutubeId,
+  getYoutubeEmbedUrl,
+  isSelfHosted
 } from '@/lib/constants';
 import { KidsTopBar } from './KidsTopBar';
 import { KidsSidebar } from './KidsSidebar';
@@ -154,7 +154,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0D1322] text-[#F1F1F1] flex flex-col font-sans">
       <KidsTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -168,7 +168,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
         badgeText="Watch"
       />
 
-      <div className="flex flex-1 relative overflow-x-hidden">
+      <div className="flex flex-1 relative overflow-x-clip">
         <KidsSidebar
           isExpanded={isSidebarExpanded}
           isMobileOpen={isMobileSidebarOpen}
@@ -176,31 +176,35 @@ export const WatchPage: React.FC<WatchPageProps> = ({
           activeNav="watch"
         />
 
-        <main className={`flex-1 min-w-0 p-3 sm:p-5 md:p-6 transition-all duration-200 ${isTheater ? 'max-w-none' : 'max-w-7xl mx-auto'}`}>
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 min-w-0">
-              <WatchPlayer
-                video={video}
-                selfHostedAvailable={selfHostedAvailable}
-                streamUrl={streamUrl}
-                embedUrl={embedUrl}
-                isPlaying={isPlaying}
-                isMuted={isMuted}
-                currentTime={currentTime}
-                duration={duration}
-                isTheater={isTheater}
-                setIsTheater={setIsTheater}
-                setStreamError={setStreamError}
-                setCurrentTime={setCurrentTime}
-                setDuration={setDuration}
-                setIsPlaying={setIsPlaying}
-                videoRef={videoRef}
-                togglePlay={togglePlay}
-                toggleMute={toggleMute}
-                toggleFullscreen={toggleFullscreen}
-                handleSeek={handleSeek}
-                formatSeconds={formatSeconds}
-              />
+        <main className={`flex-1 min-w-0 p-3 sm:p-5 md:p-6 transition-all duration-200 ${isTheater ? 'max-w-none' : 'max-w-[1920px] mx-auto'}`}>
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
+            {/* Left Column: Sticky Video Player & Details */}
+            <div className="flex-1 min-w-0 w-full lg:sticky lg:top-20 lg:self-start z-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto custom-scrollbar">
+              {/* Mobile sticky wrapper for player */}
+              <div className="sticky top-16 z-30 bg-[#0D1322] -mx-3 sm:-mx-5 md:-mx-6 px-3 sm:px-5 md:px-6 pt-1 pb-2 lg:static lg:bg-transparent lg:p-0 lg:m-0">
+                <WatchPlayer
+                  video={video}
+                  selfHostedAvailable={selfHostedAvailable}
+                  streamUrl={streamUrl}
+                  embedUrl={embedUrl}
+                  isPlaying={isPlaying}
+                  isMuted={isMuted}
+                  currentTime={currentTime}
+                  duration={duration}
+                  isTheater={isTheater}
+                  setIsTheater={setIsTheater}
+                  setStreamError={setStreamError}
+                  setCurrentTime={setCurrentTime}
+                  setDuration={setDuration}
+                  setIsPlaying={setIsPlaying}
+                  videoRef={videoRef}
+                  togglePlay={togglePlay}
+                  toggleMute={toggleMute}
+                  toggleFullscreen={toggleFullscreen}
+                  handleSeek={handleSeek}
+                  formatSeconds={formatSeconds}
+                />
+              </div>
 
               <WatchDetails
                 video={video}
@@ -214,6 +218,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
               />
             </div>
 
+            {/* Right Column: Up Next Playlist */}
             <WatchUpNextSidebar relatedVideos={relatedVideos} />
           </div>
         </main>

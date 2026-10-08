@@ -91,14 +91,14 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
       <aside
         className={`shrink-0 z-40 bg-[#0B0F19] border-r-2 border-[#1E294B] select-none flex flex-col transition-all duration-200 ${
           isMobileOpen
-            ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50'
+            ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50 overflow-y-auto custom-scrollbar'
             : isExpanded
-            ? 'w-64 hidden md:flex'
-            : 'w-[76px] hidden md:flex'
+            ? 'sticky top-16 h-[calc(100vh-4rem)] self-start w-64 hidden md:flex overflow-hidden'
+            : 'sticky top-16 h-[calc(100vh-4rem)] self-start w-[76px] hidden md:flex overflow-hidden'
         }`}
       >
         {/* Parent Admin Channel Header */}
-        <div className="p-4 border-b-2 border-[#1E294B] flex items-center gap-3">
+        <div className="p-4 border-b-2 border-[#1E294B] flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#38BDF8] to-[#A855F7] flex items-center justify-center text-white text-base font-bold shadow-md shrink-0 border-2 border-white/20">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
@@ -115,7 +115,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         </div>
 
         {/* Sidebar Nav Links */}
-        <div className="py-4 px-3 flex flex-col gap-1.5 flex-1 overflow-y-auto">
+        <div className="py-4 px-3 flex flex-col gap-1.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -151,7 +151,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         </div>
 
         {/* Bottom Link: Return to Kids App */}
-        <div className="p-3 border-t-2 border-[#1E294B]">
+        <div className="p-3 border-t-2 border-[#1E294B] shrink-0">
           <a
             href="/"
             className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-2xl bg-[#151D33] hover:bg-[#1E294B] text-white text-xs font-bold transition-all border border-[#1E294B] no-underline active:scale-95"

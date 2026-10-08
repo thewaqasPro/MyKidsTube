@@ -198,7 +198,7 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0B0F19] text-[#F1F1F1] flex flex-col font-sans">
       <StudioTopBar
         searchQuery={search}
         onSearchChange={setSearch}
@@ -208,7 +208,7 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
         }}
       />
 
-      <div className="flex flex-1 relative overflow-x-hidden">
+      <div className="flex flex-1 relative overflow-x-clip">
         <StudioSidebar
           activeTab={activeTab}
           onSelectTab={handleSelectTab}

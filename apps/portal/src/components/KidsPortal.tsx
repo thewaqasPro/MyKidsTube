@@ -220,7 +220,7 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
       />
 
       {/* Main Layout Area with WonderKids Sidebar */}
-      <div className="flex flex-1 relative overflow-x-hidden">
+      <div className="flex flex-1 relative overflow-x-clip">
         {/* Left Sidebar */}
         <KidsSidebar
           isExpanded={isSidebarExpanded}

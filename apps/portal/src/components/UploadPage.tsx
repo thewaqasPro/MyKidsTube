@@ -209,7 +209,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         }}
       />
 
-      <div className="flex flex-1 relative overflow-x-hidden">
+      <div className="flex flex-1 relative overflow-x-clip">
         <StudioSidebar
           activeTab="upload"
           isExpanded={isSidebarExpanded}
@@ -228,7 +228,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
                 <div>
                   <h2 className="text-xl font-display font-black text-white tracking-wide">Add Family Videos</h2>
                   <p className="text-xs text-[#94A3B8] font-medium mt-0.5">
-                    Import entire playlists or paste custom URLs. Automatically caches thumbnails and enables instant playback.
+                    Import entire playlists or paste custom URLs.<br/> Automatically caches thumbnails and enables instant playback.
                   </p>
                 </div>
               </div>

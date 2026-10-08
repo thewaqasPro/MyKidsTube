@@ -55,7 +55,7 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
   const allList = [allCategoryItem, ...categories];
 
   return (
-    <div className="sticky top-16 z-20 bg-[#0B0F19]/95 backdrop-blur-md border-b border-[#1E294B] shadow-sm">
+    <div className="sticky top-16 z-30 bg-[#0B0F19]/95 backdrop-blur-md border-b border-[#1E294B] shadow-sm">
       <div className="flex items-center gap-2.5 px-4 sm:px-6 py-3 overflow-x-auto no-scrollbar scroll-smooth">
         {allList.map((cat) => {
           const isSelected = selectedCategoryId === cat.id;

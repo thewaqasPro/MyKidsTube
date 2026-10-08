@@ -52,13 +52,13 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
       <aside
         className={`shrink-0 z-40 bg-[#0B0F19] border-r border-[#1E294B] select-none flex flex-col transition-all duration-200 ${
           isMobileOpen
-            ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50'
+            ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50 overflow-y-auto custom-scrollbar'
             : isExpanded
-            ? 'w-64 hidden lg:flex'
-            : 'w-[78px] hidden md:flex'
+            ? 'sticky top-16 h-[calc(100vh-4rem)] self-start w-64 hidden lg:flex overflow-hidden'
+            : 'sticky top-16 h-[calc(100vh-4rem)] self-start w-[78px] hidden md:flex overflow-hidden'
         }`}
       >
-        <div className="py-4 px-3 flex flex-col gap-2 flex-1 overflow-y-auto custom-scrollbar">
+        <div className="py-4 px-3 flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
           {/* Nav Item 1: Home */}
           <a
             href="/"
@@ -240,7 +240,7 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-[#1E294B] text-[10.5px] font-semibold text-[#64748B] text-center font-display">
+        <div className="p-3 border-t border-[#1E294B] text-[10.5px] font-semibold text-[#64748B] text-center font-display shrink-0">
           🌟 Safe Play Zone
         </div>
       </aside>
