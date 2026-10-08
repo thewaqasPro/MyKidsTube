@@ -12,12 +12,14 @@ class KidEmbedPlayer extends StatefulWidget {
   final String youtubeId;
   final bool autoPlay;
   final double? aspectRatio;
+  final double scale;
 
   const KidEmbedPlayer({
     super.key,
     required this.youtubeId,
     this.autoPlay = true,
     this.aspectRatio,
+    this.scale = 1.0,
   });
 
   @override
@@ -47,7 +49,9 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   @override
   void didUpdateWidget(KidEmbedPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.youtubeId != widget.youtubeId || oldWidget.autoPlay != widget.autoPlay) {
+    if (oldWidget.youtubeId != widget.youtubeId ||
+        oldWidget.autoPlay != widget.autoPlay ||
+        oldWidget.scale != widget.scale) {
       _loadVideo(widget.youtubeId);
     }
   }
@@ -176,8 +180,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
       width: 100%;
       height: 100%;
       border: 0;
-      transform: scale(1.14);
-      transform-origin: center center;
+      ${widget.scale != 1.0 ? 'transform: scale(${widget.scale}); transform-origin: center center;' : ''}
     }
   </style>
 </head>
