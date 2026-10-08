@@ -57,15 +57,15 @@ export const StudioAnalyticsView: React.FC<StudioAnalyticsViewProps> = ({ initia
   return (
     <div className="space-y-6">
       {/* Header and Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-[#151D33] border-2 border-[#1E294B] rounded-[32px] shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-surface border-2 border-border rounded-[32px] shadow-xl">
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-display font-black text-white tracking-wide">Kid Viewing & Retention Intelligence</h1>
-            <span className="px-3 py-1 text-xs font-black bg-[#FF5E62]/15 text-[#FF5E62] rounded-full border border-[#FF5E62]/30">
+            <span className="px-3 py-1 text-xs font-black bg-coral/15 text-coral rounded-full border border-coral/30">
               PER-DEVICE & PER-USER
             </span>
           </div>
-          <p className="text-xs text-[#94A3B8] mt-1 font-medium">
+          <p className="text-xs text-text-secondary mt-1 font-medium">
             Track which videos each child loves versus what they skip quickly within 10 seconds.
           </p>
         </div>
@@ -73,16 +73,16 @@ export const StudioAnalyticsView: React.FC<StudioAnalyticsViewProps> = ({ initia
         {/* Filter Bar Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Device Selector */}
-          <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0B0F19] border-2 border-[#1E294B] rounded-2xl text-xs font-bold">
-            <Tv className="w-3.5 h-3.5 text-[#38BDF8]" />
+          <div className="flex items-center gap-1.5 px-3.5 py-2 bg-canvas-deep border-2 border-border rounded-2xl text-xs font-bold">
+            <Tv className="w-3.5 h-3.5 text-sky" />
             <select
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
               className="bg-transparent text-white outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-[#151D33] text-white">All Devices</option>
+              <option value="all" className="bg-surface text-white">All Devices</option>
               {devices.map((d: any) => (
-                <option key={d.id} value={d.id} className="bg-[#151D33] text-white">
+                <option key={d.id} value={d.id} className="bg-surface text-white">
                   {d.device_name || d.id}
                 </option>
               ))}
@@ -90,16 +90,16 @@ export const StudioAnalyticsView: React.FC<StudioAnalyticsViewProps> = ({ initia
           </div>
 
           {/* Kid Profile Selector */}
-          <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0B0F19] border-2 border-[#1E294B] rounded-2xl text-xs font-bold">
-            <Users className="w-3.5 h-3.5 text-[#10B981]" />
+          <div className="flex items-center gap-1.5 px-3.5 py-2 bg-canvas-deep border-2 border-border rounded-2xl text-xs font-bold">
+            <Users className="w-3.5 h-3.5 text-mint" />
             <select
               value={selectedProfile}
               onChange={(e) => setSelectedProfile(e.target.value)}
               className="bg-transparent text-white outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-[#151D33] text-white">All Kids</option>
+              <option value="all" className="bg-surface text-white">All Kids</option>
               {profiles.map((p: any) => (
-                <option key={p.id} value={p.id} className="bg-[#151D33] text-white">
+                <option key={p.id} value={p.id} className="bg-surface text-white">
                   {p.name} ({p.age_bracket || 'kid'})
                 </option>
               ))}
@@ -107,24 +107,24 @@ export const StudioAnalyticsView: React.FC<StudioAnalyticsViewProps> = ({ initia
           </div>
 
           {/* Time Range Selector */}
-          <div className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0B0F19] border-2 border-[#1E294B] rounded-2xl text-xs font-bold">
-            <Calendar className="w-3.5 h-3.5 text-[#A855F7]" />
+          <div className="flex items-center gap-1.5 px-3.5 py-2 bg-canvas-deep border-2 border-border rounded-2xl text-xs font-bold">
+            <Calendar className="w-3.5 h-3.5 text-violet" />
             <select
               value={selectedRange}
               onChange={(e) => setSelectedRange(e.target.value)}
               className="bg-transparent text-white outline-none cursor-pointer pr-1"
             >
-              <option value="today" className="bg-[#151D33] text-white">Today</option>
-              <option value="7d" className="bg-[#151D33] text-white">Last 7 Days</option>
-              <option value="30d" className="bg-[#151D33] text-white">Last 30 Days</option>
-              <option value="all" className="bg-[#151D33] text-white">All Time</option>
+              <option value="today" className="bg-surface text-white">Today</option>
+              <option value="7d" className="bg-surface text-white">Last 7 Days</option>
+              <option value="30d" className="bg-surface text-white">Last 30 Days</option>
+              <option value="all" className="bg-surface text-white">All Time</option>
             </select>
           </div>
 
           <button
             onClick={fetchAnalytics}
             disabled={loading}
-            className="p-2.5 bg-[#0B0F19] hover:bg-[#1E294B] border-2 border-[#1E294B] text-[#94A3B8] hover:text-white rounded-2xl transition-all cursor-pointer"
+            className="p-2.5 bg-canvas-deep hover:bg-surface-hover border-2 border-border text-text-secondary hover:text-white rounded-2xl transition-all cursor-pointer"
             title="Refresh Analytics"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -133,8 +133,8 @@ export const StudioAnalyticsView: React.FC<StudioAnalyticsViewProps> = ({ initia
       </div>
 
       {loading && !data ? (
-        <div className="p-16 text-center text-[#94A3B8] flex flex-col items-center justify-center gap-3">
-          <RefreshCw className="w-6 h-6 animate-spin text-[#38BDF8]" />
+        <div className="p-16 text-center text-text-secondary flex flex-col items-center justify-center gap-3">
+          <RefreshCw className="w-6 h-6 animate-spin text-sky" />
           <span className="font-bold text-xs">Crunching viewing metrics...</span>
         </div>
       ) : error ? (

@@ -39,15 +39,15 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
   onDismissPasskeyNotice,
 }) => {
   return (
-    <div className="p-6 bg-[#161616] border border-[#262626] rounded-2xl space-y-5">
+    <div className="p-6 bg-surface border border-border rounded-2xl space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          <div className="p-2.5 rounded-xl bg-sky/10 text-sky border border-sky/20">
             <Fingerprint className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-[16px] font-bold text-white">Biometric Passkeys (FaceID / TouchID / Windows Hello)</h3>
-            <p className="text-[12px] text-[#888888]">
+            <p className="text-[12px] text-text-muted">
               Sign in instantly with a touch or glance using FIDO2 WebAuthn encryption. No passwords to remember.
             </p>
           </div>
@@ -55,7 +55,7 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleAddingPasskeyOpen}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-[12px] font-semibold text-white rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-coral hover:bg-coral-hover text-[12px] font-semibold text-white rounded-xl shadow-md shadow-coral/20 transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             Register New Passkey
@@ -63,7 +63,7 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
           <button
             onClick={onRefreshPasskeys}
             disabled={loadingPasskeys}
-            className="p-2 bg-[#222222] hover:bg-[#2C2C2C] text-[#AAAAAA] hover:text-white rounded-xl border border-[#333333] transition-colors cursor-pointer"
+            className="p-2 bg-canvas-deep hover:bg-surface text-text-secondary hover:text-white rounded-xl border border-border transition-colors cursor-pointer"
             title="Refresh passkeys list"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingPasskeys ? 'animate-spin' : ''}`} />
@@ -73,13 +73,13 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
 
       {/* Inline Register Passkey Form */}
       {isAddingPasskeyOpen && (
-        <form onSubmit={onRegisterPasskey} className="p-4 bg-[#111114] border border-indigo-500/30 rounded-xl space-y-3">
+        <form onSubmit={onRegisterPasskey} className="p-4 bg-canvas-deep border border-sky/30 rounded-xl space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-[12px] font-semibold text-white">Device or Key Name:</span>
             <button
               type="button"
               onClick={onToggleAddingPasskeyOpen}
-              className="text-[#888888] hover:text-white text-[12px]"
+              className="text-text-muted hover:text-white text-[12px]"
             >
               Cancel
             </button>
@@ -91,12 +91,12 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
               onChange={(e) => onNewPasskeyNameChange(e.target.value)}
               placeholder="e.g. MacBook Pro TouchID, Dad's iPhone FaceID"
               maxLength={50}
-              className="flex-1 px-3.5 py-2 bg-[#1A1A20] border border-[#333340] rounded-xl text-white text-[13px] placeholder-[#666677] focus:outline-none focus:border-indigo-500"
+              className="flex-1 px-3.5 py-2 bg-surface border border-border rounded-xl text-white text-[13px] placeholder-text-muted focus:outline-none focus:border-sky"
             />
             <button
               type="submit"
               disabled={registeringPasskey}
-              className="flex items-center justify-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[12px] font-semibold rounded-xl transition-all cursor-pointer shrink-0"
+              className="flex items-center justify-center gap-2 px-5 py-2 bg-coral hover:bg-coral-hover disabled:opacity-50 text-white text-[12px] font-semibold rounded-xl transition-all cursor-pointer shrink-0"
             >
               {registeringPasskey ? (
                 <>
@@ -111,7 +111,7 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
               )}
             </button>
           </div>
-          <p className="text-[11px] text-[#777788]">
+          <p className="text-[11px] text-text-muted">
             Your browser will prompt your system authenticator (TouchID, FaceID, or security key).
           </p>
         </form>
@@ -141,11 +141,11 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
 
       {/* Passkeys List */}
       {loadingPasskeys ? (
-        <div className="p-6 text-center text-[#888888] text-[12px]">Loading registered passkeys...</div>
+        <div className="p-6 text-center text-text-muted text-[12px]">Loading registered passkeys...</div>
       ) : passkeysList.length === 0 ? (
-        <div className="p-6 bg-[#111111] border border-[#222222] rounded-xl text-center space-y-1.5">
-          <p className="text-[13px] text-[#CCCCCC] font-medium">No biometric passkeys registered yet</p>
-          <p className="text-[11px] text-[#777777]">
+        <div className="p-6 bg-canvas-deep border border-border rounded-xl text-center space-y-1.5">
+          <p className="text-[13px] text-text-primary font-medium">No biometric passkeys registered yet</p>
+          <p className="text-[11px] text-text-muted">
             Click "Register New Passkey" above to activate Touch ID or Face ID for fast 1-tap sign-in on this device.
           </p>
         </div>
@@ -154,22 +154,22 @@ export const SecurityPasskeysCard: React.FC<SecurityPasskeysCardProps> = ({
           {passkeysList.map((pk: any) => (
             <div
               key={pk.id}
-              className="p-4 bg-[#111114] border border-[#252530] rounded-xl flex items-center justify-between gap-3"
+              className="p-4 bg-canvas-deep border border-border rounded-xl flex items-center justify-between gap-3"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 shrink-0">
+                <div className="p-2 rounded-lg bg-sky/10 text-sky shrink-0">
                   <Fingerprint className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-[13px] font-semibold text-white truncate">{pk.name || 'Biometric Passkey'}</p>
-                  <p className="text-[11px] text-[#777788] truncate">
+                  <p className="text-[11px] text-text-secondary truncate">
                     {pk.createdAt ? `Enrolled ${new Date(pk.createdAt).toLocaleDateString()}` : 'Registered hardware credential'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => onDeletePasskey(pk.id, pk.name)}
-                className="p-1.5 text-[#777788] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                 title="Revoke passkey"
               >
                 <Trash2 className="w-4 h-4" />

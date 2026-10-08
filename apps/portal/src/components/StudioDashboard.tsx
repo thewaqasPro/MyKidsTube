@@ -198,7 +198,7 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#F1F1F1] flex flex-col font-sans">
+    <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
       <StudioTopBar
         searchQuery={search}
         onSearchChange={setSearch}

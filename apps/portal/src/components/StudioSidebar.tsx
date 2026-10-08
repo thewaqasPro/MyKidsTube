@@ -89,7 +89,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
 
       {/* Studio Sidebar Container */}
       <aside
-        className={`shrink-0 z-40 bg-[#0B0F19] border-r-2 border-[#1E294B] select-none flex flex-col transition-all duration-200 ${
+        className={`shrink-0 z-40 bg-sidebar border-r-2 border-border select-none flex flex-col transition-all duration-200 ${
           isMobileOpen
             ? 'fixed top-16 bottom-0 left-0 w-64 shadow-2xl z-50 overflow-y-auto custom-scrollbar'
             : isExpanded
@@ -98,18 +98,18 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         }`}
       >
         {/* Parent Admin Channel Header */}
-        <div className={`p-4 border-b-2 border-[#1E294B] flex items-center gap-3 shrink-0 ${
+        <div className={`p-4 border-b-2 border-border flex items-center gap-3 shrink-0 ${
           isExpanded || isMobileOpen ? 'justify-start' : 'justify-center'
         }`}>
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#38BDF8] to-[#A855F7] flex items-center justify-center text-white text-base font-bold shadow-md shrink-0 border-2 border-white/20">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky to-violet flex items-center justify-center text-white text-base font-bold shadow-md shrink-0 border-2 border-white/20">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           {(isExpanded || isMobileOpen) && (
             <div className="flex flex-col min-w-0">
-              <span className="font-display font-black text-sm text-white truncate">
+              <span className="font-display font-black text-sm text-text-primary truncate">
                 Parent Admin
               </span>
-              <span className="text-xs text-[#94A3B8] font-semibold truncate">
+              <span className="text-xs text-text-secondary font-semibold truncate">
                 Family Security Hub
               </span>
             </div>
@@ -136,12 +136,12 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
                     : 'justify-center p-2.5'
                 } ${
                   isActive
-                    ? 'bg-[#151D33] text-white font-black border-2 border-[#1E294B] shadow-sm'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
+                    ? 'bg-surface text-text-primary font-black border-2 border-border shadow-sm'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface/60'
                 }`}
                 title={item.label}
               >
-                <div className={isActive ? 'text-[#38BDF8]' : 'text-[#64748B]'}>
+                <div className={isActive ? 'text-sky' : 'text-text-muted'}>
                   {item.icon}
                 </div>
                 {(isExpanded || isMobileOpen) && (
@@ -153,15 +153,15 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         </div>
 
         {/* Bottom Link: Return to Kids App */}
-        <div className="p-3 border-t-2 border-[#1E294B] shrink-0">
+        <div className="p-3 border-t-2 border-border shrink-0">
           <a
             href="/"
-            className={`flex items-center justify-center rounded-2xl bg-[#151D33] hover:bg-[#1E294B] text-white text-xs font-bold transition-all border border-[#1E294B] no-underline active:scale-95 ${
+            className={`flex items-center justify-center rounded-2xl bg-surface hover:bg-surface-elevated text-text-primary text-xs font-bold transition-all border border-border no-underline active:scale-95 ${
               isExpanded || isMobileOpen ? 'gap-2 w-full py-2.5 px-3' : 'p-2.5'
             }`}
             title="Exit to KidsTube"
           >
-            <Home className="w-4 h-4 text-[#FF5E62]" />
+            <Home className="w-4 h-4 text-coral" />
             {(isExpanded || isMobileOpen) && <span>Exit to KidsTube</span>}
           </a>
         </div>

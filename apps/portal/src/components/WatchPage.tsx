@@ -154,7 +154,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0D1322] text-[#F1F1F1] flex flex-col font-sans">
+    <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans">
       <KidsTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -181,7 +181,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
             {/* Left Column: Sticky Video Player & Details */}
             <div className="flex-1 min-w-0 w-full lg:sticky lg:top-20 lg:self-start z-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto custom-scrollbar">
               {/* Mobile sticky wrapper for player */}
-              <div className="sticky top-16 z-30 bg-[#0D1322] -mx-3 sm:-mx-5 md:-mx-6 px-3 sm:px-5 md:px-6 pt-1 pb-2 lg:static lg:bg-transparent lg:p-0 lg:m-0">
+              <div className="sticky top-16 z-30 bg-canvas -mx-3 sm:-mx-5 md:-mx-6 px-3 sm:px-5 md:px-6 pt-1 pb-2 lg:static lg:bg-transparent lg:p-0 lg:m-0">
                 <WatchPlayer
                   video={video}
                   selfHostedAvailable={selfHostedAvailable}

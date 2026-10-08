@@ -27,8 +27,8 @@ export const QuickPinKeypadCard: React.FC<QuickPinKeypadCardProps> = ({
               key={idx}
               className={`w-4 h-4 rounded-full transition-all duration-200 ${
                 hasDigit
-                  ? 'bg-gradient-to-tr from-[#FF5E62] to-[#FFB300] scale-125 shadow-md shadow-[#FF5E62]/50'
-                  : 'bg-[#0B0F19] border-2 border-[#1E294B]'
+                  ? 'bg-gradient-to-tr from-coral to-sun scale-125 shadow-md shadow-coral/50'
+                  : 'bg-canvas-deep border-2 border-border'
               }`}
             />
           );
@@ -42,7 +42,7 @@ export const QuickPinKeypadCard: React.FC<QuickPinKeypadCardProps> = ({
             key={digit}
             type="button"
             onClick={() => handleDigit(digit)}
-            className="h-13 rounded-2xl bg-[#0B0F19] hover:bg-[#1E294B] active:translate-y-0.5 active:scale-95 font-display font-black text-xl text-white border-2 border-[#1E294B] hover:border-[#38BDF8] transition-all cursor-pointer select-none shadow-sm"
+            className="h-13 rounded-2xl bg-canvas-deep hover:bg-surface-hover active:translate-y-0.5 active:scale-95 font-display font-black text-xl text-white border-2 border-border hover:border-sky transition-all cursor-pointer select-none shadow-sm"
           >
             {digit}
           </button>
@@ -50,14 +50,14 @@ export const QuickPinKeypadCard: React.FC<QuickPinKeypadCardProps> = ({
         <button
           type="button"
           onClick={handleBackspace}
-          className="h-13 rounded-2xl bg-[#0B0F19] hover:bg-[#1E294B] text-xs font-bold text-[#94A3B8] hover:text-white border-2 border-[#1E294B] transition-all cursor-pointer select-none flex items-center justify-center active:scale-95"
+          className="h-13 rounded-2xl bg-canvas-deep hover:bg-surface-hover text-xs font-bold text-text-secondary hover:text-white border-2 border-border transition-all cursor-pointer select-none flex items-center justify-center active:scale-95"
         >
           Delete
         </button>
         <button
           type="button"
           onClick={() => handleDigit('0')}
-          className="h-13 rounded-2xl bg-[#0B0F19] hover:bg-[#1E294B] active:translate-y-0.5 active:scale-95 font-display font-black text-xl text-white border-2 border-[#1E294B] hover:border-[#38BDF8] transition-all cursor-pointer select-none shadow-sm"
+          className="h-13 rounded-2xl bg-canvas-deep hover:bg-surface-hover active:translate-y-0.5 active:scale-95 font-display font-black text-xl text-white border-2 border-border hover:border-sky transition-all cursor-pointer select-none shadow-sm"
         >
           0
         </button>
@@ -65,7 +65,7 @@ export const QuickPinKeypadCard: React.FC<QuickPinKeypadCardProps> = ({
           type="button"
           onClick={() => handlePinSubmit()}
           disabled={pin.length < 4 || loading}
-          className="h-13 rounded-2xl bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] hover:from-[#FF8E53] hover:to-[#FF5E62] disabled:opacity-20 disabled:pointer-events-none active:scale-95 text-xs font-display font-black text-white transition-all cursor-pointer select-none flex items-center justify-center shadow-lg shadow-[#FF5E62]/30 border-2 border-white/10"
+          className="h-13 rounded-2xl bg-gradient-to-r from-coral to-coral-hover hover:from-coral-hover hover:to-coral disabled:opacity-20 disabled:pointer-events-none active:scale-95 text-xs font-display font-black text-white transition-all cursor-pointer select-none flex items-center justify-center shadow-lg shadow-coral/30 border-2 border-white/10"
         >
           <ArrowRight className="w-5 h-5" />
         </button>

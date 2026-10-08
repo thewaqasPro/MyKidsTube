@@ -31,7 +31,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       className="group flex flex-col cursor-pointer select-none no-underline transition-all duration-200 card-hover-pop"
     >
       {/* 16:9 Thumbnail Container with WonderKids 20px Rounded Frame */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-[20px] bg-[#151D33] border border-[#243052] shadow-sm group-hover:border-[#38BDF8]/40 transition-colors">
+      <div className="relative aspect-video w-full overflow-hidden rounded-[20px] bg-surface border border-border shadow-sm group-hover:border-sky/40 transition-colors">
         {!imgError ? (
           <img
             src={thumbUrl}
@@ -41,9 +41,9 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-[#151D33] text-[#64748B]">
-            <Play className="w-10 h-10 opacity-40 text-[#38BDF8]" />
-            <span className="text-[12px] mt-1 font-display font-medium text-[#94A3B8]">Safe Video</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-surface text-text-muted">
+            <Play className="w-10 h-10 opacity-40 text-sky" />
+            <span className="text-[12px] mt-1 font-display font-medium text-text-secondary">Safe Video</span>
           </div>
         )}
 
@@ -52,10 +52,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <button
             onClick={(e) => onToggleFavorite(video.id, e)}
             title={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-            className={`absolute top-2.5 right-2.5 p-2 rounded-full bg-[#0B0F19]/75 backdrop-blur-md transition-all cursor-pointer ${
+            className={`absolute top-2.5 right-2.5 p-2 rounded-full bg-canvas-deep/75 backdrop-blur-md transition-all cursor-pointer ${
               isFavorite
-                ? 'opacity-100 text-[#FF5E62] scale-110'
-                : 'opacity-0 group-hover:opacity-100 text-white/80 hover:text-[#FF5E62] hover:scale-110'
+                ? 'opacity-100 text-coral scale-110'
+                : 'opacity-0 group-hover:opacity-100 text-white/80 hover:text-coral hover:scale-110'
             }`}
           >
             <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
@@ -64,13 +64,13 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
         {/* Playful Floating Play Bubble on Hover */}
         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-          <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#FF5E62] to-[#FFA000] text-white flex items-center justify-center shadow-lg shadow-[#FF5E62]/40 transform scale-90 group-hover:scale-100 transition-transform">
+          <div className="w-13 h-13 rounded-full bg-gradient-to-tr from-coral to-sun text-white flex items-center justify-center shadow-lg shadow-coral/40 transform scale-90 group-hover:scale-100 transition-transform">
             <Play className="w-6 h-6 fill-current ml-0.5" />
           </div>
         </div>
 
         {/* Duration Badge Pill */}
-        <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-full bg-[#0B0F19]/85 backdrop-blur-md border border-white/10 text-[11px] font-bold text-white tracking-wide font-mono">
+        <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-full bg-canvas-deep/85 backdrop-blur-md border border-white/10 text-[11px] font-bold text-white tracking-wide font-mono">
           {video.duration_formatted || '03:00'}
         </div>
       </div>
@@ -85,10 +85,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               alt={cleanChannelName}
               loading="lazy"
               onError={() => setAvatarError(true)}
-              className="w-9 h-9 rounded-full object-cover bg-[#151D33] ring-2 ring-[#38BDF8]/40 ring-offset-2 ring-offset-[#0D1322]"
+              className="w-9 h-9 rounded-full object-cover bg-surface ring-2 ring-sky/40 ring-offset-2 ring-offset-canvas"
             />
           ) : (
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF5E62] to-[#FFA000] flex items-center justify-center text-white text-[13px] font-display font-bold shadow-sm ring-2 ring-[#FF5E62]/30 ring-offset-2 ring-offset-[#0D1322]">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-coral to-sun flex items-center justify-center text-white text-[13px] font-display font-bold shadow-sm ring-2 ring-coral/30 ring-offset-2 ring-offset-canvas">
               {cleanChannelName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -97,19 +97,19 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         {/* Title & Metadata */}
         <div className="flex flex-col min-w-0 flex-1">
           <h3
-            className="text-[14.5px] font-bold leading-snug text-white group-hover:text-[#38BDF8] line-clamp-2 transition-colors"
+            className="text-[14.5px] font-bold leading-snug text-white group-hover:text-sky line-clamp-2 transition-colors"
             title={video.title}
           >
             {cleanTitle || video.title}
           </h3>
 
-          <div className="mt-1 flex flex-col text-[12px] text-[#94A3B8]">
+          <div className="mt-1 flex flex-col text-[12px] text-text-secondary">
             <span className="truncate hover:text-white transition-colors font-medium">
               {cleanChannelName}
             </span>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#64748B] mt-0.5 font-medium">
-              <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+            <div className="flex items-center gap-1.5 text-[11px] text-text-muted mt-0.5 font-medium">
+              <span className="inline-flex items-center gap-1 text-mint font-semibold">
+                <ShieldCheck className="w-3 h-3 text-mint" />
                 Kid Safe
               </span>
               <span>•</span>

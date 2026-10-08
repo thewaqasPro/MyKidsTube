@@ -36,7 +36,7 @@ export const SecurityPinGateCard: React.FC<SecurityPinGateCardProps> = ({
   onDismissPinNotice,
 }) => {
   return (
-    <div className="p-6 bg-[#161616] border border-[#262626] rounded-2xl space-y-5">
+    <div className="p-6 bg-surface border border-border rounded-2xl space-y-5">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -44,7 +44,7 @@ export const SecurityPinGateCard: React.FC<SecurityPinGateCardProps> = ({
           </div>
           <div>
             <h3 className="text-[16px] font-bold text-white">Child Gate & Tablet PIN</h3>
-            <p className="text-[12px] text-[#888888]">
+            <p className="text-[12px] text-text-muted">
               This 4–6 digit numerical PIN secures Studio access and video management on shared family tablets.
             </p>
           </div>
@@ -60,10 +60,10 @@ export const SecurityPinGateCard: React.FC<SecurityPinGateCardProps> = ({
         </span>
       </div>
 
-      <form onSubmit={onUpdatePin} className="p-4 bg-[#111111] border border-[#222222] rounded-xl space-y-4 max-w-lg">
+      <form onSubmit={onUpdatePin} className="p-4 bg-canvas-deep border border-border rounded-xl space-y-4 max-w-lg">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
               New PIN (4–6 Digits)
             </label>
             <div className="relative">
@@ -73,12 +73,12 @@ export const SecurityPinGateCard: React.FC<SecurityPinGateCardProps> = ({
                 onChange={(e) => onNewPinChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="••••"
                 maxLength={6}
-                className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#333333] rounded-xl text-white font-mono text-[16px] tracking-widest focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-surface border border-border rounded-xl text-white font-mono text-[16px] tracking-widest focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
+            <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
               Confirm New PIN
             </label>
             <div className="relative">
@@ -88,7 +88,7 @@ export const SecurityPinGateCard: React.FC<SecurityPinGateCardProps> = ({
                 onChange={(e) => onConfirmPinChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="••••"
                 maxLength={6}
-                className="w-full px-3.5 py-2.5 bg-[#181818] border border-[#333333] rounded-xl text-white font-mono text-[16px] tracking-widest focus:outline-none focus:border-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-surface border border-border rounded-xl text-white font-mono text-[16px] tracking-widest focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -98,7 +98,7 @@ export const SecurityPinGateCard: React.FC<SecurityPinGateCardProps> = ({
           <button
             type="button"
             onClick={onToggleShowPin}
-            className="text-[11px] text-[#888888] hover:text-white transition-colors cursor-pointer"
+            className="text-[11px] text-text-muted hover:text-white transition-colors cursor-pointer"
           >
             {showPin ? 'Hide PIN numbers' : 'Show PIN numbers'}
           </button>

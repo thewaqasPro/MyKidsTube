@@ -54,27 +54,27 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
   return (
     <section className="space-y-4">
       {/* Search and Filters Toolbar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-[#161616] p-3.5 rounded-2xl border border-[#262626]">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-surface p-3.5 rounded-2xl border border-border">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#717171]" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Filter by title, channel name, or video ID..."
-            className="w-full pl-9 pr-4 py-2 bg-[#202020] border border-[#2A2A2A] rounded-xl text-[13px] text-white placeholder-[#717171] focus:outline-none focus:border-[#3EA6FF] transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-surface-elevated border border-border rounded-xl text-[13px] text-text-primary placeholder-text-muted focus:outline-none focus:border-sky transition-colors"
           />
         </div>
 
         {/* Filter controls */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Status filter */}
-          <div className="flex items-center bg-[#202020] border border-[#2A2A2A] rounded-xl p-0.5 text-[12px]">
+          <div className="flex items-center bg-surface-elevated border border-border rounded-xl p-0.5 text-[12px]">
             <button
               onClick={() => onStatusFilterChange('all')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                statusFilter === 'all' ? 'bg-[#303030] text-white' : 'text-[#AAAAAA] hover:text-white'
+                statusFilter === 'all' ? 'bg-surface text-text-primary font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               All
@@ -82,7 +82,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
             <button
               onClick={() => onStatusFilterChange('ready')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                statusFilter === 'ready' ? 'bg-[#303030] text-emerald-400' : 'text-[#AAAAAA] hover:text-white'
+                statusFilter === 'ready' ? 'bg-surface text-mint font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Self-Hosted
@@ -90,7 +90,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
             <button
               onClick={() => onStatusFilterChange('pending')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                statusFilter === 'pending' ? 'bg-[#303030] text-amber-400' : 'text-[#AAAAAA] hover:text-white'
+                statusFilter === 'pending' ? 'bg-surface text-sun font-bold shadow-sm' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               Wishlist
@@ -102,7 +102,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
             <select
               value={categoryFilter}
               onChange={(e) => onCategoryFilterChange(e.target.value)}
-              className="appearance-none bg-[#202020] border border-[#2A2A2A] text-[12px] text-white px-3.5 py-2 pr-8 rounded-xl outline-none cursor-pointer focus:border-[#3EA6FF]"
+              className="appearance-none bg-surface-elevated border border-border text-[12px] text-text-primary px-3.5 py-2 pr-8 rounded-xl outline-none cursor-pointer focus:border-sky"
             >
               <option value="all">All Categories</option>
               {categories.map((c) => (
@@ -111,12 +111,12 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                 </option>
               ))}
             </select>
-            <Filter className="w-3.5 h-3.5 text-[#717171] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Filter className="w-3.5 h-3.5 text-text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           <a
             href="/upload"
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] hover:from-[#FF8E53] hover:to-[#FF5E62] text-white text-xs font-display font-black rounded-full transition-all shrink-0 shadow-md shadow-[#FF5E62]/20 no-underline active:scale-95 border border-white/10"
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-coral to-coral-hover text-white text-xs font-display font-black rounded-full transition-all shrink-0 shadow-md shadow-coral/20 no-underline active:scale-95 border border-white/10"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Video</span>
@@ -126,22 +126,22 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
 
       {/* Bulk Selection Bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-red-950/40 to-[#1A1A1A] border border-red-500/30 rounded-2xl shadow-sm animate-fadeIn">
+        <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-coral/20 to-surface border border-coral/30 rounded-2xl shadow-sm animate-fadeIn">
           <div className="flex items-center gap-3">
             <button
               onClick={onDeselectAll}
-              className="text-[#AAAAAA] hover:text-white text-[12px] underline cursor-pointer"
+              className="text-text-secondary hover:text-text-primary text-[12px] underline cursor-pointer"
             >
               Deselect all
             </button>
-            <span className="text-[13px] font-semibold text-white">
+            <span className="text-[13px] font-semibold text-text-primary">
               {selectedIds.size} video{selectedIds.size > 1 ? 's' : ''} selected
             </span>
           </div>
 
           <button
             onClick={onBulkDelete}
-            className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-[12px] font-semibold rounded-xl transition-colors cursor-pointer shadow-md shadow-red-600/20"
+            className="flex items-center gap-2 px-4 py-1.5 bg-coral hover:bg-coral-hover text-white text-[12px] font-semibold rounded-xl transition-colors cursor-pointer shadow-md shadow-coral/20"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete Selected ({selectedIds.size})</span>
@@ -150,26 +150,26 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
       )}
 
       {/* Catalog Table */}
-      <div className="bg-[#181818] border border-[#262626] rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-surface border border-border rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
-            <thead className="bg-[#1F1F1F] text-[#AAAAAA] border-b border-[#2A2A2A] select-none text-[12px]">
+            <thead className="bg-surface-elevated text-text-secondary border-b border-border select-none text-[12px]">
               <tr>
                 <th className="py-3 px-3 w-10 text-center">
                   <button
                     type="button"
                     onClick={isAllSelected ? onDeselectAll : onSelectAll}
-                    className="text-[#AAAAAA] hover:text-white transition-colors cursor-pointer p-1"
+                    className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer p-1"
                     title={isAllSelected ? 'Deselect all videos' : 'Select all videos'}
                   >
                     {isAllSelected ? (
-                      <CheckSquare className="w-4 h-4 text-[#3EA6FF]" />
+                      <CheckSquare className="w-4 h-4 text-sky" />
                     ) : someSelected ? (
-                      <div className="w-4 h-4 rounded border border-[#3EA6FF] bg-[#3EA6FF]/20 flex items-center justify-center">
-                        <div className="w-2 h-0.5 bg-[#3EA6FF]" />
+                      <div className="w-4 h-4 rounded border border-sky bg-sky/20 flex items-center justify-center">
+                        <div className="w-2 h-0.5 bg-sky" />
                       </div>
                     ) : (
-                      <Square className="w-4 h-4 text-[#666666]" />
+                      <Square className="w-4 h-4 text-text-muted" />
                     )}
                   </button>
                 </th>
@@ -180,10 +180,10 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                 <th className="py-3 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#222222]">
+            <tbody className="divide-y divide-border">
               {videos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#888888]">
+                  <td colSpan={6} className="py-12 text-center text-text-secondary">
                     No videos found matching your filters.
                   </td>
                 </tr>
@@ -199,7 +199,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                     <tr
                       key={v.id}
                       className={`transition-colors select-none group ${
-                        isChecked ? 'bg-[#202020] hover:bg-[#252525]' : 'hover:bg-[#1A1A1A]'
+                        isChecked ? 'bg-surface-elevated hover:bg-surface-hover' : 'hover:bg-surface-elevated/40'
                       }`}
                     >
                       {/* Multi-Select Checkbox Cell */}
@@ -207,12 +207,12 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                         <button
                           type="button"
                           onClick={(e) => onToggleSelect(v.id, e)}
-                          className="text-[#888888] hover:text-white transition-colors p-1 cursor-pointer inline-flex items-center justify-center"
+                          className="text-text-secondary hover:text-text-primary transition-colors p-1 cursor-pointer inline-flex items-center justify-center"
                         >
                           {isChecked ? (
-                            <CheckSquare className="w-4 h-4 text-[#3EA6FF]" />
+                            <CheckSquare className="w-4 h-4 text-sky" />
                           ) : (
-                            <Square className="w-4 h-4 text-[#555555] group-hover:text-[#888888]" />
+                            <Square className="w-4 h-4 text-text-muted group-hover:text-text-secondary" />
                           )}
                         </button>
                       </td>
@@ -220,20 +220,20 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                       {/* Video Cell */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3 min-w-[240px]">
-                          <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-[#222222] shrink-0 border border-[#2A2A2A]">
+                          <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-surface-elevated shrink-0 border border-border">
                             <img src={thumb} alt={cleanTitle} className="w-full h-full object-cover" />
-                            <div className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/80 text-[9px] font-mono text-white">
+                            <div className="absolute bottom-0.5 right-0.5 px-1 rounded bg-sidebar/80 text-[9px] font-mono text-white">
                               {v.duration_formatted || '03:00'}
                             </div>
                           </div>
                           <div className="min-w-0">
                             <a
                               href={isVideoShort(v) ? `/shorts?v=${v.id}` : `/watch/${v.id}`}
-                              className="font-medium text-white hover:text-[#3EA6FF] line-clamp-1 transition-colors"
+                              className="font-medium text-text-primary hover:text-sky line-clamp-1 transition-colors"
                             >
                               {cleanTitle}
                             </a>
-                            <span className="text-[11px] text-[#888888] block truncate mt-0.5">
+                            <span className="text-[11px] text-text-secondary block truncate mt-0.5">
                               {cleanChannel}
                             </span>
                           </div>
@@ -243,12 +243,12 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                       {/* Playback Mode */}
                       <td className="py-3 px-4 hidden md:table-cell">
                         {isReady ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-950/70 text-emerald-400 border border-emerald-800">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-mint/15 text-mint border border-mint/30">
                             <CheckCircle className="w-3.5 h-3.5" />
                             <span>Self-Hosted MP4</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-950/70 text-amber-400 border border-amber-800">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-sun/15 text-sun border border-sun/30">
                             <Sparkles className="w-3.5 h-3.5" />
                             <span>YouTube Embed</span>
                           </span>
@@ -256,12 +256,12 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                       </td>
 
                       {/* Category */}
-                      <td className="py-3 px-4 hidden sm:table-cell text-[#AAAAAA] capitalize">
+                      <td className="py-3 px-4 hidden sm:table-cell text-text-secondary capitalize">
                         {v.category_id}
                       </td>
 
                       {/* Views */}
-                      <td className="py-3 px-4 text-center font-mono text-[#DDDDDD] hidden lg:table-cell">
+                      <td className="py-3 px-4 text-center font-mono text-text-secondary hidden lg:table-cell">
                         {v.views || 0}
                       </td>
 
@@ -270,7 +270,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <a
                             href={isVideoShort(v) ? `/shorts?v=${v.id}` : `/watch/${v.id}`}
-                            className="p-2 rounded-lg bg-[#202020] hover:bg-[#2A2A2A] text-[#DDDDDD] hover:text-white transition-colors"
+                            className="p-2 rounded-lg bg-surface-elevated hover:bg-surface-hover text-text-secondary hover:text-text-primary transition-colors"
                             title={isVideoShort(v) ? 'Watch Short' : 'Watch Video'}
                           >
                             <Play className="w-3.5 h-3.5 fill-current" />
@@ -279,7 +279,7 @@ export const StudioVideosTab: React.FC<StudioVideosTabProps> = ({
                           <button
                             onClick={() => onSingleDelete(v.id)}
                             disabled={isDeletingId === v.id}
-                            className="p-2 rounded-lg bg-[#202020] hover:bg-red-950 text-[#DDDDDD] hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50"
+                            className="p-2 rounded-lg bg-surface-elevated hover:bg-coral/20 text-text-secondary hover:text-coral transition-colors cursor-pointer disabled:opacity-50"
                             title="Delete from Catalog"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

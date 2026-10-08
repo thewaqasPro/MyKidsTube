@@ -2,6 +2,40 @@
 @import "./design-tokens.css";
 @import "tailwindcss";
 
+@theme {
+  /* 1. Surfaces & Canvas */
+  --color-canvas-deep: #080C16;
+  --color-canvas: #0D1322;
+  --color-sidebar: #0B0F19;
+  --color-surface: #151D33;
+  --color-surface-hover: #1D2845;
+  --color-surface-elevated: #1D2845;
+
+  /* 2. Borders */
+  --color-border: #1E294B;
+  --color-border-strong: #243052;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* 3. Text & Typography */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+
+  /* 4. Playful WonderKids Accents */
+  --color-coral: #FF5E62;
+  --color-coral-hover: #FF4757;
+  --color-sun: #FFB300;
+  --color-sun-hover: #FFA000;
+  --color-sky: #38BDF8;
+  --color-sky-hover: #0EA5E9;
+  --color-mint: #10B981;
+  --color-mint-hover: #059669;
+  --color-violet: #A855F7;
+  --color-violet-hover: #9333EA;
+  --color-bubblegum: #F472B6;
+  --color-bubblegum-hover: #EC4899;
+}
+
 body {
   background-color: var(--wonder-bg-canvas);
   color: var(--wonder-text-primary);

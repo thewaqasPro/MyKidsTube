@@ -207,7 +207,7 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-[#F1F1F1] flex flex-col font-sans selection:bg-[#FF5E62] selection:text-white">
+    <div className="min-h-screen bg-canvas text-text-primary flex flex-col font-sans selection:bg-coral selection:text-white">
       {/* Top Header */}
       <KidsTopBar
         searchQuery={searchQuery}
@@ -246,12 +246,12 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
           {activeNav !== 'home' && (
             <div className="px-4 sm:px-6 pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#94A3B8] font-bold">Viewing:</span>
-                <span className="px-3.5 py-1 rounded-full bg-[#151D33] border border-[#1E294B] text-white text-xs font-bold flex items-center gap-2">
+                <span className="text-xs text-text-muted font-bold">Viewing:</span>
+                <span className="px-3.5 py-1 rounded-full bg-surface border border-border text-text-primary text-xs font-bold flex items-center gap-2">
                   {gridTitle}
                   <button
                     onClick={() => handleSelectNav('home')}
-                    className="hover:text-[#FF5E62] text-[#94A3B8] ml-1 text-sm font-black cursor-pointer"
+                    className="hover:text-coral text-text-muted ml-1 text-sm font-black cursor-pointer"
                     title="Clear filter"
                   >
                     ×

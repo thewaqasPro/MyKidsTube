@@ -58,12 +58,12 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-[22px] font-bold text-white tracking-tight">Kid Tablet & Phone Devices</h1>
-          <p className="text-[13px] text-[#888888]">Pair and manage mobile apps running MyKidsTube on phones or tablets.</p>
+          <p className="text-[13px] text-text-muted">Pair and manage mobile apps running MyKidsTube on phones or tablets.</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onTogglePairingOpen}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-[13px] font-semibold text-white rounded-xl shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-coral hover:bg-coral-hover text-[13px] font-semibold text-white rounded-xl shadow-lg shadow-coral/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Pair New Device
@@ -71,7 +71,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
           <button
             onClick={onRefresh}
             disabled={loadingDevices}
-            className="flex items-center gap-2 px-3.5 py-2 bg-[#222222] hover:bg-[#2C2C2C] text-[12px] font-medium text-white rounded-xl border border-[#333333] transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 bg-surface hover:bg-surface-hover text-[12px] font-medium text-white rounded-xl border border-border transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingDevices ? 'animate-spin' : ''}`} />
             Refresh
@@ -81,15 +81,15 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
 
       {/* PAIR NEW DEVICE FORM / CARD */}
       {(isPairingOpen || devicesList.length === 0) && (
-        <div className="p-6 bg-gradient-to-b from-[#1C1C24] to-[#141418] border border-indigo-500/30 rounded-2xl shadow-xl space-y-5">
+        <div className="p-6 bg-surface border-2 border-border rounded-2xl shadow-xl space-y-5">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <div className="p-2.5 rounded-xl bg-sky/10 text-sky border border-sky/20">
                 <Smartphone className="w-6 h-6" />
               </div>
               <div>
                 <h2 className="text-[16px] font-bold text-white">Connect Device by Pairing Code</h2>
-                <p className="text-[12px] text-[#A0A0A0]">
+                <p className="text-[12px] text-text-secondary">
                   Open MyKidsTube on your kid's phone or tablet to find the 6-character code (e.g. ABC-234).
                 </p>
               </div>
@@ -97,7 +97,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
             {devicesList.length > 0 && (
               <button
                 onClick={onTogglePairingOpen}
-                className="text-[#888888] hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                className="text-text-muted hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -108,7 +108,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Code Input */}
               <div>
-                <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
                   Pairing Code *
                 </label>
                 <input
@@ -124,19 +124,19 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
                   }}
                   placeholder="ABC-234"
                   maxLength={7}
-                  className="w-full px-4 py-2.5 bg-[#0F0F12] border border-[#33333E] rounded-xl text-white font-mono text-[18px] tracking-wider text-center focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors uppercase placeholder-[#555555]"
+                  className="w-full px-4 py-2.5 bg-canvas-deep border border-border rounded-xl text-white font-mono text-[18px] tracking-wider text-center focus:outline-none focus:border-sky focus:ring-1 focus:ring-sky transition-colors uppercase placeholder-text-muted"
                 />
               </div>
 
               {/* Child Profile */}
               <div>
-                <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
                   Child Profile
                 </label>
                 <select
                   value={pairProfileId}
                   onChange={(e) => onPairProfileIdChange(e.target.value)}
-                  className="w-full px-3.5 py-3 bg-[#0F0F12] border border-[#33333E] rounded-xl text-white text-[13px] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors cursor-pointer"
+                  className="w-full px-3.5 py-3 bg-canvas-deep border border-border rounded-xl text-white text-[13px] focus:outline-none focus:border-sky focus:ring-1 focus:ring-sky transition-colors cursor-pointer"
                 >
                   {(initialProfiles && initialProfiles.length > 0
                     ? initialProfiles
@@ -151,7 +151,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
 
               {/* Device Name */}
               <div>
-                <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
+                <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
                   Device Name (Optional)
                 </label>
                 <input
@@ -160,7 +160,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
                   onChange={(e) => onPairDeviceNameChange(e.target.value)}
                   placeholder="e.g. Emma's iPad, Kids Phone"
                   maxLength={64}
-                  className="w-full px-4 py-3 bg-[#0F0F12] border border-[#33333E] rounded-xl text-white text-[13px] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors placeholder-[#555555]"
+                  className="w-full px-4 py-3 bg-canvas-deep border border-border rounded-xl text-white text-[13px] focus:outline-none focus:border-sky focus:ring-1 focus:ring-sky transition-colors placeholder-text-muted"
                 />
               </div>
             </div>
@@ -183,7 +183,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
               <button
                 type="submit"
                 disabled={isSubmittingPair || !pairCode.trim()}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-5 py-2.5 bg-coral hover:bg-coral-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] rounded-xl shadow-lg shadow-coral/30 transition-all cursor-pointer"
               >
                 {isSubmittingPair ? (
                   <>
@@ -204,17 +204,17 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
 
       {/* DEVICES LIST */}
       {loadingDevices ? (
-        <div className="p-12 text-center text-[#888888] text-[13px]">Loading paired devices...</div>
+        <div className="p-12 text-center text-text-muted text-[13px]">Loading paired devices...</div>
       ) : devicesList.length === 0 ? (
-        <div className="p-8 bg-[#181818] border border-[#262626] rounded-2xl text-center space-y-2">
-          <p className="text-[13px] text-[#AAAAAA]">
+        <div className="p-8 bg-surface border border-border rounded-2xl text-center space-y-2">
+          <p className="text-[13px] text-text-secondary">
             Enter the 6-character code from your phone or tablet above to link your first device.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {devicesList.map((dev: any) => (
-            <div key={dev.id} className="p-6 bg-[#181818] border border-[#262626] rounded-2xl space-y-4">
+            <div key={dev.id} className="p-6 bg-surface border border-border rounded-2xl space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div
@@ -228,7 +228,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-white">{dev.device_name || 'Kids Device'}</h3>
-                    <p className="text-[12px] text-[#888888]">
+                    <p className="text-[12px] text-text-secondary">
                       Status:{' '}
                       <span
                         className={
@@ -244,35 +244,35 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {dev.pairing_code && (
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#222222] text-[#AAAAAA] border border-[#333333]">
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-canvas-deep text-text-secondary border border-border">
                       {dev.pairing_code}
                     </span>
                   )}
                   <button
                     onClick={() => onUnpair(dev.id, dev.device_name || 'Kids Device')}
                     disabled={deletingDeviceId === dev.id}
-                    className="p-1.5 text-[#888888] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 text-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                     title="Unpair Device"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-[#121212] border border-[#222222] text-[12px] space-y-2">
+              <div className="p-4 rounded-xl bg-canvas-deep border border-border text-[12px] space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-[#888888]">Profile Assigned:</span>
+                  <span className="text-text-secondary">Profile Assigned:</span>
                   <span className="text-white font-medium">{dev.profile_name || 'All Kids'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#888888]">Device Token:</span>
+                  <span className="text-text-secondary">Device Token:</span>
                   <span className="font-mono text-emerald-400">
                     {dev.has_token ? 'Issued & Secured (SHA-256)' : 'None'}
                   </span>
                 </div>
                 {dev.created_at && (
                   <div className="flex justify-between">
-                    <span className="text-[#888888]">Registered:</span>
-                    <span className="text-[#888888]">{new Date(dev.created_at).toLocaleDateString()}</span>
+                    <span className="text-text-secondary">Registered:</span>
+                    <span className="text-text-secondary">{new Date(dev.created_at).toLocaleDateString()}</span>
                   </div>
                 )}
               </div>

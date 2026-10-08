@@ -201,9 +201,9 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
 
   if (!currentShort) {
     return (
-      <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center justify-center p-4">
-        <p className="text-[15px] text-[#888888]">No Shorts available in the catalog.</p>
-        <a href="/" className="mt-4 px-4 py-2 bg-[#222222] rounded-xl text-[13px] text-white hover:bg-[#333333]">
+      <div className="min-h-screen bg-canvas-deep text-text-primary flex flex-col items-center justify-center p-4">
+        <p className="text-[15px] text-text-secondary">No Shorts available in the catalog.</p>
+        <a href="/" className="mt-4 px-4 py-2 bg-surface rounded-xl text-[13px] text-text-primary hover:bg-surface-elevated border border-border transition-colors">
           Back to Home
         </a>
       </div>
@@ -215,7 +215,7 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
   const embedUrl = `${getYoutubeEmbedUrl(youtubeId, true)}&enablejsapi=1`;
 
   return (
-    <div className="h-screen w-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col overflow-hidden font-sans select-none">
+    <div className="h-screen w-screen bg-canvas-deep text-text-primary flex flex-col overflow-hidden font-sans select-none">
       <KidsTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}

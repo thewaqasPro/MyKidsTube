@@ -161,43 +161,43 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
   };
 
   return (
-    <div className="min-h-screen bg-[#070A10] text-white flex flex-col justify-center items-center p-4">
+    <div className="min-h-screen bg-canvas-deep text-text-primary flex flex-col justify-center items-center p-4">
       {/* Brand Mark: WonderKids TubeStar */}
       <a href="/" className="flex items-center gap-3 mb-6 select-none group no-underline">
-        <div className="relative flex items-center justify-center w-12 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5E62] via-[#FF8E53] to-[#FFB300] text-white shadow-lg shadow-[#FF5E62]/30 group-hover:scale-105 group-hover:rotate-2 transition-transform">
+        <div className="relative flex items-center justify-center w-12 h-10 rounded-2xl bg-gradient-to-tr from-coral via-coral-hover to-sun text-white shadow-lg shadow-coral/30 group-hover:scale-105 group-hover:rotate-2 transition-transform">
           {/* Antenna */}
-          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-1 h-2 bg-[#FFB300] rounded-full" />
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#38BDF8] shadow-sm" />
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-1 h-2 bg-sun rounded-full" />
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-sky shadow-sm" />
           <Play className="w-5 h-5 fill-current ml-0.5 drop-shadow" />
         </div>
         <div className="flex flex-col">
-          <span className="font-display font-black text-2xl tracking-wide bg-gradient-to-r from-white via-slate-100 to-[#38BDF8] bg-clip-text text-transparent">
-            MyKids<span className="text-[#FF5E62]">Tube</span>
+          <span className="font-display font-black text-2xl tracking-wide bg-gradient-to-r from-white via-slate-100 to-sky bg-clip-text text-transparent">
+            MyKids<span className="text-coral">Tube</span>
           </span>
-          <span className="text-[10px] text-[#94A3B8] font-bold tracking-widest uppercase">
+          <span className="text-[10px] text-text-secondary font-bold tracking-widest uppercase">
             Safe • Fun • Spark Joy
           </span>
         </div>
       </a>
 
       {/* Main Card */}
-      <div className="w-full max-w-md bg-[#151D33] border-2 border-[#1E294B] rounded-[32px] p-6 sm:p-8 shadow-2xl flex flex-col items-center">
+      <div className="w-full max-w-md bg-surface border-2 border-border rounded-[32px] p-6 sm:p-8 shadow-2xl flex flex-col items-center">
         {/* Header Icon */}
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#38BDF8]/20 to-[#A855F7]/20 border-2 border-[#38BDF8]/30 flex items-center justify-center text-[#38BDF8] mb-3 shadow-md shadow-[#38BDF8]/10">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky/20 to-violet/20 border-2 border-sky/30 flex items-center justify-center text-sky mb-3 shadow-md shadow-sky/10">
           <Lock className="w-6 h-6" />
         </div>
 
         <h2 className="text-2xl font-display font-black text-white text-center tracking-wide">
           {authMode === 'account' ? (isRegistering ? 'Create Master Account' : 'Parent Control Center') : 'Quick Parent PIN'}
         </h2>
-        <p className="text-xs text-[#94A3B8] mt-1.5 text-center max-w-[280px] font-medium">
+        <p className="text-xs text-text-secondary mt-1.5 text-center max-w-[280px] font-medium">
           {authMode === 'account'
             ? 'Sign in to access parental settings, video controls, and playlists'
             : 'Enter your 4-digit PIN for instant access'}
         </p>
 
         {/* Auth Mode Toggle Pill */}
-        <div className="flex bg-[#0B0F19] p-1.5 rounded-2xl border-2 border-[#1E294B] my-5 w-full max-w-[320px]">
+        <div className="flex bg-canvas-deep p-1.5 rounded-2xl border-2 border-border my-5 w-full max-w-[320px]">
           <button
             type="button"
             onClick={() => {
@@ -206,8 +206,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
             }}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               authMode === 'account'
-                ? 'bg-gradient-to-r from-[#38BDF8] to-[#0284C7] text-white shadow-md'
-                : 'text-[#94A3B8] hover:text-white'
+                ? 'bg-gradient-to-r from-sky to-sky-hover text-white shadow-md'
+                : 'text-text-secondary hover:text-white'
             }`}
           >
             <KeyRound className="w-3.5 h-3.5" />
@@ -221,8 +221,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
             }}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               authMode === 'pin'
-                ? 'bg-gradient-to-r from-[#FF5E62] to-[#FF8E53] text-white shadow-md'
-                : 'text-[#94A3B8] hover:text-white'
+                ? 'bg-gradient-to-r from-coral to-coral-hover text-white shadow-md'
+                : 'text-text-secondary hover:text-white'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -272,8 +272,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
           />
         )}
 
-        <div className="mt-6 text-xs text-[#94A3B8] font-bold flex items-center gap-1.5">
-          <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+        <div className="mt-6 text-xs text-text-secondary font-bold flex items-center gap-1.5">
+          <ShieldCheck className="w-4 h-4 text-mint" />
           <span>Protected parental management session</span>
         </div>
       </div>

@@ -86,7 +86,7 @@ export const StudioSecurityTab: React.FC<StudioSecurityTabProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-[22px] font-bold text-white tracking-tight">Parent Security & Access Control</h1>
-          <p className="text-[13px] text-[#888888]">
+          <p className="text-[13px] text-text-muted">
             Manage Master Parent login, Biometric Passkeys (FaceID/TouchID), and 4-digit tablet Child Gate PIN.
           </p>
         </div>
@@ -101,9 +101,9 @@ export const StudioSecurityTab: React.FC<StudioSecurityTabProps> = ({
       </div>
 
       {/* Master Account Profile Header Card */}
-      <div className="p-6 bg-gradient-to-r from-[#1A1A22] via-[#16161E] to-[#121216] border border-[#2B2B38] rounded-2xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="p-6 bg-surface border border-border rounded-2xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-blue-600 to-cyan-500 flex items-center justify-center text-white text-[20px] font-bold shadow-lg shadow-indigo-600/20 border border-indigo-400/30 shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-coral to-sun flex items-center justify-center text-white text-[20px] font-bold shadow-lg shadow-coral/20 border border-coral/30 shrink-0">
             {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : <ShieldCheck className="w-7 h-7" />}
           </div>
           <div>
@@ -115,10 +115,10 @@ export const StudioSecurityTab: React.FC<StudioSecurityTabProps> = ({
                 {currentUser?.role || 'Parent'}
               </span>
             </div>
-            <p className="text-[13px] text-[#A0A0B0] font-mono mt-0.5">
+            <p className="text-[13px] text-text-secondary font-mono mt-0.5">
               {currentUser?.email || 'parent@kidstube.local'}
             </p>
-            <div className="flex items-center gap-3 mt-2 text-[11px] text-[#888899]">
+            <div className="flex items-center gap-3 mt-2 text-[11px] text-text-muted">
               <span>
                 Authentication:{' '}
                 <strong className="text-white font-medium">

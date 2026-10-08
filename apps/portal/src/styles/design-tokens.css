@@ -33,7 +33,8 @@
   --wonder-text-dark: #0D1322;
 
   /* 4. Borders & Glows */
-  --wonder-border: #243052;
+  --wonder-border: #1E294B;
+  --wonder-border-strong: #243052;
   --wonder-border-subtle: rgba(255, 255, 255, 0.08);
   --wonder-border-glow: rgba(56, 189, 248, 0.3);
 
