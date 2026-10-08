@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_mobile_analysis_options", "label": "apps/mobile/analysis_options.yaml", "file_type": "code", "source_file": "apps/mobile/analysis_options.yaml", "rationale": "Configures static analysis and linting rules for the Flutter application."}], "edges": [], "hyperedges": []}

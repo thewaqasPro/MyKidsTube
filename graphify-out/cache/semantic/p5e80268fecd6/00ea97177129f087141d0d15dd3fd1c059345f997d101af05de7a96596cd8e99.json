@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_mobile_pubspec", "label": "apps/mobile/pubspec.yaml", "file_type": "code", "source_file": "apps/mobile/pubspec.yaml", "rationale": "Defines Flutter dependencies and metadata for the mobile client.", "verification": "unverified"}], "edges": [], "hyperedges": []}

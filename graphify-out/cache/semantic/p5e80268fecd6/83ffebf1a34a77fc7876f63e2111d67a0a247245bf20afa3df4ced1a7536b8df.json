@@ -1,0 +1,1 @@
+{"nodes": [{"id": "docker_compose", "label": "docker-compose.yml", "file_type": "code", "source_file": "docker-compose.yml", "rationale": "Root Docker orchestrator that includes the server-specific compose file."}], "edges": [], "hyperedges": []}

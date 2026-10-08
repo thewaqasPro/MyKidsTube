@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_server_docker_compose", "label": "VPS Server Docker Compose", "file_type": "code", "source_file": "apps/server/docker-compose.yml", "rationale": "Defines the Nginx and cleaner services for the media server.", "verification": "unverified"}], "edges": [], "hyperedges": []}

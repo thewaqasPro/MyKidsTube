@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_portal_readme", "label": "Astro Starter Kit: Minimal README", "file_type": "document", "source_file": "apps/portal/README.md", "rationale": "Core documentation for the portal app, including project structure, commands, and D1 database migrations."}], "edges": [], "hyperedges": []}

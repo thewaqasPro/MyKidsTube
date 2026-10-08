@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_server_readme", "label": "KidsTube VPS Media Server README", "file_type": "document", "source_file": "apps/server/README.md", "rationale": "Describes the role of the VPS media server as a static media streamer using Nginx."}], "edges": [], "hyperedges": []}

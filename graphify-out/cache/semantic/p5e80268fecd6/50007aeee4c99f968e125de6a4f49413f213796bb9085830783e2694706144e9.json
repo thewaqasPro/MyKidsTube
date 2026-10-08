@@ -1,0 +1,1 @@
+{"nodes": [{"id": "docs_ai_workflow", "label": "AI Engineering Workflow & Change Log", "file_type": "document", "source_file": "docs/ai-workflow.md", "rationale": "Detailed log of architectural decisions, bug fixes, and feature implementations across the ecosystem."}], "edges": [], "hyperedges": []}

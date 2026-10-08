@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_portal_agents", "label": "Portal Development Agents Guide", "file_type": "document", "source_file": "apps/portal/AGENTS.md", "rationale": "Documentation for starting and managing the Astro development server."}], "edges": [], "hyperedges": []}

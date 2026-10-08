@@ -1,0 +1,1 @@
+{"nodes": [{"id": "apps_portal_claude", "label": "Portal Claude Development Guide", "file_type": "document", "source_file": "apps/portal/CLAUDE.md", "rationale": "Duplicate of AGENTS.md, likely for different AI agent context."}], "edges": [], "hyperedges": []}
