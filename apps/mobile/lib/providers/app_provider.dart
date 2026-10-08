@@ -300,11 +300,11 @@ class AppProvider extends ChangeNotifier {
           }
         }
 
-        if (videosToSync.isNotEmpty) {
-          _allVideos = List.from(videosToSync);
+        _allVideos = List.from(videosToSync);
+        if (categoriesToSync.isNotEmpty) {
           _categories = List.from(categoriesToSync);
-          notifyListeners();
         }
+        notifyListeners();
 
         // Atomic transaction batch upsert to persist to local SQLite
         await _db.batchUpsertCatalog(categoriesToSync, videosToSync);
