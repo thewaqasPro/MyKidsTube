@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/video_item.dart';
 import '../models/category_item.dart';
@@ -9,6 +10,12 @@ import '../models/child_profile.dart';
 import '../services/database_service.dart';
 import '../services/vps_api_service.dart';
 import '../services/download_service.dart';
+
+enum AppOrientationMode {
+  auto,
+  portrait,
+  landscape,
+}
 
 class AppProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService.instance;
@@ -37,6 +44,7 @@ class AppProvider extends ChangeNotifier {
   bool _isOfflineOnly = false;
   int _cachedBytes = 0;
   int _todayWatchSeconds = 0;
+  AppOrientationMode _orientationMode = AppOrientationMode.auto;
 
   // Getters
   String get vpsUrl => _vpsUrl;
@@ -45,6 +53,7 @@ class AppProvider extends ChangeNotifier {
   List<ChildProfile> get availableProfiles => _availableProfiles;
   String? get pairingCode => _pairingCode;
   bool get isDevicePaired => _isDevicePaired;
+  AppOrientationMode get orientationMode => _orientationMode;
 
   List<CategoryItem> get categories => _categories;
   List<VideoItem> get allVideos => _isOfflineOnly ? _downloadedVideos : _allVideos;
@@ -59,6 +68,36 @@ class AppProvider extends ChangeNotifier {
   bool get isOfflineOnly => _isOfflineOnly;
   int get cachedBytes => _cachedBytes;
   int get todayWatchSeconds => _todayWatchSeconds;
+
+  Future<void> setOrientationMode(AppOrientationMode mode) async {
+    _orientationMode = mode;
+    await _applyOrientationMode(mode);
+    await _db.setSetting('orientation_mode', mode.name);
+    notifyListeners();
+  }
+
+  Future<void> _applyOrientationMode(AppOrientationMode mode) async {
+    switch (mode) {
+      case AppOrientationMode.portrait:
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+        break;
+      case AppOrientationMode.landscape:
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        break;
+      case AppOrientationMode.auto:
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        break;
+    }
+  }
 
   // --- PIN Security & Salted Hash Storage ---
   Future<String> _getOrCreateSalt() async {
@@ -159,6 +198,19 @@ class AppProvider extends ChangeNotifier {
 
     // 4. Load initial database state
     await _loadFromLocalDb();
+
+    // 4b. Restore saved orientation mode
+    final savedOrientation = await _db.getSetting('orientation_mode');
+    if (savedOrientation != null && savedOrientation.isNotEmpty) {
+      if (savedOrientation == 'portrait') {
+        _orientationMode = AppOrientationMode.portrait;
+      } else if (savedOrientation == 'landscape') {
+        _orientationMode = AppOrientationMode.landscape;
+      } else {
+        _orientationMode = AppOrientationMode.auto;
+      }
+      await _applyOrientationMode(_orientationMode);
+    }
 
     _isLoading = false;
     notifyListeners();

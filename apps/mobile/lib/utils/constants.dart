@@ -34,9 +34,11 @@ class KidColors {
 
   // Overlays, Radii & Badges
   static const Color durationBadgeBg = Color(0xDD0B0F19); // Cosmic Translucent Badge
+  static const Color borderSubtle = Color(0xFF1D2845);
   static const Color yellow = Color(0xFFFFB300);          // Sun Gold
   static const Color green = Color(0xFF10B981);           // Mint Green
   static const Color purple = Color(0xFFA855F7);          // Magic Violet
+  static const Color pink = Color(0xFFF472B6);            // Bubblegum Pink
 }
 
 class KidTheme {

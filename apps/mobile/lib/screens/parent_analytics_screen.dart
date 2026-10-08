@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import '../widgets/child_avatar.dart';
@@ -96,6 +97,10 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
     final skippedVideos = (_analytics['skipped_videos'] as List?) ?? [];
     final categoryBreakdown = (_analytics['category_breakdown'] as List?) ?? [];
 
+    final partialCount = (_analytics['partial_count'] as num?)?.toInt() ?? 0;
+    final partialRate = (_analytics['partial_rate'] as num?)?.toInt() ?? 0;
+    final retentionFunnel = (_analytics['retention_funnel'] as List?) ?? [];
+
     return Scaffold(
       backgroundColor: KidColors.bgDark,
       appBar: AppBar(
@@ -164,26 +169,26 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
 
                   const SizedBox(height: 18),
 
-                  // 3. Metric Overview Cards (2x2 Grid)
+                  // 3. Executive KPI Cards (Web Studio Parity)
                   Row(
                     children: [
                       Expanded(
                         child: _buildMetricTile(
-                          title: "Today's Time",
-                          value: _formatSeconds(todaySecs),
-                          subtitle: 'Screen time today',
-                          icon: Icons.timer_outlined,
-                          accentColor: KidColors.primary,
+                          title: 'Screen Time',
+                          value: _formatSeconds(totalSecs),
+                          subtitle: 'Today ${_formatSeconds(todaySecs)} • $totalSessions sessions',
+                          icon: Icons.schedule_rounded,
+                          accentColor: KidColors.sky,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildMetricTile(
-                          title: 'Total Watch Time',
-                          value: _formatSeconds(totalSecs),
-                          subtitle: '$totalSessions sessions',
-                          icon: Icons.history_rounded,
-                          accentColor: Colors.blueAccent,
+                          title: 'Captured Attention',
+                          value: '$completionRate%',
+                          subtitle: 'Completed ($completedCount) ≥75%',
+                          icon: Icons.check_circle_outline_rounded,
+                          accentColor: KidColors.mint,
                         ),
                       ),
                     ],
@@ -193,27 +198,33 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                     children: [
                       Expanded(
                         child: _buildMetricTile(
-                          title: 'Loved / Completed',
-                          value: '$completionRate%',
-                          subtitle: '$completedCount finished (≥75%)',
-                          icon: Icons.favorite_rounded,
-                          accentColor: KidColors.green,
+                          title: 'Quick Pass / Bounce',
+                          value: '$skipRate%',
+                          subtitle: 'Skipped ($skippedCount) <10s',
+                          icon: Icons.warning_amber_rounded,
+                          accentColor: KidColors.coral,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildMetricTile(
-                          title: 'Passed Quickly',
-                          value: '$skipRate%',
-                          subtitle: '$skippedCount skipped (<10s)',
-                          icon: Icons.fast_forward_rounded,
-                          accentColor: KidColors.yellow,
+                          title: 'Partial Watch',
+                          value: '$partialRate%',
+                          subtitle: 'Partial ($partialCount) 15%–75%',
+                          icon: Icons.play_circle_outline_rounded,
+                          accentColor: KidColors.sun,
                         ),
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 20),
+
+                  // 3b. Attention Funnel & Category Breakdown (Web Studio Parity)
+                  if (retentionFunnel.isNotEmpty) ...[
+                    _buildAttentionFunnelSection(retentionFunnel, categoryBreakdown),
+                    const SizedBox(height: 20),
+                  ],
 
                   // 4. Cloud Sync Card
                   Container(
@@ -377,9 +388,12 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                             itemBuilder: (context, idx) {
                               final v = lovedVideos[idx];
                               final title = v['title']?.toString() ?? 'Video';
+                              final thumbnailUrl = v['thumbnail_url']?.toString() ?? '';
+                              final channelName = v['channel_name']?.toString() ?? 'WonderKids';
                               final secs = (v['total_seconds'] as num?)?.toInt() ?? 0;
                               final views = (v['views'] as num?)?.toInt() ?? 1;
                               final completed = (v['completed_count'] as num?)?.toInt() ?? 0;
+                              final completionPct = (v['completion_pct'] as num?)?.toInt() ?? 0;
 
                               final colors = [
                                 const Color(0xFFFFD700), // Gold
@@ -389,10 +403,11 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                               final badgeColor = idx < colors.length ? colors[idx] : Colors.white54;
 
                               return Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Container(
-                                    width: 26,
-                                    height: 26,
+                                    width: 24,
+                                    height: 24,
                                     decoration: BoxDecoration(
                                       color: badgeColor.withValues(alpha: 0.18),
                                       shape: BoxShape.circle,
@@ -408,7 +423,32 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      width: 58,
+                                      height: 34,
+                                      color: KidColors.bgDark,
+                                      child: thumbnailUrl.isNotEmpty
+                                          ? CachedNetworkImage(
+                                              imageUrl: thumbnailUrl,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) => Container(color: KidColors.bgDark),
+                                              errorWidget: (_, __, ___) => const Icon(
+                                                Icons.play_circle_outline_rounded,
+                                                color: Colors.white24,
+                                                size: 18,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.play_circle_outline_rounded,
+                                              color: Colors.white24,
+                                              size: 18,
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,12 +461,15 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          '$views play${views == 1 ? '' : 's'} • $completed finished',
+                                          '$channelName • $views plays • $completed ($completionPct%) finished',
                                           style: const TextStyle(color: KidColors.textMuted, fontSize: 11),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     _formatSeconds(secs),
                                     style: const TextStyle(color: KidColors.green, fontWeight: FontWeight.w700, fontSize: 13),
@@ -495,23 +538,51 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                             itemBuilder: (context, idx) {
                               final v = skippedVideos[idx];
                               final title = v['title']?.toString() ?? 'Video';
+                              final thumbnailUrl = v['thumbnail_url']?.toString() ?? '';
+                              final channelName = v['channel_name']?.toString() ?? 'WonderKids';
                               final skipCount = (v['skip_count'] as num?)?.toInt() ?? 1;
                               final avgSecs = (v['avg_seconds'] as num?)?.toDouble() ?? 0.0;
 
                               return Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Container(
-                                    width: 26,
-                                    height: 26,
+                                    width: 24,
+                                    height: 24,
                                     decoration: BoxDecoration(
                                       color: KidColors.yellow.withValues(alpha: 0.15),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Center(
-                                      child: Icon(Icons.skip_next_rounded, color: KidColors.yellow, size: 16),
+                                      child: Icon(Icons.fast_forward_rounded, color: KidColors.yellow, size: 14),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      width: 58,
+                                      height: 34,
+                                      color: KidColors.bgDark,
+                                      child: thumbnailUrl.isNotEmpty
+                                          ? CachedNetworkImage(
+                                              imageUrl: thumbnailUrl,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, __) => Container(color: KidColors.bgDark),
+                                              errorWidget: (_, __, ___) => const Icon(
+                                                Icons.play_circle_outline_rounded,
+                                                color: Colors.white24,
+                                                size: 18,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.play_circle_outline_rounded,
+                                              color: Colors.white24,
+                                              size: 18,
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,12 +595,15 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          'Abandoned after ~${avgSecs.toStringAsFixed(1)}s avg',
+                                          '$channelName • ~${avgSecs.toStringAsFixed(1)}s avg before skip',
                                           style: const TextStyle(color: KidColors.textMuted, fontSize: 11),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
@@ -820,6 +894,99 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAttentionFunnelSection(List<dynamic> funnel, List<dynamic> categories) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: KidColors.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: KidColors.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.insights_rounded, color: KidColors.accent, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Audience Attention Funnel',
+                style: TextStyle(color: Colors.white, fontSize: 15.5, fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: KidColors.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Retention',
+                  style: TextStyle(color: KidColors.accent, fontSize: 10, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Viewing session duration distribution from initial click to deep immersion.',
+            style: TextStyle(color: KidColors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          ...funnel.map((stage) {
+            final label = stage['label']?.toString() ?? '';
+            final count = (stage['count'] as num?)?.toInt() ?? 0;
+            final pct = (stage['percentage'] as num?)?.toInt() ?? 0;
+            final colorHex = (stage['color_hex'] as num?)?.toInt() ?? 0xFF10B981;
+            final barColor = Color(colorHex);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(color: barColor, shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            label,
+                            style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '$count session${count == 1 ? '' : 's'} ($pct%)',
+                        style: TextStyle(color: barColor, fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (pct / 100).clamp(0.0, 1.0),
+                      minHeight: 8,
+                      backgroundColor: KidColors.bgDark,
+                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

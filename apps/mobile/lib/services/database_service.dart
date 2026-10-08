@@ -555,8 +555,52 @@ class DatabaseService {
       final completedCount = (totalRes.first['completed_count'] as num?)?.toInt() ?? 0;
       final skippedCount = (totalRes.first['skipped_count'] as num?)?.toInt() ?? 0;
 
+      final partialCount = (totalSessions - completedCount - skippedCount).clamp(0, totalSessions);
       final completionRate = totalSessions > 0 ? ((completedCount / totalSessions) * 100).round() : 0;
       final skipRate = totalSessions > 0 ? ((skippedCount / totalSessions) * 100).round() : 0;
+      final partialRate = totalSessions > 0 ? ((partialCount / totalSessions) * 100).round() : 0;
+
+      // Retention Funnel: 4 stages matching web studio
+      final funnelRes = await db.rawQuery('''
+        SELECT
+          COALESCE(SUM(CASE WHEN seconds_watched < 10 THEN 1 ELSE 0 END), 0) as bounce_count,
+          COALESCE(SUM(CASE WHEN seconds_watched >= 10 AND seconds_watched < 60 THEN 1 ELSE 0 END), 0) as short_count,
+          COALESCE(SUM(CASE WHEN seconds_watched >= 60 AND seconds_watched < 300 THEN 1 ELSE 0 END), 0) as medium_count,
+          COALESCE(SUM(CASE WHEN seconds_watched >= 300 THEN 1 ELSE 0 END), 0) as deep_count
+        FROM local_watch_events$whereClause
+      ''', whereArgs);
+
+      final bounceCount = (funnelRes.first['bounce_count'] as num?)?.toInt() ?? 0;
+      final shortCount = (funnelRes.first['short_count'] as num?)?.toInt() ?? 0;
+      final mediumCount = (funnelRes.first['medium_count'] as num?)?.toInt() ?? 0;
+      final deepCount = (funnelRes.first['deep_count'] as num?)?.toInt() ?? 0;
+
+      final retentionFunnel = [
+        {
+          'label': 'Immediate Bounce (< 10s)',
+          'count': bounceCount,
+          'percentage': totalSessions > 0 ? ((bounceCount / totalSessions) * 100).round() : 0,
+          'color_hex': 0xFFFF5E62, // Coral
+        },
+        {
+          'label': 'Short Focus (10s – 60s)',
+          'count': shortCount,
+          'percentage': totalSessions > 0 ? ((shortCount / totalSessions) * 100).round() : 0,
+          'color_hex': 0xFFFFB300, // Sun
+        },
+        {
+          'label': 'High Interest (1m – 5m)',
+          'count': mediumCount,
+          'percentage': totalSessions > 0 ? ((mediumCount / totalSessions) * 100).round() : 0,
+          'color_hex': 0xFF38BDF8, // Sky
+        },
+        {
+          'label': 'Deep Engagement (5m+)',
+          'count': deepCount,
+          'percentage': totalSessions > 0 ? ((deepCount / totalSessions) * 100).round() : 0,
+          'color_hex': 0xFF10B981, // Mint
+        },
+      ];
 
       // Today seconds
       final todayWhere = whereClause.isEmpty ? ' WHERE watched_at >= ?' : '$whereClause AND watched_at >= ?';
@@ -594,40 +638,60 @@ class DatabaseService {
         });
       }
 
-      // "Kids Loved Most": ranked by views, completion, and total time
+      // "Kids Loved Most": ranked by views, completion, and total time, joined with videos
+      final lovedWhere = whereClause.replaceAll('profile_id', 'e.profile_id');
       final lovedVideosRes = await db.rawQuery('''
         SELECT 
-          video_id, 
-          COALESCE(video_title, video_id) as title, 
-          SUM(seconds_watched) as total_seconds, 
+          e.video_id, 
+          COALESCE(v.title, e.video_title, e.video_id) as title, 
+          COALESCE(v.thumbnail_url, '') as thumbnail_url,
+          COALESCE(v.channel_name, 'WonderKids') as channel_name,
+          SUM(e.seconds_watched) as total_seconds, 
           COUNT(*) as views,
-          SUM(is_completed) as completed_count
-        FROM local_watch_events$whereClause
-        GROUP BY video_id
+          SUM(e.is_completed) as completed_count,
+          ROUND((SUM(e.is_completed) * 100.0) / COUNT(*)) as completion_pct
+        FROM local_watch_events e
+        LEFT JOIN videos v ON e.video_id = v.id
+        $lovedWhere
+        GROUP BY e.video_id
         ORDER BY views DESC, completed_count DESC, total_seconds DESC
         LIMIT 5
       ''', whereArgs);
 
-      // "Passed Quickly": videos skipped in < 10 seconds
-      final skipWhere = whereClause.isEmpty ? ' WHERE is_skipped = 1' : '$whereClause AND is_skipped = 1';
+      // "Passed Quickly": videos skipped in < 10 seconds, joined with videos
+      final skipWhere = whereClause.isEmpty
+          ? ' WHERE e.is_skipped = 1'
+          : '${whereClause.replaceAll('profile_id', 'e.profile_id')} AND e.is_skipped = 1';
       final skippedVideosRes = await db.rawQuery('''
         SELECT 
-          video_id, 
-          COALESCE(video_title, video_id) as title, 
+          e.video_id, 
+          COALESCE(v.title, e.video_title, e.video_id) as title, 
+          COALESCE(v.thumbnail_url, '') as thumbnail_url,
+          COALESCE(v.channel_name, 'WonderKids') as channel_name,
           COUNT(*) as skip_count,
-          AVG(seconds_watched) as avg_seconds
-        FROM local_watch_events$skipWhere
-        GROUP BY video_id
+          ROUND(AVG(e.seconds_watched), 1) as avg_seconds
+        FROM local_watch_events e
+        LEFT JOIN videos v ON e.video_id = v.id
+        $skipWhere
+        GROUP BY e.video_id
         ORDER BY skip_count DESC
         LIMIT 5
       ''', whereArgs);
 
-      // Category breakdown
-      final catWhere = whereClause.isEmpty ? " WHERE category_id != ''" : "$whereClause AND category_id != ''";
+      // Category breakdown with joined category names
+      final catWhere = whereClause.isEmpty
+          ? " WHERE e.category_id != ''"
+          : "${whereClause.replaceAll('profile_id', 'e.profile_id')} AND e.category_id != ''";
       final categoryRes = await db.rawQuery('''
-        SELECT category_id, SUM(seconds_watched) as total_seconds
-        FROM local_watch_events$catWhere
-        GROUP BY category_id
+        SELECT 
+          e.category_id, 
+          COALESCE(c.name, e.category_id) as category_name, 
+          SUM(e.seconds_watched) as total_seconds,
+          ROUND((SUM(e.seconds_watched) * 100.0) / CASE WHEN $totalSeconds > 0 THEN $totalSeconds ELSE 1 END) as percentage
+        FROM local_watch_events e
+        LEFT JOIN categories c ON e.category_id = c.id
+        $catWhere
+        GROUP BY e.category_id
         ORDER BY total_seconds DESC
       ''', whereArgs);
 
@@ -637,8 +701,11 @@ class DatabaseService {
         'total_sessions': totalSessions,
         'completed_count': completedCount,
         'skipped_count': skippedCount,
+        'partial_count': partialCount,
         'completion_rate': completionRate,
         'skip_rate': skipRate,
+        'partial_rate': partialRate,
+        'retention_funnel': retentionFunnel,
         'unsynced_count': unsyncedCount,
         'daily_breakdown': dailyBreakdown,
         'loved_videos': lovedVideosRes,

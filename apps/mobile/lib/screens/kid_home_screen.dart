@@ -9,6 +9,7 @@ import 'kid_shorts_feed_screen.dart';
 import 'parent_gate_dialog.dart';
 import '../widgets/child_avatar.dart';
 import '../widgets/kid_profile_switcher_sheet.dart';
+import '../widgets/orientation_mode_switch.dart';
 
 /// Authentic YouTube / YouTube Kids Home Feed Screen
 class KidHomeScreen extends StatefulWidget {
@@ -193,6 +194,9 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
             ),
           ),
 
+        // 2b. Orientation Mode Pill (Portrait vs Kids Landscape)
+        const OrientationModeSwitch(),
+
         // 3. Parent Lock Icon (Minimal)
         IconButton(
           visualDensity: VisualDensity.compact,
@@ -335,7 +339,8 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final isTabletOrLandscape = width >= 600;
+        final isLandscapeMode = provider.orientationMode == AppOrientationMode.landscape;
+        final isTabletOrLandscape = width >= 600 || isLandscapeMode;
 
         // Tablet or Phone Landscape: Multi-column Grid
         if (isTabletOrLandscape) {
