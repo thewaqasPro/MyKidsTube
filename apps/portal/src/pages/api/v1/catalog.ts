@@ -25,7 +25,7 @@ export const GET: APIRoute = async (context) => {
         duration: v.duration || 0,
         duration_formatted: v.duration_formatted || '00:00',
         category_id: v.category_id || 'cartoons',
-        source_url: v.source_url || (v.category_id === 'shorts' ? `https://www.youtube.com/shorts/${ytId}` : `https://www.youtube.com/watch?v=${ytId}`),
+        source_url: v.source_url || (v.category_id === 'shorts' && (!v.duration || v.duration <= 70) ? `https://www.youtube.com/shorts/${ytId}` : `https://www.youtube.com/watch?v=${ytId}`),
         stream_url: `https://kidsapi.waqas.pro/media/videos/${vidFile}`,
         thumbnail_url: `https://mykidstube.kidstube.workers.dev/api/assets/thumbs/${thumbFile}`,
         channel_name: v.channel_name || 'YouTube Kids',

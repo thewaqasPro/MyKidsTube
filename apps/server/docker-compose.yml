@@ -24,4 +24,26 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
       - ${MEDIA_VIDEOS_DIR:-./data/media/videos}:/var/www/media/videos:ro
       - ${MEDIA_THUMBS_DIR:-./data/media/thumbs}:/var/www/media/thumbs:ro
+    depends_on:
+      - cleaner
+
+  cleaner:
+    image: python:3.11-alpine
+    container_name: safekids_cleaner
+    restart: unless-stopped
+    mem_limit: 32m
+    cpus: 0.10
+    working_dir: /app
+    volumes:
+      - ./cleanup_service.py:/app/cleanup_service.py:ro
+      - ${MEDIA_VIDEOS_DIR:-./data/media/videos}:/var/www/media/videos:rw
+      - ${MEDIA_THUMBS_DIR:-./data/media/thumbs}:/var/www/media/thumbs:rw
+    environment:
+      - CLEANUP_PORT=8081
+      - CLEANUP_SECRET=${CLEANUP_SECRET:-mykidstube_default_secret_2026}
+      - MEDIA_VIDEOS_DIR=/var/www/media/videos
+      - MEDIA_THUMBS_DIR=/var/www/media/thumbs
+    ports:
+      - "127.0.0.1:8081:8081"
+    command: ["python", "/app/cleanup_service.py"]
 

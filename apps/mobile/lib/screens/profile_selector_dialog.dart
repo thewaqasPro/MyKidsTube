@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
+import '../widgets/child_avatar.dart';
+import '../widgets/kid_profile_switcher_sheet.dart';
 
 class ProfileSelectorDialog extends StatelessWidget {
   const ProfileSelectorDialog({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showDialog(
-      context: context,
-      builder: (context) => const ProfileSelectorDialog(),
-    );
+    return KidProfileSwitcherSheet.show(context);
   }
 
   @override
@@ -73,7 +72,7 @@ class ProfileSelectorDialog extends StatelessWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(p.emojiAvatar, style: const TextStyle(fontSize: 36)),
+                              ChildAvatar(avatarIcon: p.avatarIcon, radius: 24),
                               const SizedBox(height: 8),
                               Text(
                                 p.name,

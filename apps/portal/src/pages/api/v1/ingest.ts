@@ -50,7 +50,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     const isShort = trimmedUrl.includes('/shorts/');
-    const finalCategory = isShort ? 'shorts' : category_id;
+    const finalCategory = isShort ? 'shorts' : (category_id === 'shorts' ? 'cartoons' : category_id);
 
     // 1. Fetch metadata via oEmbed with timeout
     const meta = await fetchYoutubeOembed(youtubeId, 5000);

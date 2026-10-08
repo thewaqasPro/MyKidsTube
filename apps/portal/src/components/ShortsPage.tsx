@@ -1,16 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import type { Video, ChildProfile } from '../types/video';
-import { 
-  ChevronUp, 
-  ChevronDown, 
-  Heart, 
-  Volume2, 
-  VolumeX, 
-  ArrowRight
-} from 'lucide-react';
-import { getYoutubeId, getYoutubeEmbedUrl, isSelfHosted, getStreamUrl } from '../lib/constants';
+import type { Video, ChildProfile } from '@/types/video';
+import { getYoutubeId, getYoutubeEmbedUrl, isSelfHosted } from '@/lib/constants';
 import { KidsTopBar } from './KidsTopBar';
 import { KidsSidebar } from './KidsSidebar';
+import { ShortsReel } from '@/features/player/components/ShortsReel';
+import { ShortsActionPills } from '@/features/player/components/ShortsActionPills';
 
 interface ShortsPageProps {
   shorts: Video[];
@@ -222,8 +216,6 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
 
   return (
     <div className="h-screen w-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col overflow-hidden font-sans select-none">
-      
-      {/* 1. Reusable Authentic YouTube Top Bar */}
       <KidsTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -240,9 +232,7 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
         profiles={profiles}
       />
 
-      {/* 2. Middle Body: Reusable Sidebar + Shorts Feed */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Reusable YouTube Sidebar */}
         <KidsSidebar
           isExpanded={isSidebarExpanded}
           isMobileOpen={isMobileSidebarOpen}
@@ -251,182 +241,43 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
           channels={channels}
         />
 
-        {/* 3. Main Shorts Reel with Tablet Touch Drive & Kid-Safe Overlay Shields */}
         <main
           onWheel={handleWheel}
           className="flex-1 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden relative"
         >
-          {/* Shorts Container */}
           <div className="relative flex items-center gap-3 sm:gap-6 max-h-[86vh] h-full">
-            
-            {/* The 9:16 Video Box */}
-            <div 
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-              className="relative h-full aspect-[9/16] rounded-3xl overflow-hidden bg-black shadow-2xl border border-[#282828] flex items-center justify-center select-none"
-            >
-              {selfHosted ? (
-                // MODE A: Native Self-Hosted MP4 Player
-                <video
-                  ref={videoRef}
-                  src={getStreamUrl(currentShort)}
-                  autoPlay
-                  loop
-                  playsInline
-                  muted={isMuted}
-                  onTimeUpdate={() => {
-                    if (videoRef.current && !isScrubbing) {
-                      setCurrentTime(videoRef.current.currentTime);
-                    }
-                  }}
-                  onLoadedMetadata={() => {
-                    if (videoRef.current) {
-                      setDuration(videoRef.current.duration);
-                    }
-                  }}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                // MODE B: YouTube Embed with Transparent Shields
-                <>
-                  <iframe
-                    ref={iframeRef}
-                    src={embedUrl}
-                    title={currentShort.title}
-                    className="w-full h-full border-0 pointer-events-auto"
-                    sandbox="allow-scripts allow-same-origin allow-presentation"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+            <ShortsReel
+              currentShort={currentShort}
+              selfHosted={selfHosted}
+              videoRef={videoRef}
+              iframeRef={iframeRef}
+              embedUrl={embedUrl}
+              isMuted={isMuted}
+              isScrubbing={isScrubbing}
+              setIsScrubbing={setIsScrubbing}
+              currentTime={currentTime}
+              setCurrentTime={setCurrentTime}
+              duration={duration}
+              setDuration={setDuration}
+              handleTouchStart={handleTouchStart}
+              handleTouchEnd={handleTouchEnd}
+              handleScreenTap={handleScreenTap}
+              handleScrubberChange={handleScrubberChange}
+              tapToNextEnabled={tapToNextEnabled}
+              advanceFeedback={advanceFeedback}
+              formatSeconds={formatSeconds}
+            />
 
-                  {/* SHIELD 1: Top Blocker (Blocks title, channel avatar & share button) */}
-                  <div 
-                    onClick={handleScreenTap}
-                    className="absolute top-0 inset-x-0 h-18 z-30 bg-transparent cursor-pointer"
-                    title="Kid Safe Shield: Top External Links Blocked"
-                  />
-
-                  {/* SHIELD 2: Bottom-Right Blocker (Blocks YouTube logo & settings gear) */}
-                  <div 
-                    onClick={handleScreenTap}
-                    className="absolute bottom-0 right-0 w-36 h-14 z-30 bg-transparent cursor-pointer"
-                    title="Kid Safe Shield: YouTube Logo & Settings Blocked"
-                  />
-
-                  {/* SHIELD 3: Center Touch-to-Next Advance Zone */}
-                  {tapToNextEnabled && (
-                    <div
-                      onClick={handleScreenTap}
-                      className="absolute inset-x-0 top-18 bottom-14 z-20 bg-transparent cursor-pointer flex items-center justify-center"
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Animated Kid Touch Visual Feedback */}
-              {advanceFeedback && (
-                <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
-                  <div className="px-5 py-3 rounded-2xl bg-black/75 backdrop-blur-md border border-white/20 text-white flex items-center gap-2.5 shadow-2xl animate-bounce">
-                    <span className="text-[14px] font-bold tracking-wide">Next Video</span>
-                    <ArrowRight className="w-5 h-5 text-[#FF0000]" />
-                  </div>
-                </div>
-              )}
-
-              {/* Video Title & Channel Metadata Overlay */}
-              <div className="absolute inset-x-0 bottom-8 p-4 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none z-20">
-                <h2 className="text-[14px] sm:text-[15px] font-semibold text-white drop-shadow-md line-clamp-2">
-                  {currentShort.title}
-                </h2>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[12px] text-[#DDDDDD] font-medium opacity-90 truncate">
-                    {currentShort.channel_name || 'KidsTube Short'}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 text-[10px] font-bold border border-emerald-800">
-                    Safe
-                  </span>
-                  {tapToNextEnabled && (
-                    <span className="text-[10px] text-amber-300 font-medium">
-                      • Touch screen for next
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Kid-Safe Position / Progress Slider */}
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchEnd={(e) => e.stopPropagation()}
-                className="absolute inset-x-0 bottom-0 z-35 px-4 pb-2 pt-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-1 select-none"
-              >
-                <div className="relative flex items-center group/slider py-1">
-                  <input
-                    type="range"
-                    min="0"
-                    max={duration || 60}
-                    step="0.5"
-                    value={currentTime}
-                    onMouseDown={() => setIsScrubbing(true)}
-                    onMouseUp={() => setIsScrubbing(false)}
-                    onTouchStart={() => setIsScrubbing(true)}
-                    onTouchEnd={() => setIsScrubbing(false)}
-                    onChange={handleScrubberChange}
-                    className="w-full h-1 sm:h-1.5 bg-[#444444] accent-[#FF0000] hover:h-2 transition-all rounded-lg appearance-none cursor-pointer"
-                    title="Position Progress Slider"
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[10px] font-mono text-[#AAAAAA] px-0.5">
-                  <span>{formatSeconds(currentTime)}</span>
-                  <span>{formatSeconds(duration)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Action Pills */}
-            <div className="flex flex-col items-center gap-3 z-30">
-              <button
-                onClick={handlePrev}
-                disabled={currentIndex === 0}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] disabled:opacity-25 disabled:pointer-events-none flex items-center justify-center text-white border border-[#333333] transition-all cursor-pointer shadow-xl active:scale-90"
-                title="Previous Short"
-              >
-                <ChevronUp className="w-6 h-6" />
-              </button>
-
-              <button
-                onClick={() => setIsLiked((prev) => !prev)}
-                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex flex-col items-center justify-center border transition-all cursor-pointer shadow-xl active:scale-90 ${
-                  isLiked
-                    ? 'bg-[#FF0000] text-white border-[#FF0000]'
-                    : 'bg-[#1F1F1F] hover:bg-[#2C2C2C] text-white border-[#333333]'
-                }`}
-                title="Favorite this short"
-              >
-                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-              </button>
-
-              <button
-                onClick={() => setIsMuted((prev) => !prev)}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] flex items-center justify-center text-white border border-[#333333] transition-all cursor-pointer shadow-xl active:scale-90"
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <VolumeX className="w-5 h-5 text-[#FF0000]" /> : <Volume2 className="w-5 h-5" />}
-              </button>
-
-              <button
-                onClick={handleNext}
-                disabled={currentIndex === shorts.length - 1}
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#1F1F1F] hover:bg-[#2C2C2C] disabled:opacity-25 disabled:pointer-events-none flex items-center justify-center text-white border border-[#333333] transition-all cursor-pointer shadow-xl active:scale-90"
-                title="Next Short"
-              >
-                <ChevronDown className="w-6 h-6" />
-              </button>
-
-              <div className="mt-1 px-2.5 py-1 rounded-full bg-[#181818] border border-[#2D2D2D] text-[11px] font-mono text-[#AAAAAA] text-center">
-                {currentIndex + 1}/{shorts.length}
-              </div>
-            </div>
+            <ShortsActionPills
+              currentIndex={currentIndex}
+              totalCount={shorts.length}
+              isLiked={isLiked}
+              isMuted={isMuted}
+              handlePrev={handlePrev}
+              handleNext={handleNext}
+              setIsLiked={setIsLiked}
+              setIsMuted={setIsMuted}
+            />
           </div>
         </main>
       </div>

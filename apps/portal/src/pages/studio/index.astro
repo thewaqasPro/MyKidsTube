@@ -2,12 +2,11 @@
 import '../../styles/global.css';
 import { StudioDashboard } from '../../components/StudioDashboard';
 import { getDatabase, getDbData, getStudioStats } from '../../lib/db';
-import { verifyParentSession } from '../../lib/parentAuth';
+import { getAuthenticatedParent } from '../../lib/auth';
 
-// Verify authentic server-side parent session
-const db = await getDatabase(Astro);
-const isAuthed = await verifyParentSession(Astro.request, db);
-if (!isAuthed) {
+// Verify authentic server-side parent session (Better Auth or Legacy PIN)
+const auth = await getAuthenticatedParent(Astro);
+if (!auth) {
   return Astro.redirect('/login?redirect=/studio');
 }
 
@@ -40,6 +39,7 @@ const stats = await getStudioStats(Astro);
       initialCategories={data.categories}
       initialProfiles={data.profiles}
       initialStats={stats}
+      currentUser={auth.user}
     />
   </body>
 </html>

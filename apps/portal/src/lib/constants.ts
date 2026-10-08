@@ -41,8 +41,17 @@ export function isSelfHosted(video: { status?: string; file_verified?: number; v
 
 export function isVideoShort(video?: { id?: string; duration?: number; category_id?: string; source_url?: string } | null): boolean {
   if (!video) return false;
-  if (video.id?.startsWith('short_') || video.source_url?.includes('/shorts/')) return true;
-  if (video.duration && video.duration > 0) return video.duration <= 70;
-  return video.category_id === 'shorts';
+  // Standard YouTube watch URLs are landscape videos
+  if (video.source_url?.includes('watch?v=')) return false;
+  // Long-form videos (> 70s) are not shorts
+  if (video.duration && video.duration > 70) return false;
+
+  if (video.source_url?.includes('/shorts/')) return true;
+  if (video.id?.startsWith('short_')) return true;
+
+  if (video.category_id === 'shorts') {
+    return Boolean(video.duration && video.duration > 0 && video.duration <= 70);
+  }
+  return false;
 }
 

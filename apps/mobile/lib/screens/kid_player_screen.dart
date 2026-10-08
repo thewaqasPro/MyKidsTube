@@ -38,6 +38,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   bool _hasError = false;
   String _errorMessage = '';
   Timer? _hideControlsTimer;
+  Timer? _watchTrackerTimer;
+  int _accumulatedSessionSeconds = 0;
   bool _isMuted = false;
   bool _useEmbed = false;
 
@@ -78,12 +80,53 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
     WakelockPlus.enable();
 
+    _startWatchTracker();
     _initControllerForVideo(_currentVideo);
+  }
+
+  void _startWatchTracker() {
+    _watchTrackerTimer?.cancel();
+    _watchTrackerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final isPlaying = (_controller != null && _controller!.value.isInitialized && _controller!.value.isPlaying) || _useEmbed;
+      if (isPlaying) {
+        _accumulatedSessionSeconds += 1;
+        if (_accumulatedSessionSeconds >= 300) {
+          _flushWatchSession();
+        }
+      }
+    });
+  }
+
+  void _flushWatchSession({bool isAtVideoEnd = false}) {
+    if (_accumulatedSessionSeconds > 0) {
+      final secs = _accumulatedSessionSeconds;
+      _accumulatedSessionSeconds = 0;
+      final duration = _currentVideo.duration;
+      final isSkipped = secs < 10;
+      final isCompleted = isAtVideoEnd || (duration > 0 && secs >= (duration * 0.75).round());
+      try {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        provider.recordWatchSession(
+          videoId: _currentVideo.id,
+          videoTitle: _currentVideo.title,
+          categoryId: _currentVideo.categoryId,
+          secondsWatched: secs,
+          videoDuration: duration,
+          isCompleted: isCompleted,
+          isSkipped: isSkipped,
+        );
+      } catch (_) {}
+    }
   }
 
   bool _isAutoAdvancing = false;
 
   Future<void> _initControllerForVideo(VideoItem video, {bool forceEmbed = false}) async {
+    _flushWatchSession();
     _hideControlsTimer?.cancel();
     _isAutoAdvancing = false;
     _controller?.removeListener(_playerListener);
@@ -153,6 +196,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         val.position >= (val.duration - const Duration(milliseconds: 600)) &&
         val.duration > const Duration(seconds: 3)) {
       _isAutoAdvancing = true;
+      _flushWatchSession(isAtVideoEnd: true);
       _playNextVideo();
       return;
     }
@@ -278,6 +322,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   void dispose() {
     WakelockPlus.disable();
     _hideControlsTimer?.cancel();
+    _watchTrackerTimer?.cancel();
+    _flushWatchSession();
     _controller?.removeListener(_playerListener);
     _controller?.dispose();
     SystemChrome.setPreferredOrientations([
@@ -715,14 +761,25 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                               width: 0.8,
                             ),
                           ),
-                          child: Text(
-                            _useEmbed ? '📺 Embed' : '⚡ Direct Stream',
-                            style: TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: _useEmbed ? KidColors.primary : Colors.green,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _useEmbed ? Icons.tv_rounded : Icons.bolt_rounded,
+                                size: 12,
+                                color: _useEmbed ? KidColors.primary : Colors.green,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _useEmbed ? 'Embed' : 'Direct Stream',
+                                style: TextStyle(
+                                  fontFamily: 'Roboto',
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _useEmbed ? KidColors.primary : Colors.green,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

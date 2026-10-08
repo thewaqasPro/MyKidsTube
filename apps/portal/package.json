@@ -9,16 +9,26 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "deploy": "astro build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply mykidstube --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mykidstube --remote",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.3",
     "@astrojs/react": "^7.0.0",
+    "@better-auth/drizzle-adapter": "^1.7.7",
+    "@better-auth/passkey": "^1.7.7",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.5",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.3",
     "lucide-react": "^1.52.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
   }
 }

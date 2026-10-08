@@ -10,9 +10,12 @@ import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import '../widgets/ambient_blur_background.dart';
+import '../widgets/child_avatar.dart';
 import '../widgets/kid_embed_player.dart';
+import '../widgets/kid_profile_switcher_sheet.dart';
 import '../widgets/shorts_action_rail.dart';
 import '../widgets/touch_lock_overlay.dart';
+import 'kid_player_screen.dart';
 import 'parent_gate_dialog.dart';
 
 class KidShortsFeedScreen extends StatefulWidget {
@@ -44,23 +47,55 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   bool _showPlayPauseIcon = false;
   bool _lastActionWasPlay = true;
   Timer? _playPauseTimer;
+  Timer? _watchTrackerTimer;
+  int _accumulatedSessionSeconds = 0;
 
   @override
   void initState() {
     super.initState();
-    // Strictly isolate short videos (<= 70s / vertical)
-    final filtered = widget.videos.where((v) => v.isShort).toList();
-    _shorts = filtered.isNotEmpty ? filtered : widget.videos;
-
     final initialVideo = (widget.initialIndex >= 0 && widget.initialIndex < widget.videos.length)
         ? widget.videos[widget.initialIndex]
         : null;
+
+    // Safety guard: If initial video is landscape, redirect to standard watch player!
+    if (initialVideo != null && !initialVideo.isShort) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => KidPlayerScreen(
+                video: initialVideo,
+                playlist: widget.videos.where((v) => !v.isShort).toList(),
+              ),
+            ),
+          );
+        }
+      });
+      _shorts = [];
+      _pageController = PageController();
+      return;
+    }
+
+    // Strictly isolate short videos (vertical format, <= 70s, /shorts/ URL)
+    final filtered = widget.videos.where((v) => v.isShort).toList();
+    _shorts = filtered;
+
+    if (_shorts.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
+      _pageController = PageController();
+      return;
+    }
+
     int targetIndex = 0;
     if (initialVideo != null) {
       final found = _shorts.indexWhere((v) => v.id == initialVideo.id);
       if (found != -1) targetIndex = found;
     }
-    _currentIndex = targetIndex.clamp(0, _shorts.isEmpty ? 0 : _shorts.length - 1);
+    _currentIndex = targetIndex.clamp(0, _shorts.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
 
     SystemChrome.setPreferredOrientations([
@@ -70,13 +105,57 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
     WakelockPlus.enable();
 
+    _startWatchTracker();
     _initControllersForWindow(_currentIndex);
+  }
+
+  void _startWatchTracker() {
+    _watchTrackerTimer?.cancel();
+    _watchTrackerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final ctrl = _controllers[_currentIndex];
+      final isPlaying = ctrl != null && ctrl.value.isInitialized && ctrl.value.isPlaying;
+      if (isPlaying) {
+        _accumulatedSessionSeconds += 1;
+        if (_accumulatedSessionSeconds >= 300) {
+          _flushWatchSession();
+        }
+      }
+    });
+  }
+
+  void _flushWatchSession({bool isAtVideoEnd = false}) {
+    if (_accumulatedSessionSeconds > 0 && _currentIndex >= 0 && _currentIndex < _shorts.length) {
+      final currentVideo = _shorts[_currentIndex];
+      final secs = _accumulatedSessionSeconds;
+      _accumulatedSessionSeconds = 0;
+      final duration = currentVideo.duration;
+      final isSkipped = secs < 10;
+      final isCompleted = isAtVideoEnd || (duration > 0 && secs >= (duration * 0.75).round());
+      try {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        provider.recordWatchSession(
+          videoId: currentVideo.id,
+          videoTitle: currentVideo.title,
+          categoryId: currentVideo.categoryId,
+          secondsWatched: secs,
+          videoDuration: duration,
+          isCompleted: isCompleted,
+          isSkipped: isSkipped,
+        );
+      } catch (_) {}
+    }
   }
 
   @override
   void dispose() {
     WakelockPlus.disable();
     _playPauseTimer?.cancel();
+    _watchTrackerTimer?.cancel();
+    _flushWatchSession();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
@@ -187,12 +266,14 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     if (index != _currentIndex) return;
 
     if (_autoAdvance && _currentIndex < _shorts.length - 1) {
+      _flushWatchSession(isAtVideoEnd: true);
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
     } else {
       // Loop video
+      _flushWatchSession(isAtVideoEnd: true);
       final ctrl = _controllers[index];
       ctrl?.seekTo(Duration.zero);
       ctrl?.play();
@@ -200,6 +281,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _onPageChanged(int newIndex) {
+    _flushWatchSession();
     // Pause previous
     final prevCtrl = _controllers[_currentIndex];
     prevCtrl?.pause();
@@ -457,6 +539,15 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                       child: const Icon(Icons.shield_outlined, color: Colors.white, size: 20),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // Active Kid Avatar Switcher
+                  GestureDetector(
+                    onTap: () => KidProfileSwitcherSheet.show(context),
+                    child: ChildAvatar(
+                      avatarIcon: context.watch<AppProvider>().activeProfile?.avatarIcon,
+                      radius: 17,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -598,7 +689,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                   ),
                   onPressed: _goToNextShort,
                   icon: const Icon(Icons.arrow_downward_rounded, size: 20),
-                  label: const Text('Next Short ⚡', style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: const Text('Next Short', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),

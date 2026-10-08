@@ -143,6 +143,62 @@ command_status() {
     fi
 }
 
+command_prune() {
+    echo "🧹 Scanning VPS storage for orphaned media files..."
+    if [ ! -f "$SSH_KEY" ]; then
+        echo "⚠️ SSH key not found at: $SSH_KEY"
+        exit 1
+    fi
+
+    # Fetch active video IDs from Catalog API
+    ACTIVE_IDS_FILE=$(mktemp)
+    if ! curl -fsS "$PORTAL_URL/api/v1/catalog" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+videos = data.get('all_videos', [])
+for v in videos:
+    vid = v.get('youtube_id') or v.get('id')
+    if vid:
+        print(vid.strip())
+" > "$ACTIVE_IDS_FILE"; then
+        echo "❌ Error: Could not fetch active video list from $PORTAL_URL"
+        rm -f "$ACTIVE_IDS_FILE"
+        exit 1
+    fi
+
+    ACTIVE_COUNT=$(wc -l < "$ACTIVE_IDS_FILE" | tr -d ' ')
+    echo "📋 Retrieved $ACTIVE_COUNT active video IDs from Cloudflare D1."
+
+    # Inspect files on VPS
+    TARGET_DIR="/var/www/media/videos"
+    REMOTE_FILES=$(ssh -i "$SSH_KEY" "$VPS_USER@$VPS_HOST" "ls -1 $TARGET_DIR/*.mp4 2>/dev/null || true")
+
+    if [ -z "$REMOTE_FILES" ]; then
+        echo "ℹ️ No video files currently found in VPS $TARGET_DIR."
+        rm -f "$ACTIVE_IDS_FILE"
+        return 0
+    fi
+
+    ORPHAN_COUNT=0
+    while IFS= read -r file_path; do
+        [ -z "$file_path" ] && continue
+        FILENAME=$(basename "$file_path")
+        VID_ID="${FILENAME%.mp4}"
+        if ! grep -Fxq "$VID_ID" "$ACTIVE_IDS_FILE"; then
+            echo "🗑️ Removing orphaned file on VPS: $FILENAME"
+            ssh -i "$SSH_KEY" "$VPS_USER@$VPS_HOST" "rm -f $TARGET_DIR/$FILENAME /var/www/media/thumbs/$VID_ID.*"
+            ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
+        fi
+    done <<< "$REMOTE_FILES"
+
+    rm -f "$ACTIVE_IDS_FILE"
+    if [ "$ORPHAN_COUNT" -eq 0 ]; then
+        echo "✅ VPS disk is fully synchronized with active catalog. No orphaned files."
+    else
+        echo "✅ Pruned $ORPHAN_COUNT orphaned media file(s) from VPS."
+    fi
+}
+
 case "$1" in
     export)
         command_export
@@ -153,12 +209,16 @@ case "$1" in
     upload)
         command_upload
         ;;
+    prune)
+        command_prune
+        ;;
     status)
         command_status
         ;;
     *)
         echo "MyKidsTube Sync Helper"
-        echo "Usage: $0 {export|download|upload|status}"
+        echo "Usage: $0 {export|download|upload|prune|status}"
         exit 1
         ;;
 esac
+

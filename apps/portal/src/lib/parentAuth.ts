@@ -12,6 +12,11 @@ export async function hashToken(token: string): Promise<string> {
 }
 
 export function extractSessionToken(request: Request): string | null {
+  const authHeader = request.headers.get('authorization') || '';
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.substring(7).trim();
+    if (token.length > 0) return token;
+  }
   const cookieHeader = request.headers.get('cookie') || '';
   const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${PARENT_SESSION_COOKIE_NAME}=([^;]+)`));
   if (!match) return null;
@@ -45,8 +50,24 @@ export async function createParentSession(db: any): Promise<string> {
         .bind(tokenHash, now.toISOString(), expiresAt.toISOString())
         .run();
     } catch (err: any) {
-      console.error('Failed to create parent session in D1:', err);
-      throw new Error('Database error creating session. Ensure migrations are applied.');
+      console.warn('Failed to insert parent session, attempting table auto-heal:', err);
+      try {
+        await db
+          .prepare(
+            'CREATE TABLE IF NOT EXISTS parent_sessions (token_hash TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT NOT NULL)'
+          )
+          .run();
+        await db
+          .prepare('CREATE INDEX IF NOT EXISTS idx_parent_sessions_expires_at ON parent_sessions (expires_at)')
+          .run();
+        await db
+          .prepare('INSERT INTO parent_sessions (token_hash, created_at, expires_at) VALUES (?, ?, ?)')
+          .bind(tokenHash, now.toISOString(), expiresAt.toISOString())
+          .run();
+      } catch (retryErr: any) {
+        console.error('Failed to create parent session in D1 after auto-heal:', retryErr);
+        throw new Error('Database error creating session. Ensure migrations are applied.');
+      }
     }
   }
 
@@ -71,18 +92,26 @@ export async function verifyParentSession(request: Request, db: any): Promise<bo
       .bind(tokenHash)
       .first();
 
-    if (!row || !row.expires_at) {
-      return false;
+    if (row && row.expires_at) {
+      const expiresAt = new Date(row.expires_at).getTime();
+      if (expiresAt <= Date.now()) {
+        // Clean up expired session in background
+        db.prepare('DELETE FROM parent_sessions WHERE token_hash = ?').bind(tokenHash).run().catch(() => null);
+        return false;
+      }
+      return true;
     }
 
-    const expiresAt = new Date(row.expires_at).getTime();
-    if (expiresAt <= Date.now()) {
-      // Clean up expired session in background
-      db.prepare('DELETE FROM parent_sessions WHERE token_hash = ?').bind(tokenHash).run().catch(() => null);
-      return false;
+    // Check if token matches a paired authorized device
+    const device: any = await db
+      .prepare("SELECT id FROM devices WHERE auth_token = ? AND status = 'paired'")
+      .bind(tokenHash)
+      .first();
+    if (device) {
+      return true;
     }
 
-    return true;
+    return false;
   } catch (err) {
     console.error('Error verifying parent session:', err);
     return false;
@@ -90,21 +119,8 @@ export async function verifyParentSession(request: Request, db: any): Promise<bo
 }
 
 export async function requireParent(context: any): Promise<Response | null> {
-  const request: Request = context.request;
-  const db = await getDatabase(context);
-
-  const isValid = await verifyParentSession(request, db);
-  if (!isValid) {
-    return new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-      },
-    });
-  }
-
-  return null;
+  const { requireAuthenticatedParent } = await import('./auth');
+  return requireAuthenticatedParent(context);
 }
 
 export async function destroyParentSession(request: Request, db: any): Promise<void> {

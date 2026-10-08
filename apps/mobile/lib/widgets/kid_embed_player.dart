@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../utils/constants.dart';
 
 /// Kid-Safe YouTube Embed Player Widget for Mobile
@@ -25,11 +28,20 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
+  Timer? _playRetryTimer1;
+  Timer? _playRetryTimer2;
 
   @override
   void initState() {
     super.initState();
     _initController();
+  }
+
+  @override
+  void dispose() {
+    _playRetryTimer1?.cancel();
+    _playRetryTimer2?.cancel();
+    super.dispose();
   }
 
   @override
@@ -41,7 +53,19 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   }
 
   void _initController() {
-    _controller = WebViewController()
+    late final PlatformWebViewControllerCreationParams params;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    } else if (WebViewPlatform.instance is AndroidWebViewPlatform) {
+      params = AndroidWebViewControllerCreationParams();
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+
+    _controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..setNavigationDelegate(
@@ -57,6 +81,9 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
           onPageFinished: (_) {
             if (mounted) {
               setState(() => _isLoading = false);
+              if (widget.autoPlay) {
+                _sendPlayCommands();
+              }
             }
           },
           onWebResourceError: (WebResourceError error) {
@@ -81,25 +108,62 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
         ),
       );
 
+    if (_controller.platform is AndroidWebViewController) {
+      (_controller.platform as AndroidWebViewController)
+          .setMediaPlaybackRequiresUserGesture(false);
+    }
+
     _loadVideo(widget.youtubeId);
   }
 
+  void _sendPlayCommands() {
+    const jsPlay = '''
+      try {
+        if (window.player && typeof window.player.playVideo === 'function') {
+          window.player.playVideo();
+        }
+        var frame = document.getElementById('player');
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        }
+      } catch(e) {}
+    ''';
+
+    _controller.runJavaScript(jsPlay);
+
+    _playRetryTimer1?.cancel();
+    _playRetryTimer1 = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        _controller.runJavaScript(jsPlay);
+      }
+    });
+
+    _playRetryTimer2?.cancel();
+    _playRetryTimer2 = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) {
+        _controller.runJavaScript(jsPlay);
+      }
+    });
+  }
+
   void _loadVideo(String id) {
+    _playRetryTimer1?.cancel();
+    _playRetryTimer2?.cancel();
+
     setState(() {
       _hasError = false;
       _isLoading = true;
     });
 
+    final autoPlayFlag = widget.autoPlay ? 1 : 0;
     final html = '''
 <!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      margin: 0;
-      padding: 0;
       width: 100%;
       height: 100%;
       background-color: #000;
@@ -118,11 +182,48 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
 <body>
   <iframe
     id="player"
-    src="https://www.youtube-nocookie.com/embed/$id?autoplay=${widget.autoPlay ? 1 : 0}&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1&fs=1"
-    sandbox="allow-scripts allow-same-origin allow-presentation"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1&fs=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen>
   </iframe>
+  <script>
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        events: {
+          'onReady': function(event) {
+            ${widget.autoPlay ? "try { event.target.playVideo(); } catch(e) {}" : ""}
+          }
+        }
+      });
+      window.player = player;
+    }
+
+    function sendPlay() {
+      try {
+        if (window.player && typeof window.player.playVideo === 'function') {
+          window.player.playVideo();
+        }
+        var frame = document.getElementById('player');
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        }
+      } catch(e) {}
+    }
+
+    ${widget.autoPlay ? """
+    window.addEventListener('load', function() {
+      setTimeout(sendPlay, 300);
+      setTimeout(sendPlay, 800);
+      setTimeout(sendPlay, 1600);
+    });
+    """ : ""}
+  </script>
 </body>
 </html>
 ''';

@@ -51,15 +51,25 @@ class VideoItem {
       localFilePath != null &&
       localFilePath!.isNotEmpty;
 
-  /// Returns true if this video is a short (<= 70s / vertical short)
+  /// Returns true ONLY if this video is an authentic vertical short.
+  /// Landscape videos (standard YouTube watch?v= links, videos > 70s) are NEVER shorts.
   bool get isShort {
-    if (id.startsWith('short_') || sourceUrl.contains('/shorts/')) {
-      return true;
+    // 1. Definite landscape exclusions:
+    // Any video with a standard YouTube watch URL is a wide landscape video.
+    if (sourceUrl.contains('watch?v=')) return false;
+    // Any video longer than 70s is a regular long-form video.
+    if (duration > 70) return false;
+
+    // 2. Explicit YouTube Shorts indicators:
+    if (sourceUrl.contains('/shorts/')) return true;
+    if (id.startsWith('short_')) return true;
+
+    // 3. Fallback for category 'shorts' ONLY if duration is valid (1-70s) and not a watch link
+    if (categoryId == 'shorts') {
+      return duration > 0 && duration <= 70;
     }
-    if (duration > 0) {
-      return duration <= 70;
-    }
-    return categoryId == 'shorts';
+
+    return false;
   }
 
   /// Extracts or computes the reliable YouTube video ID for embed playback

@@ -1,143 +1,78 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Video, Category, ChildProfile } from '../types/video';
-import { 
-  Play, 
-  Upload, 
-  Trash2, 
-  HardDrive, 
-  Clock, 
-  Eye, 
-  Search, 
-  Filter, 
-  CheckCircle, 
-  Sparkles,
-  RefreshCw,
-  FolderDown,
-  Tablet,
-  KeyRound,
-  ShieldCheck,
-  ChevronRight,
-  Tv,
-  Film,
-  Plus,
-  Smartphone,
-  X,
-  AlertCircle,
-  Check
-} from 'lucide-react';
-import { getThumbnailUrl, getYoutubeId, isSelfHosted, isVideoShort } from '../lib/constants';
+import type { Video, Category, ChildProfile } from '@/types/video';
+import { X } from 'lucide-react';
 import { StudioTopBar } from './StudioTopBar';
 import { StudioSidebar } from './StudioSidebar';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { StudioAnalyticsView } from './StudioAnalyticsView';
+import { StudioOverviewTab } from '@/features/studio/components/StudioOverviewTab';
+import { StudioVideosTab } from '@/features/studio/components/StudioVideosTab';
+import { StudioDevicesTab } from '@/features/studio/components/StudioDevicesTab';
+import { StudioSecurityTab } from '@/features/studio/components/StudioSecurityTab';
+import { useStudioDevices } from '@/features/studio/hooks/useStudioDevices';
+import { useStudioSecurity } from '@/features/studio/hooks/useStudioSecurity';
 
-interface StudioDashboardProps {
+export interface StudioDashboardProps {
   initialVideos: Video[];
   initialCategories: Category[];
   initialProfiles: ChildProfile[];
   initialStats: any;
+  currentUser?: {
+    id: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null;
 }
 
 export const StudioDashboard: React.FC<StudioDashboardProps> = ({
-  initialVideos,
-  initialCategories,
-  initialProfiles,
-  initialStats,
+  initialVideos = [],
+  initialCategories = [],
+  initialProfiles = [],
+  initialStats = null,
+  currentUser = null,
 }) => {
-  const [videos, setVideos] = useState<Video[]>(initialVideos);
+  const [videos, setVideos] = useState<Video[]>(initialVideos || []);
+  const stats = initialStats;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'ready' | 'pending'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Studio Shell State
+  // Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    details?: string;
+    confirmLabel?: string;
+    action: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    action: async () => {},
+  });
+  const [isModalProcessing, setIsModalProcessing] = useState(false);
+
+  // Shell & Navigation State
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const [devicesList, setDevicesList] = useState<any[]>([]);
-  const [loadingDevices, setLoadingDevices] = useState(false);
-  const [isPairingOpen, setIsPairingOpen] = useState(false);
-  const [pairCode, setPairCode] = useState('');
-  const [pairProfileId, setPairProfileId] = useState(
-    initialProfiles && initialProfiles.length > 0 ? initialProfiles[0].id : 'kids_all'
-  );
-  const [pairDeviceName, setPairDeviceName] = useState('');
-  const [isSubmittingPair, setIsSubmittingPair] = useState(false);
-  const [pairError, setPairError] = useState<string | null>(null);
-  const [pairSuccess, setPairSuccess] = useState<string | null>(null);
-  const [deletingDeviceId, setDeletingDeviceId] = useState<string | null>(null);
+  // Sub-feature Hooks
+  const devices = useStudioDevices({
+    initialProfiles,
+    setModalConfig,
+    setNotification,
+  });
 
-  const fetchDevices = () => {
-    setLoadingDevices(true);
-    fetch('/api/studio/devices')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setDevicesList(data))
-      .catch(() => setDevicesList([]))
-      .finally(() => setLoadingDevices(false));
-  };
+  const security = useStudioSecurity();
 
-  const handlePairDevice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pairCode.trim()) {
-      setPairError('Please enter the pairing code from your phone or tablet.');
-      return;
-    }
-
-    setIsSubmittingPair(true);
-    setPairError(null);
-    setPairSuccess(null);
-
-    try {
-      const res = await fetch('/api/pair', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pairing_code: pairCode.trim(),
-          profile_id: pairProfileId,
-          device_name: pairDeviceName.trim() || 'Kids Tablet',
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setPairError(data.error || 'Failed to pair device. Please check the code.');
-      } else {
-        setPairSuccess(`Device "${pairDeviceName.trim() || 'Kids Tablet'}" paired successfully!`);
-        setPairCode('');
-        setPairDeviceName('');
-        fetchDevices();
-      }
-    } catch (err) {
-      setPairError('Network error connecting to the server.');
-    } finally {
-      setIsSubmittingPair(false);
-    }
-  };
-
-  const handleUnpairDevice = async (deviceId: string, devName: string) => {
-    if (!window.confirm(`Disconnect and unpair "${devName}"? The device will need a new code to reconnect.`)) {
-      return;
-    }
-
-    setDeletingDeviceId(deviceId);
-    try {
-      const res = await fetch('/api/studio/devices', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deviceId }),
-      });
-
-      if (res.ok) {
-        setDevicesList((prev) => prev.filter((d) => d.id !== deviceId));
-      }
-    } catch (err) {
-      console.error('Failed to unpair device:', err);
-    } finally {
-      setDeletingDeviceId(null);
-    }
-  };
-
-  // Sync hash with active tab
+  // Synchronize URL Hash
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
@@ -147,12 +82,6 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
     }
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'devices') {
-      fetchDevices();
-    }
-  }, [activeTab]);
-
   const handleSelectTab = (tab: string) => {
     setActiveTab(tab);
     if (typeof window !== 'undefined') {
@@ -160,72 +89,126 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
     }
   };
 
-  // Filtered list
+  useEffect(() => {
+    if (activeTab === 'devices') devices.fetchDevices();
+    else if (activeTab === 'settings') {
+      security.fetchPasskeys();
+      security.fetchSessions();
+      security.fetchPinStatus();
+    }
+  }, [activeTab]);
+
+  // Video Filtering & Multi-Selection
   const filteredVideos = useMemo(() => {
     return videos.filter((v) => {
-      const matchesSearch = 
+      const matchesSearch =
         v.title.toLowerCase().includes(search.toLowerCase()) ||
-        (v.channel_name && v.channel_name.toLowerCase().includes(search.toLowerCase()));
+        (v.channel_name && v.channel_name.toLowerCase().includes(search.toLowerCase())) ||
+        v.id.toLowerCase().includes(search.toLowerCase());
 
       const matchesCategory = categoryFilter === 'all' || v.category_id === categoryFilter;
+      const isReady = Boolean(v.file_verified && v.file_verified > 0) || v.status === 'ready';
 
-      const isReady = isSelfHosted(v);
-      const matchesStatus = 
-        statusFilter === 'all' ||
-        (statusFilter === 'ready' && isReady) ||
-        (statusFilter === 'pending' && !isReady);
-
-      return matchesSearch && matchesCategory && matchesStatus;
+      if (statusFilter === 'ready' && !isReady) return false;
+      if (statusFilter === 'pending' && isReady) return false;
+      return matchesSearch && matchesCategory;
     });
-  }, [videos, search, statusFilter, categoryFilter]);
+  }, [videos, search, categoryFilter, statusFilter]);
 
-  // Aggregate stats
-  const totalCount = videos.length;
-  const readyCount = videos.filter((v) => isSelfHosted(v)).length;
-  const pendingCount = totalCount - readyCount;
-  const totalViews = videos.reduce((acc, v) => acc + (v.views || 0), 0);
-  const totalWatchSec = videos.reduce((acc, v) => acc + (v.watch_seconds || 0), 0);
-  const totalWatchHours = (totalWatchSec / 3600).toFixed(1);
-
-  // Handle Video Deletion
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this video from your kids catalog?')) return;
-    setIsDeletingId(id);
-    try {
-      const res = await fetch(`/api/studio/videos?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setVideos((prev) => prev.filter((v) => v.id !== id));
+  const toggleVideoSelect = (id: string, e: React.MouseEvent) => {
+    const next = new Set(selectedIds);
+    if (e.shiftKey && lastSelectedId && lastSelectedId !== id) {
+      const currentIndex = filteredVideos.findIndex((v) => v.id === id);
+      const lastIndex = filteredVideos.findIndex((v) => v.id === lastSelectedId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const [start, end] = [Math.min(currentIndex, lastIndex), Math.max(currentIndex, lastIndex)];
+        for (let i = start; i <= end; i++) next.add(filteredVideos[i].id);
       }
-    } catch (e) {
-      alert('Failed to delete video');
-    } finally {
-      setIsDeletingId(null);
+    } else {
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      setLastSelectedId(id);
     }
+    setSelectedIds(next);
   };
 
-  // Download links.txt
-  const handleExportLinks = () => {
-    window.location.href = '/api/queue/pending?format=txt';
+  const selectAll = () => setSelectedIds(new Set(filteredVideos.map((v) => v.id)));
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
+  };
+
+  // Video Deletion Handlers
+  const confirmSingleDelete = (id: string) => {
+    const vid = videos.find((v) => v.id === id);
+    setModalConfig({
+      isOpen: true,
+      title: 'Delete Video from Catalog?',
+      message: `Are you sure you want to remove "${vid?.title || id}"?`,
+      details: 'This will purge the video entry from Cloudflare D1 and remove cached files.',
+      confirmLabel: 'Delete Video',
+      action: async () => {
+        setIsDeletingId(id);
+        try {
+          const res = await fetch(`/api/studio/videos?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+          if (res.ok) {
+            setVideos((prev) => prev.filter((v) => v.id !== id));
+            setSelectedIds((prev) => {
+              const n = new Set(prev);
+              n.delete(id);
+              return n;
+            });
+            setNotification({ message: 'Video deleted successfully.', type: 'success' });
+            setTimeout(() => setNotification(null), 4000);
+          }
+        } finally {
+          setIsDeletingId(null);
+        }
+      },
+    });
+  };
+
+  const confirmBulkDelete = () => {
+    const count = selectedIds.size;
+    setModalConfig({
+      isOpen: true,
+      title: `Delete ${count} Selected Videos?`,
+      message: `Are you sure you want to remove ${count} videos from the catalog?`,
+      details: 'All associated entries will be purged from Cloudflare D1 and storage.',
+      confirmLabel: `Delete ${count} Videos`,
+      action: async () => {
+        const ids = Array.from(selectedIds);
+        try {
+          const res = await fetch('/api/studio/videos', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
+          });
+          if (res.ok) {
+            setVideos((prev) => prev.filter((v) => !selectedIds.has(v.id)));
+            deselectAll();
+            setNotification({ message: `Successfully deleted ${count} videos.`, type: 'success' });
+            setTimeout(() => setNotification(null), 4000);
+          }
+        } catch (e) {
+          console.error('Bulk deletion failed:', e);
+        }
+      },
+    });
   };
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-[#F1F1F1] flex flex-col font-sans">
-      {/* 1. Dedicated Studio Top Bar */}
       <StudioTopBar
         searchQuery={search}
         onSearchChange={setSearch}
         onToggleSidebar={() => {
-          if (window.innerWidth < 1024) {
-            setIsMobileSidebarOpen((prev) => !prev);
-          } else {
-            setIsSidebarExpanded((prev) => !prev);
-          }
+          if (window.innerWidth < 1024) setIsMobileSidebarOpen((prev) => !prev);
+          else setIsSidebarExpanded((prev) => !prev);
         }}
       />
 
-      {/* 2. Main Flex Layout: Studio Sidebar + Studio Content */}
       <div className="flex flex-1 relative overflow-x-hidden">
-        {/* Dedicated Studio Sidebar with all links on the side */}
         <StudioSidebar
           activeTab={activeTab}
           onSelectTab={handleSelectTab}
@@ -234,531 +217,139 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
 
-        {/* 3. Main Studio Workspace */}
         <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 space-y-6">
-          
-          {/* TAB 1: DASHBOARD OVERVIEW */}
-          {(activeTab === 'dashboard' || activeTab === 'analytics') && (
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-[22px] font-bold text-white tracking-tight">Studio Dashboard</h1>
-                <p className="text-[13px] text-[#888888]">Overview of catalog storage, streaming modes, and kid viewing metrics.</p>
-              </div>
-
-              {/* Analytics Metric Cards */}
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Total Videos Card */}
-                <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-                  <div className="flex items-center justify-between text-[#888888]">
-                    <span className="text-[12px] font-semibold uppercase tracking-wider">Catalog Inventory</span>
-                    <Film className="w-4 h-4 text-[#FF0000]" />
-                  </div>
-                  <div className="mt-4">
-                    <span className="text-[28px] font-extrabold text-white">{totalCount}</span>
-                    <span className="text-[13px] text-[#AAAAAA] ml-1.5">Videos</span>
-                  </div>
-                  <div className="mt-2 text-[12px] flex items-center gap-2 font-medium">
-                    <span className="text-emerald-400">● {readyCount} Self-Hosted</span>
-                    <span className="text-amber-400">● {pendingCount} Embed</span>
-                  </div>
-                </div>
-
-                {/* Watch Hours Card */}
-                <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-                  <div className="flex items-center justify-between text-[#888888]">
-                    <span className="text-[12px] font-semibold uppercase tracking-wider">Watch Time</span>
-                    <Clock className="w-4 h-4 text-[#3EA6FF]" />
-                  </div>
-                  <div className="mt-4">
-                    <span className="text-[28px] font-extrabold text-white">{totalWatchHours}</span>
-                    <span className="text-[13px] text-[#AAAAAA] ml-1.5">Hours</span>
-                  </div>
-                  <div className="mt-2 text-[12px] text-[#888888]">
-                    Accumulated across kid tablets
-                  </div>
-                </div>
-
-                {/* Total Views Card */}
-                <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-                  <div className="flex items-center justify-between text-[#888888]">
-                    <span className="text-[12px] font-semibold uppercase tracking-wider">Total Views</span>
-                    <Eye className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div className="mt-4">
-                    <span className="text-[28px] font-extrabold text-white">{totalViews}</span>
-                    <span className="text-[13px] text-[#AAAAAA] ml-1.5">Plays</span>
-                  </div>
-                  <div className="mt-2 text-[12px] text-[#888888]">
-                    100% ad-free & safe
-                  </div>
-                </div>
-
-                {/* VPS Storage Card */}
-                <div className="p-5 bg-[#181818] border border-[#262626] rounded-2xl flex flex-col justify-between shadow-sm">
-                  <div className="flex items-center justify-between text-[#888888]">
-                    <span className="text-[12px] font-semibold uppercase tracking-wider">VPS Media Storage</span>
-                    <HardDrive className="w-4 h-4 text-purple-400" />
-                  </div>
-                  <div className="mt-4">
-                    {stats?.storage_used_bytes !== null && stats?.storage_used_bytes !== undefined ? (
-                      <>
-                        <span className="text-[28px] font-extrabold text-white">
-                          {(stats.storage_used_bytes / (1024 * 1024 * 1024)).toFixed(2)} GB
-                        </span>
-                        <span className="text-[13px] text-[#AAAAAA] ml-1.5">Used</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-[22px] font-bold text-[#888888]">Unavailable</span>
-                        <span className="text-[11px] text-[#666666] block">Direct storage telemetry offline</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="mt-2 text-[12px] text-emerald-400 font-medium flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Nginx Direct Streamer Active</span>
-                  </div>
-                </div>
-              </section>
-
-              {/* HandBrake Sync Pipeline Helper */}
-              <section className="p-6 bg-gradient-to-r from-[#1C1C1C] to-[#161616] border border-[#2A2A2A] rounded-2xl flex flex-col lg:flex-row items-center justify-between gap-6 shadow-sm">
-                <div className="space-y-1.5 text-center lg:text-left">
-                  <div className="flex items-center justify-center lg:justify-start gap-2">
-                    <Sparkles className="w-4 h-4 text-[#FF0000]" />
-                    <span className="text-[14px] font-bold text-white uppercase tracking-wider">
-                      HandBrake Batch Encoding Pipeline
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-[#AAAAAA] max-w-2xl leading-relaxed">
-                    Export your pending wishlist to your Mac, batch encode with HandBrake (<span className="text-white font-mono">Fast 720p30, RF 24</span>), and upload to your 80GB VPS storage for 70% smaller file sizes.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={handleExportLinks}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-[#FF0000] hover:bg-[#CC0000] text-white text-[13px] font-semibold rounded-xl shadow-md transition-colors cursor-pointer"
-                  >
-                    <FolderDown className="w-4 h-4" />
-                    <span>1-Click Export links.txt ({pendingCount})</span>
-                  </button>
-
-                  <a
-                    href="/upload"
-                    className="flex items-center gap-2 px-4 py-2.5 bg-[#252525] hover:bg-[#303030] text-[#DDDDDD] hover:text-white text-[13px] font-medium rounded-xl border border-[#333333] transition-colors"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>Dropzone</span>
-                  </a>
-                </div>
-              </section>
+          {notification && (
+            <div
+              className={`p-4 rounded-xl flex items-center justify-between text-sm font-medium transition-all ${
+                notification.type === 'success'
+                  ? 'bg-emerald-950/60 border border-emerald-500/30 text-emerald-300'
+                  : 'bg-red-950/60 border border-red-500/30 text-red-300'
+              }`}
+            >
+              <span>{notification.message}</span>
+              <button
+                onClick={() => setNotification(null)}
+                className="text-white/60 hover:text-white ml-4 p-1 rounded-full hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
 
-          {/* TAB 2: VIDEOS & CONTENT MANAGEMENT */}
-          {(activeTab === 'videos' || activeTab === 'dashboard') && (
-            <section className="space-y-4 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-[18px] font-bold text-white tracking-tight">Channel Content</h2>
-                  <p className="text-[12px] text-[#888888]">Manage catalog videos, verify MP4 storage, or remove content.</p>
-                </div>
-
-                {/* Filter Controls */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {/* Status Filter */}
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="h-9 px-3 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-[12px] text-[#DDDDDD] outline-none cursor-pointer"
-                  >
-                    <option value="all">All Playback ({totalCount})</option>
-                    <option value="ready">Self-Hosted MP4 ({readyCount})</option>
-                    <option value="pending">YouTube Embed ({pendingCount})</option>
-                  </select>
-
-                  {/* Category Filter */}
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="h-9 px-3 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-[12px] text-[#DDDDDD] outline-none cursor-pointer"
-                  >
-                    <option value="all">All Categories</option>
-                    {initialCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={() => {
-                      setSearch('');
-                      setStatusFilter('all');
-                      setCategoryFilter('all');
-                    }}
-                    className="h-9 px-3 bg-[#1C1C1C] hover:bg-[#252525] border border-[#2E2E2E] rounded-xl text-[12px] text-[#AAAAAA] hover:text-white transition-colors cursor-pointer"
-                    title="Reset filters"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-
-              {/* Videos Table */}
-              <div className="bg-[#141414] border border-[#242424] rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-[#242424] bg-[#181818]/70 text-[11px] font-semibold text-[#888888] uppercase tracking-wider">
-                        <th className="py-3 px-4">Video</th>
-                        <th className="py-3 px-4 hidden md:table-cell">Playback Mode</th>
-                        <th className="py-3 px-4 hidden sm:table-cell">Category</th>
-                        <th className="py-3 px-4 text-center hidden lg:table-cell">Views</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#202020] text-[13px]">
-                      {filteredVideos.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-[#777777]">
-                            No videos matched your filters.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredVideos.map((v) => {
-                          const isReady = isSelfHosted(v);
-                          const thumb = getThumbnailUrl(v);
-                          const cleanTitle = v.title.includes('•') ? v.title.split('•').slice(1).join('•').trim() : v.title;
-                          const cleanChannel = v.channel_name || (v.title.includes('•') ? v.title.split('•')[0].trim() : 'KidsTube');
-
-                          return (
-                            <tr key={v.id} className="hover:bg-[#1A1A1A] transition-colors group">
-                              {/* Video Cell */}
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-3 min-w-[240px]">
-                                  <div className="relative w-20 aspect-video rounded-lg overflow-hidden bg-[#222222] shrink-0 border border-[#2A2A2A]">
-                                    <img src={thumb} alt={cleanTitle} className="w-full h-full object-cover" />
-                                    <div className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/80 text-[9px] font-mono text-white">
-                                      {v.duration_formatted || '03:00'}
-                                    </div>
-                                  </div>
-                                  <div className="min-w-0">
-                                    <a
-                                      href={isVideoShort(v) ? `/shorts?v=${v.id}` : `/watch/${v.id}`}
-                                      className="font-medium text-white hover:text-[#3EA6FF] line-clamp-1 transition-colors"
-                                    >
-                                      {cleanTitle}
-                                    </a>
-                                    <span className="text-[11px] text-[#888888] block truncate mt-0.5">
-                                      {cleanChannel}
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-
-                              {/* Playback Mode */}
-                              <td className="py-3 px-4 hidden md:table-cell">
-                                {isReady ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-950/70 text-emerald-400 border border-emerald-800">
-                                    <CheckCircle className="w-3.5 h-3.5" />
-                                    <span>Self-Hosted MP4</span>
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-950/70 text-amber-400 border border-amber-800">
-                                    <Sparkles className="w-3.5 h-3.5" />
-                                    <span>YouTube Embed</span>
-                                  </span>
-                                )}
-                              </td>
-
-                              {/* Category */}
-                              <td className="py-3 px-4 hidden sm:table-cell text-[#AAAAAA] capitalize">
-                                {v.category_id}
-                              </td>
-
-                              {/* Views */}
-                              <td className="py-3 px-4 text-center font-mono text-[#DDDDDD] hidden lg:table-cell">
-                                {v.views || 0}
-                              </td>
-
-                              {/* Actions */}
-                              <td className="py-3 px-4 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <a
-                                    href={isVideoShort(v) ? `/shorts?v=${v.id}` : `/watch/${v.id}`}
-                                    className="p-2 rounded-lg bg-[#202020] hover:bg-[#2A2A2A] text-[#DDDDDD] hover:text-white transition-colors"
-                                    title={isVideoShort(v) ? "Watch Short" : "Watch Video"}
-                                  >
-                                    <Play className="w-3.5 h-3.5 fill-current" />
-                                  </a>
-
-                                  <button
-                                    onClick={() => handleDelete(v.id)}
-                                    disabled={isDeletingId === v.id}
-                                    className="p-2 rounded-lg bg-[#202020] hover:bg-red-950 text-[#DDDDDD] hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50"
-                                    title="Delete from Catalog"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
+          {activeTab === 'dashboard' && (
+            <StudioOverviewTab
+              totalVideos={videos.length}
+              readyCount={videos.filter((v) => Boolean(v.file_verified && v.file_verified > 0) || v.status === 'ready').length}
+              pendingCount={videos.filter((v) => !(Boolean(v.file_verified && v.file_verified > 0) || v.status === 'ready')).length}
+              storageUsedBytes={stats?.storage_used_bytes || 0}
+              onExportLinks={() => (window.location.href = '/api/queue/pending?format=txt')}
+              onNavigateToVideos={() => handleSelectTab('videos')}
+            />
           )}
 
-          {/* TAB 3: TABLET & PHONE DEVICES */}
+          {activeTab === 'videos' && (
+            <StudioVideosTab
+              videos={filteredVideos}
+              categories={initialCategories}
+              search={search}
+              onSearchChange={setSearch}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              categoryFilter={categoryFilter}
+              onCategoryFilterChange={setCategoryFilter}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleVideoSelect}
+              onSelectAll={selectAll}
+              onDeselectAll={deselectAll}
+              onSingleDelete={confirmSingleDelete}
+              onBulkDelete={confirmBulkDelete}
+              isDeletingId={isDeletingId}
+            />
+          )}
+
           {activeTab === 'devices' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-[22px] font-bold text-white tracking-tight">Kid Tablet & Phone Devices</h1>
-                  <p className="text-[13px] text-[#888888]">Pair and manage mobile apps running MyKidsTube on phones or tablets.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setIsPairingOpen(!isPairingOpen);
-                      setPairError(null);
-                      setPairSuccess(null);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-[13px] font-semibold text-white rounded-xl shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Pair New Device
-                  </button>
-                  <button
-                    onClick={fetchDevices}
-                    disabled={loadingDevices}
-                    className="flex items-center gap-2 px-3.5 py-2 bg-[#222222] hover:bg-[#2C2C2C] text-[12px] font-medium text-white rounded-xl border border-[#333333] transition-colors cursor-pointer"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingDevices ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </button>
-                </div>
-              </div>
-
-              {/* PAIR NEW DEVICE FORM / CARD */}
-              {(isPairingOpen || devicesList.length === 0) && (
-                <div className="p-6 bg-gradient-to-b from-[#1C1C24] to-[#141418] border border-indigo-500/30 rounded-2xl shadow-xl space-y-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                        <Smartphone className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h2 className="text-[16px] font-bold text-white">Connect Device by Pairing Code</h2>
-                        <p className="text-[12px] text-[#A0A0A0]">
-                          Open MyKidsTube on your kid's phone or tablet to find the 6-character code (e.g. ABC-234).
-                        </p>
-                      </div>
-                    </div>
-                    {devicesList.length > 0 && (
-                      <button 
-                        onClick={() => setIsPairingOpen(false)}
-                        className="text-[#888888] hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <form onSubmit={handlePairDevice} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Code Input */}
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
-                          Pairing Code *
-                        </label>
-                        <input
-                          type="text"
-                          value={pairCode}
-                          onChange={(e) => {
-                            setPairError(null);
-                            setPairSuccess(null);
-                            let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-                            if (val.length === 3 && !val.includes('-') && !e.target.value.endsWith('-')) {
-                              val = val + '-';
-                            }
-                            if (val.length > 7) val = val.slice(0, 7);
-                            setPairCode(val);
-                          }}
-                          placeholder="ABC-234"
-                          maxLength={7}
-                          className="w-full px-4 py-2.5 bg-[#0F0F12] border border-[#33333E] rounded-xl text-white font-mono text-[18px] tracking-wider text-center focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors uppercase placeholder-[#555555]"
-                        />
-                      </div>
-
-                      {/* Child Profile */}
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
-                          Child Profile
-                        </label>
-                        <select
-                          value={pairProfileId}
-                          onChange={(e) => setPairProfileId(e.target.value)}
-                          className="w-full px-3.5 py-3 bg-[#0F0F12] border border-[#33333E] rounded-xl text-white text-[13px] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors cursor-pointer"
-                        >
-                          {(initialProfiles && initialProfiles.length > 0 ? initialProfiles : [{ id: 'kids_all', name: 'All Kids' }, { id: 'kids_toddler', name: 'Little Kids' }]).map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} {p.age_bracket ? `(${p.age_bracket})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Device Name */}
-                      <div>
-                        <label className="block text-[11px] font-semibold text-[#AAAAAA] uppercase tracking-wider mb-1.5">
-                          Device Name (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={pairDeviceName}
-                          onChange={(e) => setPairDeviceName(e.target.value)}
-                          placeholder="e.g. Emma's iPad, Kids Phone"
-                          maxLength={64}
-                          className="w-full px-4 py-3 bg-[#0F0F12] border border-[#33333E] rounded-xl text-white text-[13px] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors placeholder-[#555555]"
-                        />
-                      </div>
-                    </div>
-
-                    {pairError && (
-                      <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[12px] flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                        <span>{pairError}</span>
-                      </div>
-                    )}
-
-                    {pairSuccess && (
-                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[12px] flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                        <span>{pairSuccess}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-end gap-3 pt-2">
-                      <button
-                        type="submit"
-                        disabled={isSubmittingPair || !pairCode.trim()}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
-                      >
-                        {isSubmittingPair ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            Authorizing Device...
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="w-4 h-4" />
-                            Authorize & Connect Device
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {/* DEVICES LIST */}
-              {loadingDevices ? (
-                <div className="p-12 text-center text-[#888888] text-[13px]">Loading paired devices...</div>
-              ) : devicesList.length === 0 ? (
-                <div className="p-8 bg-[#181818] border border-[#262626] rounded-2xl text-center space-y-2">
-                  <p className="text-[13px] text-[#AAAAAA]">
-                    Enter the 6-character code from your phone or tablet above to link your first device.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {devicesList.map((dev: any) => (
-                    <div key={dev.id} className="p-6 bg-[#181818] border border-[#262626] rounded-2xl space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2.5 rounded-xl ${dev.status === 'paired' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                            <Tablet className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-white">{dev.device_name || 'Kids Device'}</h3>
-                            <p className="text-[12px] text-[#888888]">
-                              Status: <span className={dev.status === 'paired' ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>{dev.status === 'paired' ? 'Paired & Active' : 'Pending Authorization'}</span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {dev.pairing_code && (
-                            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#222222] text-[#AAAAAA] border border-[#333333]">
-                              {dev.pairing_code}
-                            </span>
-                          )}
-                          <button
-                            onClick={() => handleUnpairDevice(dev.id, dev.device_name || 'Kids Device')}
-                            disabled={deletingDeviceId === dev.id}
-                            className="p-1.5 text-[#888888] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                            title="Unpair Device"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-xl bg-[#121212] border border-[#222222] text-[12px] space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-[#888888]">Profile Assigned:</span>
-                          <span className="text-white font-medium">{dev.profile_name || 'All Kids'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#888888]">Device Token:</span>
-                          <span className="font-mono text-emerald-400">
-                            {dev.has_token ? 'Issued & Secured (SHA-256)' : 'None'}
-                          </span>
-                        </div>
-                        {dev.created_at && (
-                          <div className="flex justify-between">
-                            <span className="text-[#888888]">Registered:</span>
-                            <span className="text-[#888888]">{new Date(dev.created_at).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <StudioDevicesTab
+              devicesList={devices.devicesList}
+              loadingDevices={devices.loadingDevices}
+              isPairingOpen={devices.isPairingOpen}
+              onTogglePairingOpen={() => devices.setIsPairingOpen(!devices.isPairingOpen)}
+              pairCode={devices.pairCode}
+              onPairCodeChange={devices.setPairCode}
+              pairProfileId={devices.pairProfileId}
+              onPairProfileIdChange={devices.setPairProfileId}
+              pairDeviceName={devices.pairDeviceName}
+              onPairDeviceNameChange={devices.setPairDeviceName}
+              isSubmittingPair={devices.isSubmittingPair}
+              pairError={devices.pairError}
+              pairSuccess={devices.pairSuccess}
+              onPairSubmit={devices.handlePairDevice}
+              onUnpair={devices.handleUnpairDevice}
+              deletingDeviceId={devices.deletingDeviceId}
+              onRefresh={devices.fetchDevices}
+              initialProfiles={initialProfiles}
+            />
           )}
 
-          {/* TAB 4: PIN & SETTINGS */}
+          {activeTab === 'analytics' && <StudioAnalyticsView />}
+
           {activeTab === 'settings' && (
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-[22px] font-bold text-white tracking-tight">Parent Security & PIN</h1>
-                <p className="text-[13px] text-[#888888]">Manage parental controls and 4-digit PIN authentication.</p>
-              </div>
-
-              <div className="max-w-md p-6 bg-[#181818] border border-[#262626] rounded-2xl space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
-                    <KeyRound className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">Parent PIN</h3>
-                    <p className="text-[12px] text-[#888888]">Default: 1234</p>
-                  </div>
-                </div>
-                <p className="text-[12px] text-[#AAAAAA] leading-relaxed">
-                  Your 4-digit PIN secures the YouTube Studio, download queue, and video deletion from children on tablets.
-                </p>
-              </div>
-            </div>
+            <StudioSecurityTab
+              currentUser={currentUser}
+              onSignOut={security.handleSignOut}
+              passkeysList={security.passkeysList}
+              loadingPasskeys={security.loadingPasskeys}
+              isAddingPasskeyOpen={security.isAddingPasskeyOpen}
+              onToggleAddingPasskeyOpen={() => security.setIsAddingPasskeyOpen(!security.isAddingPasskeyOpen)}
+              newPasskeyName={security.newPasskeyName}
+              onNewPasskeyNameChange={security.setNewPasskeyName}
+              registeringPasskey={security.registeringPasskey}
+              onRegisterPasskey={security.handleRegisterPasskey}
+              onDeletePasskey={security.handleDeletePasskey}
+              onRefreshPasskeys={security.fetchPasskeys}
+              passkeyNotice={security.passkeyNotice}
+              onDismissPasskeyNotice={() => security.setPasskeyNotice(null)}
+              pinStatus={security.pinStatus}
+              newPin={security.newPin}
+              onNewPinChange={security.setNewPin}
+              confirmPin={security.confirmPin}
+              onConfirmPinChange={security.setConfirmPin}
+              showPin={security.showPin}
+              onToggleShowPin={() => security.setShowPin(!security.showPin)}
+              isUpdatingPin={security.isUpdatingPin}
+              onUpdatePin={security.handleUpdatePin}
+              pinNotice={security.pinNotice}
+              onDismissPinNotice={() => security.setPinNotice(null)}
+              sessionsList={security.sessionsList}
+              loadingSessions={security.loadingSessions}
+              onRefreshSessions={security.fetchSessions}
+              onRevokeSession={security.handleRevokeSession}
+              onRevokeOtherSessions={security.handleRevokeOtherSessions}
+              revokingSessionId={security.revokingSessionId}
+            />
           )}
-
         </main>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        details={modalConfig.details}
+        confirmLabel={modalConfig.confirmLabel}
+        isDeleting={isModalProcessing}
+        onConfirm={async () => {
+          setIsModalProcessing(true);
+          try {
+            await modalConfig.action();
+          } finally {
+            setIsModalProcessing(false);
+            setModalConfig((prev) => ({ ...prev, isOpen: false }));
+          }
+        }}
+        onCancel={() => {
+          if (!isModalProcessing) setModalConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
     </div>
   );
 };

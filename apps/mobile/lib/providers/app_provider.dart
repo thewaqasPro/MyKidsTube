@@ -36,6 +36,7 @@ class AppProvider extends ChangeNotifier {
   bool _isServerOnline = false;
   bool _isOfflineOnly = false;
   int _cachedBytes = 0;
+  int _todayWatchSeconds = 0;
 
   // Getters
   String get vpsUrl => _vpsUrl;
@@ -57,6 +58,7 @@ class AppProvider extends ChangeNotifier {
   bool get isServerOnline => _isServerOnline;
   bool get isOfflineOnly => _isOfflineOnly;
   int get cachedBytes => _cachedBytes;
+  int get todayWatchSeconds => _todayWatchSeconds;
 
   // --- PIN Security & Salted Hash Storage ---
   Future<String> _getOrCreateSalt() async {
@@ -155,16 +157,13 @@ class AppProvider extends ChangeNotifier {
       );
     }
 
-    // 4. Clear stale catalog cache so fresh Cloudflare D1 data replaces old seeds
-    await _db.clearStaleCatalogCache();
-
-    // 5. Load initial database state
+    // 4. Load initial database state
     await _loadFromLocalDb();
 
     _isLoading = false;
     notifyListeners();
 
-    // 6. Background sync with Edge API
+    // 5. Background sync with Edge API
     await syncCatalog();
   }
 
@@ -181,6 +180,17 @@ class AppProvider extends ChangeNotifier {
     _downloadedVideos = await _db.getDownloadedVideos();
     _favoriteVideoIds = await _db.getFavoriteIds();
     _cachedBytes = await _downloader.getTotalCachedBytes();
+    _availableProfiles = await _db.getAllLocalProfiles();
+    if (_activeProfile == null && _availableProfiles.isNotEmpty) {
+      _activeProfile = _availableProfiles.first;
+      await _db.setSetting('current_profile_id', _activeProfile!.id);
+      await _db.setSetting('current_profile_name', _activeProfile!.name);
+      await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+    }
+    try {
+      final analytics = await _db.getWatchAnalytics(profileId: _activeProfile?.id);
+      _todayWatchSeconds = (analytics['today_seconds'] as num?)?.toInt() ?? 0;
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -234,15 +244,32 @@ class AppProvider extends ChangeNotifier {
           }
         }
 
-        // Atomic transaction batch upsert to prevent half-synced states
+        if (videosToSync.isNotEmpty) {
+          _allVideos = List.from(videosToSync);
+          _categories = List.from(categoriesToSync);
+          notifyListeners();
+        }
+
+        // Atomic transaction batch upsert to persist to local SQLite
         await _db.batchUpsertCatalog(categoriesToSync, videosToSync);
 
-        // Sync profiles
-        _availableProfiles = await _api.fetchProfiles(_vpsUrl);
+        // Prune any videos deleted from the server (removes SQLite rows and cleans disk files)
+        await _db.pruneRemovedVideos(videosToSync.map((v) => v.id).toList());
+
+        // Sync profiles from server if available without wiping local
+        final remoteProfiles = await _api.fetchProfiles(_vpsUrl);
+        if (remoteProfiles.isNotEmpty) {
+          for (final p in remoteProfiles) {
+            await _db.upsertLocalProfile(p);
+          }
+        }
+        _availableProfiles = await _db.getAllLocalProfiles();
       } else {
         _isServerOnline = await _api.checkHealth(_vpsUrl);
       }
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('syncCatalog error: $e');
       _isServerOnline = false;
     }
 
@@ -281,6 +308,7 @@ class AppProvider extends ChangeNotifier {
           final prof = ChildProfile.fromMap(res['profile'] as Map<String, dynamic>);
           if (prof != null) {
             _activeProfile = prof;
+            await _db.upsertLocalProfile(prof);
             await _db.setSetting('current_profile_id', _activeProfile!.id);
             await _db.setSetting('current_profile_name', _activeProfile!.name);
             await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
@@ -303,8 +331,32 @@ class AppProvider extends ChangeNotifier {
     await _db.setSetting('current_profile_id', profile.id);
     await _db.setSetting('current_profile_name', profile.name);
     await _db.setSetting('current_profile_avatar', profile.avatarIcon);
+    try {
+      final analytics = await _db.getWatchAnalytics(profileId: profile.id);
+      _todayWatchSeconds = (analytics['today_seconds'] as num?)?.toInt() ?? 0;
+    } catch (_) {}
     notifyListeners();
     await syncCatalog();
+  }
+
+  Future<void> addLocalProfile(ChildProfile profile) async {
+    await _db.upsertLocalProfile(profile);
+    _availableProfiles = await _db.getAllLocalProfiles();
+    notifyListeners();
+  }
+
+  Future<void> deleteLocalProfile(String profileId) async {
+    await _db.deleteLocalProfile(profileId);
+    _availableProfiles = await _db.getAllLocalProfiles();
+    if (_activeProfile?.id == profileId) {
+      _activeProfile = _availableProfiles.isNotEmpty ? _availableProfiles.first : null;
+      if (_activeProfile != null) {
+        await _db.setSetting('current_profile_id', _activeProfile!.id);
+        await _db.setSetting('current_profile_name', _activeProfile!.name);
+        await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+      }
+    }
+    notifyListeners();
   }
 
   List<VideoItem> getVideosForCategory(String categoryId) {
@@ -382,5 +434,84 @@ class AppProvider extends ChangeNotifier {
   void toggleOfflineOnly() {
     _isOfflineOnly = !_isOfflineOnly;
     notifyListeners();
+  }
+
+  // --- Local Watch Time Analytics (Cloudflare Quota Preserving) ---
+  Future<void> recordWatchSession({
+    required String videoId,
+    String? videoTitle,
+    String? categoryId,
+    required int secondsWatched,
+    int videoDuration = 0,
+    bool isCompleted = false,
+    bool isSkipped = false,
+  }) async {
+    if (secondsWatched <= 0) return;
+    _todayWatchSeconds += secondsWatched;
+    notifyListeners();
+
+    await _db.recordWatchSession(
+      videoId: videoId,
+      videoTitle: videoTitle,
+      categoryId: categoryId,
+      profileId: _activeProfile?.id ?? 'kid_1',
+      profileName: _activeProfile?.name ?? 'Kid 1',
+      deviceId: _deviceName,
+      secondsWatched: secondsWatched,
+      videoDuration: videoDuration,
+      isCompleted: isCompleted,
+      isSkipped: isSkipped,
+    );
+  }
+
+  Future<Map<String, dynamic>> getWatchAnalytics({String? profileId}) async {
+    return await _db.getWatchAnalytics(profileId: profileId ?? _activeProfile?.id);
+  }
+
+  Future<Map<String, dynamic>> syncWatchEventsToServer() async {
+    final unsynced = await _db.getUnsyncedWatchEvents();
+    if (unsynced.isEmpty) {
+      return {'success': true, 'synced_count': 0};
+    }
+
+    try {
+      final res = await _api.syncWatchEvents(_vpsUrl, unsynced);
+      if (res != null && res['success'] == true) {
+        final syncedIds = (res['synced_ids'] as List?)?.map((e) => e.toString()).toList() ??
+            unsynced.map((e) => e['id'] as String).toList();
+        await _db.markWatchEventsSynced(syncedIds);
+        return {'success': true, 'synced_count': syncedIds.length};
+      }
+      return {'success': false, 'error': 'Sync request failed'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // --- Video Deletion (Backend + Local SQLite + Disk Storage) ---
+  Future<bool> deleteVideosFromCatalog(List<String> videoIds) async {
+    if (videoIds.isEmpty) return true;
+    _isLoading = true;
+    notifyListeners();
+
+    bool remoteSuccess = false;
+    try {
+      remoteSuccess = await _api.deleteVideos(_vpsUrl, videoIds);
+    } catch (_) {}
+
+    // Always prune locally from SQLite and disk
+    await _db.deleteVideos(videoIds);
+    await _loadFromLocalDb();
+
+    _isLoading = false;
+    notifyListeners();
+    return remoteSuccess;
+  }
+
+  Future<int?> pingVpsServer() async {
+    final latency = await _api.pingHealth(_vpsUrl);
+    _isServerOnline = latency != null;
+    notifyListeners();
+    return latency;
   }
 }

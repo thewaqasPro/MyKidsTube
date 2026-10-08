@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
+import 'parent_security_screen.dart';
+import 'parent_server_screen.dart';
+import 'parent_storage_screen.dart';
+import 'parent_media_library_screen.dart';
+import 'parent_analytics_screen.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -11,547 +16,323 @@ class ParentDashboardScreen extends StatefulWidget {
 }
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
-  final TextEditingController _urlController = TextEditingController();
-  final TextEditingController _vpsController = TextEditingController();
-  final TextEditingController _currentPinController = TextEditingController();
-  final TextEditingController _newPinController = TextEditingController();
-  final TextEditingController _confirmPinController = TextEditingController();
-
-  String _selectedCategory = 'cartoons';
-  String _selectedQuality = '720p';
-  bool _isSubmitting = false;
-  bool _isChangingPin = false;
   bool _isUsingDefaultPin = false;
 
   @override
   void initState() {
     super.initState();
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    _vpsController.text = provider.vpsUrl;
-    if (provider.categories.isNotEmpty) {
-      _selectedCategory = provider.categories.first.id;
-    }
-    provider.isUsingDefaultPin().then((val) {
-      if (mounted) setState(() => _isUsingDefaultPin = val);
-    });
+    _checkDefaultPin();
   }
 
-  @override
-  void dispose() {
-    _urlController.dispose();
-    _vpsController.dispose();
-    _currentPinController.dispose();
-    _newPinController.dispose();
-    _confirmPinController.dispose();
-    super.dispose();
+  Future<void> _checkDefaultPin() async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final isDefault = await provider.isUsingDefaultPin();
+    if (mounted) setState(() => _isUsingDefaultPin = isDefault);
   }
 
-  Future<void> _submitUrl() async {
-    final url = _urlController.text.trim();
-    if (url.isEmpty) return;
-
-    setState(() => _isSubmitting = true);
-    final provider = Provider.of<AppProvider>(context, listen: false);
-
-    final success = await provider.submitUrlForIngestion(
-      url,
-      _selectedCategory,
-      quality: _selectedQuality,
-    );
-
-    setState(() => _isSubmitting = false);
-
-    if (mounted) {
-      if (success) {
-        _urlController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Video submitted! VPS is downloading & transcoding.'),
-            backgroundColor: KidColors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit. Check VPS connection.'),
-            backgroundColor: KidColors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _handleChangePin() async {
-    final current = _currentPinController.text.trim();
-    final newPin = _newPinController.text.trim();
-    final confirm = _confirmPinController.text.trim();
-
-    if (current.isEmpty || newPin.isEmpty || confirm.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter current PIN, new PIN, and confirmation.'),
-          backgroundColor: KidColors.red,
-        ),
-      );
-      return;
-    }
-
-    if (newPin.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New PIN must be at least 4 digits.'),
-          backgroundColor: KidColors.red,
-        ),
-      );
-      return;
-    }
-
-    if (newPin != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New PIN and confirmation do not match.'),
-          backgroundColor: KidColors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isChangingPin = true);
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    final success = await provider.changeParentPin(currentPin: current, newPin: newPin);
-    setState(() => _isChangingPin = false);
-
-    if (mounted) {
-      if (success) {
-        _currentPinController.clear();
-        _newPinController.clear();
-        _confirmPinController.clear();
-        setState(() => _isUsingDefaultPin = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Parent PIN successfully updated!'),
-            backgroundColor: KidColors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Incorrect current PIN. Please try again.'),
-            backgroundColor: KidColors.red,
-          ),
-        );
-      }
-    }
+  String _formatWatchTime(int seconds) {
+    if (seconds <= 0) return '0m';
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    if (hours > 0) return '${hours}h ${minutes}m';
+    return '${minutes}m';
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
+        final totalVideos = provider.allVideos.length;
+        final downloadedCount = provider.downloadedVideos.length;
         final cachedMb = (provider.cachedBytes / (1024 * 1024)).toStringAsFixed(1);
+        final isOnline = provider.isServerOnline;
+        final todayTimeStr = _formatWatchTime(provider.todayWatchSeconds);
 
         return Scaffold(
           backgroundColor: KidColors.bgDark,
           appBar: AppBar(
-            title: const Text('Parent Dashboard'),
+            title: const Text(
+              'Parent Command Center',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
             backgroundColor: KidColors.bgDark,
             elevation: 0,
             scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: [
+              if (provider.activeProfile != null) ...[
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: KidColors.cardDark,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: KidColors.borderDark),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.face_rounded, size: 16, color: KidColors.accent),
+                          const SizedBox(width: 6),
+                          Text(
+                            provider.activeProfile!.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Security Alert Banner if using default PIN
                 if (_isUsingDefaultPin) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: KidColors.yellow.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: KidColors.yellow.withValues(alpha: 0.5)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: KidColors.yellow, size: 24),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Security Notice: Default PIN (1234) is in use. Please set a custom PIN below.',
-                            style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context)
+                          .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
+                          .then((_) => _checkDefaultPin());
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: KidColors.yellow.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: KidColors.yellow.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: KidColors.yellow, size: 26),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Security Action Recommended',
+                                  style: TextStyle(color: KidColors.yellow, fontWeight: FontWeight.w700, fontSize: 14),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Default PIN (1234) is currently active. Tap to configure a private PIN.',
+                                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const Icon(Icons.arrow_forward_ios_rounded, color: KidColors.yellow, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                 ],
 
-                // 1. Ingest Link Section
-                _buildCard(
-                  title: 'Add Video by Link',
-                  icon: Icons.add_link_rounded,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Paste a link from YouTube. The server will queue and download it.',
-                        style: TextStyle(color: KidColors.textMuted, fontSize: 13),
+                // Executive Quick Stats (2x2 Grid)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryCard(
+                        title: 'Catalog Size',
+                        value: '$totalVideos Videos',
+                        subtitle: '${provider.categories.length} Categories',
+                        icon: Icons.video_library_rounded,
+                        color: KidColors.primary,
                       ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _urlController,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'https://youtube.com/watch?v=...',
-                          hintStyle: const TextStyle(color: KidColors.textMuted),
-                          filled: true,
-                          fillColor: KidColors.bgDark,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: KidColors.borderDark),
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildSummaryCard(
+                        title: "Today's Watch",
+                        value: todayTimeStr,
+                        subtitle: 'Local tracking',
+                        icon: Icons.timer_rounded,
+                        color: KidColors.accent,
                       ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: provider.categories.any((c) => c.id == _selectedCategory)
-                                   ? _selectedCategory
-                                  : (provider.categories.isNotEmpty ? provider.categories.first.id : 'cartoons'),
-                              dropdownColor: KidColors.cardDark,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              decoration: InputDecoration(
-                                labelText: 'Category',
-                                labelStyle: const TextStyle(color: KidColors.textMuted),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                filled: true,
-                                fillColor: KidColors.bgDark,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: KidColors.borderDark),
-                                ),
-                              ),
-                              items: provider.categories.map((c) {
-                                return DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedCategory = val);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: _selectedQuality,
-                              dropdownColor: KidColors.cardDark,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              decoration: InputDecoration(
-                                labelText: 'Quality',
-                                labelStyle: const TextStyle(color: KidColors.textMuted),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                filled: true,
-                                fillColor: KidColors.bgDark,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: KidColors.borderDark),
-                                ),
-                              ),
-                              items: const [
-                                DropdownMenuItem(value: '720p', child: Text('720p', overflow: TextOverflow.ellipsis)),
-                                DropdownMenuItem(value: '480p', child: Text('480p', overflow: TextOverflow.ellipsis)),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedQuality = val);
-                              },
-                            ),
-                          ),
-                        ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryCard(
+                        title: 'Offline Media',
+                        value: '$cachedMb MB',
+                        subtitle: '$downloadedCount downloaded',
+                        icon: Icons.storage_rounded,
+                        color: KidColors.green,
                       ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: KidColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          onPressed: _isSubmitting ? null : _submitUrl,
-                          icon: _isSubmitting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.cloud_download_rounded, color: Colors.white),
-                          label: Text(
-                            _isSubmitting ? 'Sending to VPS...' : 'Download to Media Server',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildSummaryCard(
+                        title: 'VPS Server',
+                        value: isOnline ? 'Online' : 'Offline',
+                        subtitle: isOnline ? 'Connected' : 'Check URL',
+                        icon: Icons.cloud_done_rounded,
+                        color: isOnline ? KidColors.green : KidColors.red,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // 2. Change Parent PIN Section
-                _buildCard(
-                  title: 'Parent PIN Security',
-                  icon: Icons.pin_rounded,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Set a 4+ digit numeric PIN to protect grown-up controls and settings.',
-                        style: TextStyle(color: KidColors.textMuted, fontSize: 13),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _currentPinController,
-                        obscureText: true,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          labelText: 'Current PIN',
-                          labelStyle: const TextStyle(color: KidColors.textMuted),
-                          filled: true,
-                          fillColor: KidColors.bgDark,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: KidColors.borderDark),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _newPinController,
-                              obscureText: true,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: 'New PIN (min 4 digits)',
-                                labelStyle: const TextStyle(color: KidColors.textMuted),
-                                filled: true,
-                                fillColor: KidColors.bgDark,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: KidColors.borderDark),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextField(
-                              controller: _confirmPinController,
-                              obscureText: true,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
-                              decoration: InputDecoration(
-                                labelText: 'Confirm New PIN',
-                                labelStyle: const TextStyle(color: KidColors.textMuted),
-                                filled: true,
-                                fillColor: KidColors.bgDark,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: KidColors.borderDark),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: KidColors.primary),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          onPressed: _isChangingPin ? null : _handleChangePin,
-                          icon: _isChangingPin
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Icon(Icons.check_rounded, color: KidColors.primary),
-                          label: Text(
-                            _isChangingPin ? 'Updating PIN...' : 'Change Parent PIN',
-                            style: const TextStyle(color: KidColors.primary, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-                    ],
+                const Text(
+                  'Management Sections',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
                 ),
+                const SizedBox(height: 12),
 
-                const SizedBox(height: 20),
+                // Navigation Tile 1: Media Library & Ingestion
+                _buildNavTile(
+                  context: context,
+                  title: 'Media Library',
+                  subtitle: 'Add video URLs, browse catalog, search, and bulk delete',
+                  icon: Icons.movie_creation_outlined,
+                  accentColor: KidColors.primary,
+                  badgeText: '$totalVideos items',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ParentMediaLibraryScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
 
-                // 3. VPS Server Settings
-                _buildCard(
+                // Navigation Tile 2: Local Watch Time & Analytics
+                _buildNavTile(
+                  context: context,
+                  title: 'Watch Time & Analytics',
+                  subtitle: 'Local-first screen time stats, top videos, and occasional cloud sync',
+                  icon: Icons.insights_rounded,
+                  accentColor: KidColors.accent,
+                  badgeText: 'Local-First',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ParentAnalyticsScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Navigation Tile 3: Device Storage & Offline Media
+                _buildNavTile(
+                  context: context,
+                  title: 'Device Storage & Media',
+                  subtitle: 'Manage downloaded videos, free up disk space, single-row actions',
+                  icon: Icons.folder_special_outlined,
+                  accentColor: KidColors.green,
+                  badgeText: '$cachedMb MB',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ParentStorageScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Navigation Tile 4: PIN & Security Settings
+                _buildNavTile(
+                  context: context,
+                  title: 'PIN & Security Settings',
+                  subtitle: 'Configure salted parent PIN, protect gate challenge, and locks',
+                  icon: Icons.lock_outline_rounded,
+                  accentColor: _isUsingDefaultPin ? KidColors.yellow : KidColors.primary,
+                  badgeText: _isUsingDefaultPin ? 'Default 1234' : 'Protected',
+                  badgeColor: _isUsingDefaultPin ? KidColors.yellow : KidColors.green,
+                  onTap: () {
+                    Navigator.of(context)
+                        .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
+                        .then((_) => _checkDefaultPin());
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // Navigation Tile 5: VPS Server Connection
+                _buildNavTile(
+                  context: context,
                   title: 'VPS Server Connection',
-                  icon: Icons.dns_rounded,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            provider.isServerOnline ? Icons.check_circle : Icons.error_outline,
-                            color: provider.isServerOnline ? KidColors.green : KidColors.red,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            provider.isServerOnline ? 'Connected to VPS' : 'Disconnected / Unreachable',
-                            style: TextStyle(
-                              color: provider.isServerOnline ? KidColors.green : KidColors.red,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _vpsController,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          labelText: 'Server Base URL',
-                          labelStyle: const TextStyle(color: KidColors.textMuted),
-                          filled: true,
-                          fillColor: KidColors.bgDark,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: KidColors.borderDark),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: KidColors.borderDark),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () {
-                                provider.setVpsUrl(_vpsController.text.trim());
-                              },
-                              child: const Text('Save & Test', style: TextStyle(color: KidColors.primary)),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: KidColors.surfaceDark,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: provider.isSyncing ? null : () => provider.syncCatalog(),
-                              icon: provider.isSyncing
-                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : const Icon(Icons.sync, size: 16),
-                              label: const Text('Sync Catalog'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  subtitle: 'Configure Cloudflare/VPS base URL, live ping test, device pairing',
+                  icon: Icons.dns_outlined,
+                  accentColor: isOnline ? KidColors.green : KidColors.red,
+                  badgeText: isOnline ? 'Online' : 'Offline',
+                  badgeColor: isOnline ? KidColors.green : KidColors.red,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ParentServerScreen()),
+                    );
+                  },
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // 4. Storage & Offline Manager
-                _buildCard(
-                  title: 'Device Storage & Offline Media',
-                  icon: Icons.storage_rounded,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Footer Quick Actions Toolbar in a Single Row
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: KidColors.cardDark,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: KidColors.borderDark),
+                  ),
+                  child: Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Offline Storage Used:', style: TextStyle(color: KidColors.textMuted, fontSize: 13)),
-                          Text(
-                            '$cachedMb MB (${provider.downloadedVideos.length} videos)',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: KidColors.accent,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () async {
-                                for (final v in provider.allVideos) {
-                                  if (!v.isOfflineReady) {
-                                    provider.startDownload(v);
-                                  }
-                                }
-                              },
-                              icon: const Icon(Icons.download_for_offline, size: 18),
-                              label: const Text('Download All'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: KidColors.red),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () => provider.clearAllDownloadedVideos(),
-                              icon: const Icon(Icons.delete_outline, color: KidColors.red, size: 18),
-                              label: const Text('Clear Storage', style: TextStyle(color: KidColors.red)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
+                      Expanded(
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: KidColors.borderDark),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Clearing cache and re-syncing fresh catalog...'),
-                                backgroundColor: KidColors.primary,
-                              ),
-                            );
-                            provider.clearMobileCache();
-                          },
-                          icon: const Icon(Icons.cleaning_services_rounded, color: KidColors.yellow, size: 18),
-                          label: const Text('Clear Mobile Cache & Fresh Reload', style: TextStyle(color: Colors.white)),
+                          onPressed: provider.isSyncing ? null : () => provider.syncCatalog(),
+                          icon: provider.isSyncing
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.sync_rounded, color: Colors.white70, size: 18),
+                          label: Text(
+                            provider.isSyncing ? 'Syncing...' : 'Sync Catalog',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: KidColors.surfaceDark,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.child_care_rounded, size: 18, color: KidColors.yellow),
+                          label: const Text('Return to Kids', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -560,9 +341,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildCard({required String title, required IconData icon, required Widget child}) {
+  Widget _buildSummaryCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: KidColors.cardDark,
         borderRadius: BorderRadius.circular(16),
@@ -572,18 +359,132 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: KidColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
-              ),
+              Text(title, style: const TextStyle(color: KidColors.textMuted, fontSize: 12)),
+              Icon(icon, color: color, size: 18),
             ],
           ),
-          const Divider(height: 24, color: KidColors.borderDark),
-          child,
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavTile({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color accentColor,
+    required String badgeText,
+    Color? badgeColor,
+    required VoidCallback onTap,
+  }) {
+    final effectiveBadgeColor = badgeColor ?? accentColor;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: KidColors.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: KidColors.borderDark),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Icon avatar
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Icon(icon, color: accentColor, size: 22),
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Title & Subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: effectiveBadgeColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: effectiveBadgeColor.withValues(alpha: 0.4)),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: TextStyle(
+                                color: effectiveBadgeColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(color: KidColors.textMuted, fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Trailing Chevron
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: KidColors.textMuted,
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

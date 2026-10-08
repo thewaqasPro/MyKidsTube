@@ -107,6 +107,8 @@ class VpsApiService {
       }
       return null;
     } catch (e) {
+      // ignore: avoid_print
+      print('fetchCatalog error: $e');
       return null;
     }
   }
@@ -133,6 +135,56 @@ class VpsApiService {
       return res.statusCode == 200;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<bool> deleteVideos(String baseUrl, List<String> videoIds) async {
+    if (videoIds.isEmpty) return true;
+    try {
+      final cleanUrl = _normalizeUrl(baseUrl);
+      final idsParam = videoIds.join(',');
+      final res = await _dio.delete(
+        '$cleanUrl/api/studio/videos?ids=$idsParam',
+        options: _authOptions(),
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> syncWatchEvents(String baseUrl, List<Map<String, dynamic>> events) async {
+    if (events.isEmpty) return {'success': true, 'synced_count': 0};
+    try {
+      final cleanUrl = _normalizeUrl(baseUrl);
+      final res = await _dio.post(
+        '$cleanUrl/api/metrics/watch',
+        data: {'events': events},
+        options: _authOptions(),
+      );
+      if (res.statusCode == 200 && res.data is Map<String, dynamic>) {
+        return res.data as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      // ignore: avoid_print
+      print('syncWatchEvents error: $e');
+      return null;
+    }
+  }
+
+  Future<int?> pingHealth(String baseUrl) async {
+    final cleanUrl = _normalizeUrl(baseUrl);
+    final stopwatch = Stopwatch()..start();
+    try {
+      final res = await _dio.get('$cleanUrl/api/v1/health');
+      stopwatch.stop();
+      if (res.statusCode == 200) {
+        return stopwatch.elapsedMilliseconds;
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 

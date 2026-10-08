@@ -7,7 +7,8 @@ import '../widgets/video_card.dart';
 import 'kid_player_screen.dart';
 import 'kid_shorts_feed_screen.dart';
 import 'parent_gate_dialog.dart';
-import 'profile_selector_dialog.dart';
+import '../widgets/child_avatar.dart';
+import '../widgets/kid_profile_switcher_sheet.dart';
 
 /// Authentic YouTube / YouTube Kids Home Feed Screen
 class KidHomeScreen extends StatefulWidget {
@@ -186,20 +187,9 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
           padding: const EdgeInsets.only(right: 12, left: 4),
           child: GestureDetector(
             onTap: () => _showAccountModal(context, provider),
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: KidColors.surfaceDark,
-                shape: BoxShape.circle,
-                border: Border.all(color: KidColors.borderDark, width: 1.2),
-              ),
-              child: Center(
-                child: Text(
-                  provider.activeProfile?.emojiAvatar ?? '🐻',
-                  style: const TextStyle(fontSize: 15),
-                ),
-              ),
+            child: ChildAvatar(
+              avatarIcon: provider.activeProfile?.avatarIcon,
+              radius: 15,
             ),
           ),
         ),
@@ -211,12 +201,33 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
   // TOP CATEGORY FILTER PILLS (YOUTUBE STANDARD)
   // ==========================================
   Widget _buildCategoryPills(AppProvider provider) {
-    final List<Map<String, String>> filters = [
-      {'id': 'all', 'label': 'All'},
-      {'id': 'shorts', 'label': '⚡ Shorts & Reels'},
-      if (provider.favoriteVideos.isNotEmpty) {'id': 'favorites', 'label': '⭐ Favorites'},
-      if (provider.downloadedVideos.isNotEmpty && !provider.isOfflineOnly) {'id': 'downloaded', 'label': '📥 Saved'},
-      for (final cat in provider.categories) {'id': cat.id, 'label': cat.name},
+    final List<_CategoryFilterItem> filters = [
+      const _CategoryFilterItem(id: 'all', label: 'All'),
+      const _CategoryFilterItem(
+        id: 'shorts',
+        label: 'Shorts & Reels',
+        icon: Icons.bolt_rounded,
+        iconColor: Colors.red,
+      ),
+      if (provider.favoriteVideos.isNotEmpty)
+        const _CategoryFilterItem(
+          id: 'favorites',
+          label: 'Favorites',
+          icon: Icons.star_rounded,
+          iconColor: KidColors.yellow,
+        ),
+      if (provider.downloadedVideos.isNotEmpty && !provider.isOfflineOnly)
+        const _CategoryFilterItem(
+          id: 'downloaded',
+          label: 'Saved',
+          icon: Icons.download_done_rounded,
+          iconColor: KidColors.green,
+        ),
+      for (final cat in provider.categories.where((c) => c.id != 'shorts'))
+        _CategoryFilterItem(
+          id: cat.id,
+          label: cat.name.replaceAll(RegExp(r'^[^\w\s&]+'), '').trim(),
+        ),
     ];
 
     return Container(
@@ -233,11 +244,11 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = filters[index];
-          final isSelected = _selectedFilter == filter['id'];
+          final isSelected = _selectedFilter == filter.id;
 
           return GestureDetector(
             onTap: () {
-              if (filter['id'] == 'shorts') {
+              if (filter.id == 'shorts') {
                 // Tapping Shorts pill launches the dedicated vertical shorts feed
                 final shorts = provider.allVideos.where((v) => v.isShort).toList();
                 if (shorts.isNotEmpty) {
@@ -252,12 +263,12 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 }
               } else {
                 setState(() {
-                  _selectedFilter = filter['id']!;
+                  _selectedFilter = filter.id;
                 });
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected ? KidColors.chipSelectedBg : KidColors.chipUnselectedBg,
                 borderRadius: BorderRadius.circular(18), // 18px pill radius per DESIGN.md
@@ -266,16 +277,30 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   width: 0.8,
                 ),
               ),
-              child: Center(
-                child: Text(
-                  filter['label']!,
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    color: isSelected ? KidColors.chipSelectedText : KidColors.chipUnselectedText,
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (filter.icon != null) ...[
+                    Icon(
+                      filter.icon,
+                      size: 15,
+                      color: isSelected
+                          ? KidColors.chipSelectedText
+                          : (filter.iconColor ?? KidColors.chipUnselectedText),
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                  Text(
+                    filter.label,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      color: isSelected ? KidColors.chipSelectedText : KidColors.chipUnselectedText,
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           );
@@ -403,9 +428,9 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Horizontal list of compact cards
+          // Horizontal list of 9:16 vertical Shorts cards
           SizedBox(
-            height: 195,
+            height: 265,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: shorts.length,
@@ -415,6 +440,10 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   video: item,
                   isHorizontalCompact: true,
                   onTap: () {
+                    if (!item.isShort) {
+                      _openPlayer(context, item, provider.allVideos);
+                      return;
+                    }
                     final idx = shorts.indexWhere((v) => v.id == item.id);
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -480,20 +509,9 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 // Active Profile Header
                 Row(
                   children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: KidColors.surfaceDark,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: KidColors.borderDark, width: 1.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          provider.activeProfile?.emojiAvatar ?? '🐻',
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                      ),
+                    ChildAvatar(
+                      avatarIcon: provider.activeProfile?.avatarIcon,
+                      radius: 23,
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -528,7 +546,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        ProfileSelectorDialog.show(context);
+                        KidProfileSwitcherSheet.show(context);
                       },
                       child: const Text('Switch', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
@@ -682,3 +700,18 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
     );
   }
 }
+
+class _CategoryFilterItem {
+  final String id;
+  final String label;
+  final IconData? icon;
+  final Color? iconColor;
+
+  const _CategoryFilterItem({
+    required this.id,
+    required this.label,
+    this.icon,
+    this.iconColor,
+  });
+}
+

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getDatabase, extractYoutubeId, isValidYoutubeHost, fetchYoutubeOembed, upsertVideo } from '../../../lib/db';
+import { getR2Bucket } from '../../../lib/r2';
 import { requireParent } from '../../../lib/parentAuth';
 import { getCorsHeaders, handleOptions } from '../../../lib/cors';
 
@@ -15,23 +16,105 @@ export const POST: APIRoute = async (context) => {
 
   try {
     const body = await context.request.json().catch(() => ({}));
+    const categoryId = body.category_id || 'cartoons';
+    const profileIds: string[] = body.allowed_profile_ids || ['kids_all'];
+    const db = await getDatabase(context);
+    const addedVideos: any[] = [];
+
+    // Mode A: Direct pre-parsed items (e.g. from playlist inspection preview)
+    if (Array.isArray(body.items) && body.items.length > 0) {
+      const items = body.items.slice(0, 60);
+
+      for (const item of items) {
+        const vidId = String(item.id || '').trim();
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(vidId)) continue;
+
+        const title = item.title || `Video ${vidId}`;
+        const channelName = item.channel_name || 'YouTube Kids';
+        const thumbUrl = item.thumbnail_url || `https://i.ytimg.com/vi/${vidId}/hqdefault.jpg`;
+        const sourceUrl = item.youtube_url || item.url || `https://www.youtube.com/watch?v=${vidId}`;
+        const isShortUrl = sourceUrl.includes('/shorts/');
+        const targetCategory = (!isShortUrl && categoryId === 'shorts') ? 'cartoons' : categoryId;
+
+        if (db) {
+          await upsertVideo(db, {
+            id: vidId,
+            title,
+            duration: 0,
+            durationFormatted: '--:--',
+            categoryId: targetCategory,
+            sourceUrl,
+            channelName,
+            channelIcon: thumbUrl,
+            thumbnailUrl: thumbUrl,
+            quality: '720p',
+            status: 'pending_download',
+            allowedProfileIds: profileIds,
+          });
+        }
+
+        addedVideos.push({
+          id: vidId,
+          youtube_id: vidId,
+          title,
+          channel_name: channelName,
+          thumbnail_url: thumbUrl,
+          status: 'pending_download',
+        });
+      }
+
+      // Warm thumbnails in R2 for first batch asynchronously
+      try {
+        const r2 = await getR2Bucket(context);
+        if (r2) {
+          Promise.all(
+            addedVideos.slice(0, 10).map(async (v) => {
+              const r2Key = `thumbs/${v.id}.webp`;
+              const exists = await r2.get(r2Key).catch(() => null);
+              if (!exists) {
+                const ytThumb = await fetch(`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, {
+                  signal: AbortSignal.timeout(4000),
+                }).catch(() => null);
+                if (ytThumb && ytThumb.ok) {
+                  const buf = await ytThumb.arrayBuffer();
+                  await r2.put(r2Key, buf, { httpMetadata: { contentType: 'image/jpeg' } }).catch(() => null);
+                }
+              }
+            })
+          ).catch(() => {});
+        }
+      } catch (_) {}
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: addedVideos.length,
+          videos: addedVideos,
+          message: `${addedVideos.length} video(s) added to kids catalog!`,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
+    // Mode B: List of raw URLs
     const urls: string[] = Array.isArray(body.urls) 
       ? body.urls 
       : (body.url ? [body.url] : []);
-    const categoryId = body.category_id || 'cartoons';
-    const profileIds: string[] = body.allowed_profile_ids || ['kids_all'];
 
     if (urls.length === 0) {
-      return new Response(JSON.stringify({ error: 'No URLs provided' }), {
+      return new Response(JSON.stringify({ error: 'No URLs or items provided' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    // Cap batch size at max 20 URLs per request
-    if (urls.length > 20) {
+    // Cap batch size at max 60 URLs per request
+    if (urls.length > 60) {
       return new Response(
-        JSON.stringify({ error: 'Batch size exceeds maximum limit of 20 URLs per request' }),
+        JSON.stringify({ error: 'Batch size exceeds maximum limit of 60 URLs per request' }),
         {
           status: 400,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -39,7 +122,7 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // Strictly validate every URL host
+    // Validate every URL host
     for (const rawUrl of urls) {
       const trimmed = String(rawUrl).trim();
       if (!isValidYoutubeHost(trimmed)) {
@@ -53,7 +136,6 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    const db = await getDatabase(context);
     const validItems: { url: string; ytId: string; isShort: boolean }[] = [];
 
     for (const rawUrl of urls) {
@@ -75,17 +157,19 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Fetch oEmbed metadata concurrently with timeout
-    const metaList = await Promise.all(
-      validItems.map((item) => fetchYoutubeOembed(item.ytId, 5000))
-    );
-
-    const addedVideos = [];
+    // Fetch oEmbed metadata concurrently in chunks of 5 with timeout
+    const metaList: any[] = [];
+    for (let i = 0; i < validItems.length; i += 5) {
+      const chunk = validItems.slice(i, i + 5);
+      const chunkResults = await Promise.all(
+        chunk.map((item) => fetchYoutubeOembed(item.ytId, 5000))
+      );
+      metaList.push(...chunkResults);
+    }
 
     for (let i = 0; i < validItems.length; i++) {
       const item = validItems[i];
-      const meta = metaList[i];
-      const catId = item.isShort ? 'shorts' : categoryId;
+      const catId = item.isShort ? 'shorts' : (categoryId === 'shorts' ? 'cartoons' : categoryId);
 
       if (db) {
         await upsertVideo(db, {
@@ -114,12 +198,34 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
+    // Warm thumbnails in R2 for first batch asynchronously
+    try {
+      const r2 = await getR2Bucket(context);
+      if (r2) {
+        Promise.all(
+          addedVideos.slice(0, 10).map(async (v) => {
+            const r2Key = `thumbs/${v.id}.webp`;
+            const exists = await r2.get(r2Key).catch(() => null);
+            if (!exists) {
+              const ytThumb = await fetch(`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`, {
+                signal: AbortSignal.timeout(4000),
+              }).catch(() => null);
+              if (ytThumb && ytThumb.ok) {
+                const buf = await ytThumb.arrayBuffer();
+                await r2.put(r2Key, buf, { httpMetadata: { contentType: 'image/jpeg' } }).catch(() => null);
+              }
+            }
+          })
+        ).catch(() => {});
+      }
+    } catch (_) {}
+
     return new Response(
       JSON.stringify({
         success: true,
         count: addedVideos.length,
         videos: addedVideos,
-        message: `${addedVideos.length} video(s) added to wishlist!`,
+        message: `${addedVideos.length} video(s) added to kids catalog!`,
       }),
       {
         status: 200,

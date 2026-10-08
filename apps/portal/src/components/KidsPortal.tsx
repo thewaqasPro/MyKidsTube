@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import type { Video, Category, ChildProfile } from '../types/video';
+import type { Video, Category, ChildProfile } from '@/types/video';
 import { KidsTopBar } from './KidsTopBar';
-import { KidsSidebar } from './KidsSidebar';
+import { KidsSidebar, type ChannelItem } from './KidsSidebar';
 import { CategoryPills } from './CategoryPills';
 import { ShortsShelf } from './ShortsShelf';
 import { VideoGrid } from './VideoGrid';
-import { MEDIA_BASE, isVideoShort } from '../lib/constants';
+import { MEDIA_BASE, isVideoShort } from '@/lib/constants';
 
 interface KidsPortalProps {
   initialVideos: Video[];
