@@ -25,7 +25,7 @@ export const WatchDetails: React.FC<WatchDetailsProps> = ({
 }) => {
   return (
     <div className="mt-5 pb-6 border-b border-border">
-      <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-black leading-snug text-white tracking-wide">
+      <h1 className="text-xl sm:text-2xl lg:text-3xl font-display line-clamp-1 font-black leading-snug text-white tracking-wide">
         {cleanTitle}
       </h1>
 
@@ -102,7 +102,7 @@ export const WatchDetails: React.FC<WatchDetailsProps> = ({
       </div>
 
       {/* Video Description Box & Privacy Transparency */}
-      <div className="mt-5 p-5 rounded-3xl bg-surface border-2 border-border text-sm text-text-secondary leading-relaxed shadow-lg">
+      <div className="hidden mt-5 p-5 rounded-3xl bg-surface border-2 border-border text-sm text-text-secondary leading-relaxed shadow-lg">
         <div className="flex items-center gap-3 font-bold text-white mb-2">
           <span>{video.views || 0} plays</span>
           <span>•</span>

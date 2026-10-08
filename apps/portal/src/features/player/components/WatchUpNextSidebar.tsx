@@ -38,7 +38,7 @@ export const WatchUpNextSidebar: React.FC<WatchUpNextSidebarProps> = ({ relatedV
                 <img
                   src={thumb}
                   alt={relCleanTitle}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
                 <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-full bg-canvas-deep/80 backdrop-blur-md text-[10px] font-mono font-bold text-white border border-white/10">

@@ -56,7 +56,7 @@ const ShortCard: React.FC<{ short: Video; onPlay: (s: Video) => void }> = ({ sho
           alt={short.title}
           loading="lazy"
           onError={() => setImgErr(true)}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-cover"
         />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center bg-surface text-text-muted">

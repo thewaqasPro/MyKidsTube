@@ -99,14 +99,14 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
               <div className="flex items-center gap-4">
                 <button
                   onClick={togglePlay}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-coral text-white flex items-center justify-center transition-all cursor-pointer shadow-md hover:scale-105 active:scale-95"
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-coral text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
                   title={isPlaying ? 'Pause' : 'Play'}
                 >
                   {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
                 </button>
                 <button
                   onClick={toggleMute}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-sky text-white flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-sky text-white flex items-center justify-center transition-all cursor-pointer"
                   title={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? <VolumeX className="w-4 h-4 text-coral" /> : <Volume2 className="w-4 h-4" />}
@@ -146,11 +146,11 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
         </>
       ) : (
         // MODE B: YouTube Privacy-Enhanced Embed with Kid-Safe Click-Blocking Shields
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
           <iframe
             src={embedUrl}
             title={video.title}
-            className="w-full h-full border-0 pointer-events-auto"
+            className="w-full h-full border-0 pointer-events-auto transform scale-[1.14] origin-center"
             sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -158,14 +158,14 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
 
           {/* SHIELD 1: Top Blocker (Blocks YouTube title, channel link & share button) */}
           <div
-            className="absolute top-0 inset-x-0 h-18 z-30 bg-transparent cursor-default"
+            className="absolute top-0 inset-x-0 h-16 z-30 bg-transparent cursor-default"
             title="Kid Safe Shield: Top External Links Blocked"
           />
 
-          {/* SHIELD 2: Bottom-Right Blocker (Blocks YouTube logo & settings gear) */}
+          {/* SHIELD 2: Bottom Blocker (Blocks YouTube logo & settings gear) */}
           <div
-            className="absolute bottom-0 right-0 w-full h-18 z-30 bg-gradient-to-t from-black via-black/98 to-transparent cursor-default"
-            title="Kid Safe Shield: YouTube Logo & Settings Blocked"
+            className="absolute bottom-0 inset-x-0 h-16 z-30 bg-transparent cursor-default"
+            title="Kid Safe Shield: Bottom YouTube Controls Blocked"
           />
         </div>
       )}

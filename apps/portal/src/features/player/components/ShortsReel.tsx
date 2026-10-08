@@ -47,7 +47,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
   formatSeconds,
 }) => {
   return (
-    <div 
+    <div
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       className="relative h-full aspect-[9/16] rounded-[32px] overflow-hidden bg-canvas-deep shadow-2xl border-2 border-border flex items-center justify-center select-none"
@@ -80,21 +80,21 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
             ref={iframeRef}
             src={embedUrl}
             title={currentShort.title}
-            className="w-full h-full border-0 pointer-events-auto"
+            className="w-full h-full border-0 pointer-events-auto transform scale-[1.14] origin-center"
             sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
 
           {/* SHIELD 1: Top Blocker (Blocks title, channel avatar & share button) */}
-          <div 
+          <div
             onClick={handleScreenTap}
             className="absolute top-0 inset-x-0 h-18 z-30 bg-transparent cursor-pointer"
             title="Kid Safe Shield: Top External Links Blocked"
           />
 
           {/* SHIELD 2: Bottom-Right Blocker (Blocks YouTube logo & settings gear) */}
-          <div 
+          <div
             onClick={handleScreenTap}
             className="absolute bottom-0 right-0 w-36 h-14 z-30 bg-transparent cursor-pointer"
             title="Kid Safe Shield: YouTube Logo & Settings Blocked"
@@ -141,7 +141,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
       </div>
 
       {/* Kid-Safe Position / Progress Slider */}
-      <div 
+      <div
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}

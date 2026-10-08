@@ -32,7 +32,7 @@ export const StudioTopBar: React.FC<StudioTopBarProps> = ({
         )}
 
         <a href="/studio" className="flex items-center gap-3 group select-none no-underline">
-          <div className="relative flex items-center justify-center w-9 h-8 rounded-xl bg-gradient-to-tr from-coral to-sun text-white shadow-md shadow-coral/30 group-hover:scale-105 transition-transform">
+          <div className="relative flex items-center justify-center w-9 h-8 rounded-xl bg-gradient-to-tr from-coral to-sun text-white shadow-md shadow-coral/30">
             <span className="font-display font-black text-xs text-white">WK</span>
           </div>
           <div className="flex flex-col">

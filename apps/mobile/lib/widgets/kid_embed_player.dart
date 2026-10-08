@@ -176,13 +176,15 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
       width: 100%;
       height: 100%;
       border: 0;
+      transform: scale(1.14);
+      transform-origin: center center;
     }
   </style>
 </head>
 <body>
   <iframe
     id="player"
-    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&controls=1&fs=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&controls=0&fs=0&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen>
   </iframe>

@@ -164,7 +164,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
     <div className="min-h-screen bg-canvas-deep text-text-primary flex flex-col justify-center items-center p-4">
       {/* Brand Mark: WonderKids TubeStar */}
       <a href="/" className="flex items-center gap-3 mb-6 select-none group no-underline">
-        <div className="relative flex items-center justify-center w-12 h-10 rounded-2xl bg-gradient-to-tr from-coral via-coral-hover to-sun text-white shadow-lg shadow-coral/30 group-hover:scale-105 group-hover:rotate-2 transition-transform">
+        <div className="relative flex items-center justify-center w-12 h-10 rounded-2xl bg-gradient-to-tr from-coral via-coral-hover to-sun text-white shadow-lg shadow-coral/30 group-hover:rotate-2 transition-transform">
           {/* Antenna */}
           <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-1 h-2 bg-sun rounded-full" />
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-sky shadow-sm" />

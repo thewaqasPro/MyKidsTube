@@ -27,7 +27,7 @@ export const ShortsActionPills: React.FC<ShortsActionPillsProps> = ({
       <button
         onClick={handlePrev}
         disabled={currentIndex === 0}
-        className="w-12 h-12 rounded-2xl bg-surface hover:bg-surface-hover disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center text-white border-2 border-border transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105"
+        className="w-12 h-12 rounded-2xl bg-surface hover:bg-surface-hover disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center text-white border-2 border-border transition-all cursor-pointer shadow-lg"
         title="Previous Short"
       >
         <ChevronUp className="w-6 h-6 text-sky" />
@@ -35,7 +35,7 @@ export const ShortsActionPills: React.FC<ShortsActionPillsProps> = ({
 
       <button
         onClick={() => setIsLiked((prev) => !prev)}
-        className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border-2 transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105 ${
+        className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center border-2 transition-all cursor-pointer shadow-lg ${
           isLiked
             ? 'bg-gradient-to-r from-coral to-coral-hover text-white border-coral shadow-coral/40'
             : 'bg-surface hover:bg-surface-hover text-white border-border'
@@ -47,7 +47,7 @@ export const ShortsActionPills: React.FC<ShortsActionPillsProps> = ({
 
       <button
         onClick={() => setIsMuted((prev) => !prev)}
-        className="w-12 h-12 rounded-2xl bg-surface hover:bg-surface-hover flex items-center justify-center text-white border-2 border-border transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105"
+        className="w-12 h-12 rounded-2xl bg-surface hover:bg-surface-hover flex items-center justify-center text-white border-2 border-border transition-all cursor-pointer shadow-lg"
         title={isMuted ? 'Unmute' : 'Mute'}
       >
         {isMuted ? <VolumeX className="w-5 h-5 text-coral" /> : <Volume2 className="w-5 h-5 text-sun" />}
@@ -56,7 +56,7 @@ export const ShortsActionPills: React.FC<ShortsActionPillsProps> = ({
       <button
         onClick={handleNext}
         disabled={currentIndex === totalCount - 1}
-        className="w-12 h-12 rounded-2xl bg-surface hover:bg-surface-hover disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center text-white border-2 border-border transition-all cursor-pointer shadow-lg active:scale-90 hover:scale-105"
+        className="w-12 h-12 rounded-2xl bg-surface hover:bg-surface-hover disabled:opacity-20 disabled:pointer-events-none flex items-center justify-center text-white border-2 border-border transition-all cursor-pointer shadow-lg"
         title="Next Short"
       >
         <ChevronDown className="w-6 h-6 text-sky" />
