@@ -98,7 +98,9 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         }`}
       >
         {/* Parent Admin Channel Header */}
-        <div className="p-4 border-b-2 border-[#1E294B] flex items-center gap-3 shrink-0">
+        <div className={`p-4 border-b-2 border-[#1E294B] flex items-center gap-3 shrink-0 ${
+          isExpanded || isMobileOpen ? 'justify-start' : 'justify-center'
+        }`}>
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#38BDF8] to-[#A855F7] flex items-center justify-center text-white text-base font-bold shadow-md shrink-0 border-2 border-white/20">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
@@ -115,7 +117,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         </div>
 
         {/* Sidebar Nav Links */}
-        <div className="py-4 px-3 flex flex-col gap-1.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+        <div className="py-4 px-2.5 flex flex-col gap-1.5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -131,7 +133,7 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
                 className={`flex items-center rounded-2xl transition-all duration-200 no-underline cursor-pointer ${
                   isExpanded || isMobileOpen
                     ? 'px-3.5 py-3 gap-3.5 justify-start'
-                    : 'flex-col py-3 px-1 gap-1.5 justify-center'
+                    : 'justify-center p-2.5'
                 } ${
                   isActive
                     ? 'bg-[#151D33] text-white font-black border-2 border-[#1E294B] shadow-sm'
@@ -154,7 +156,10 @@ export const StudioSidebar: React.FC<StudioSidebarProps> = ({
         <div className="p-3 border-t-2 border-[#1E294B] shrink-0">
           <a
             href="/"
-            className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-2xl bg-[#151D33] hover:bg-[#1E294B] text-white text-xs font-bold transition-all border border-[#1E294B] no-underline active:scale-95"
+            className={`flex items-center justify-center rounded-2xl bg-[#151D33] hover:bg-[#1E294B] text-white text-xs font-bold transition-all border border-[#1E294B] no-underline active:scale-95 ${
+              isExpanded || isMobileOpen ? 'gap-2 w-full py-2.5 px-3' : 'p-2.5'
+            }`}
+            title="Exit to KidsTube"
           >
             <Home className="w-4 h-4 text-[#FF5E62]" />
             {(isExpanded || isMobileOpen) && <span>Exit to KidsTube</span>}

@@ -58,7 +58,7 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             : 'sticky top-16 h-[calc(100vh-4rem)] self-start w-[78px] hidden md:flex overflow-hidden'
         }`}
       >
-        <div className="py-4 px-3 flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+        <div className="py-4 px-2.5 flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
           {/* Nav Item 1: Home */}
           <a
             href="/"
@@ -71,7 +71,7 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
                 ? 'px-3.5 py-3 gap-3.5 justify-start'
-                : 'flex-col py-3 px-1 gap-1.5 justify-center'
+                : 'justify-center p-2.5'
             } ${
               activeNav === 'home'
                 ? 'bg-[#151D33] text-white border border-[#38BDF8]/40 shadow-sm shadow-[#38BDF8]/10'
@@ -82,9 +82,11 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'home' ? 'bg-[#38BDF8] text-[#0B0F19]' : 'bg-[#151D33] text-[#38BDF8]'}`}>
               <Home className="w-4 h-4" />
             </div>
-            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
-              Home
-            </span>
+            {(isExpanded || isMobileOpen) && (
+              <span className="font-display tracking-wide text-[14px] font-bold">
+                Home
+              </span>
+            )}
           </a>
 
           {/* Nav Item 2: Shorts & Fun Reels */}
@@ -99,20 +101,22 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
                 ? 'px-3.5 py-3 gap-3.5 justify-start'
-                : 'flex-col py-3 px-1 gap-1.5 justify-center'
+                : 'justify-center p-2.5'
             } ${
               activeNav === 'shorts'
                 ? 'bg-[#151D33] text-white border border-[#FF5E62]/40 shadow-sm shadow-[#FF5E62]/10'
                 : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
             }`}
-            title="Shorts"
+            title="Fun Reels"
           >
             <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'shorts' ? 'bg-[#FF5E62] text-white' : 'bg-[#151D33] text-[#FF5E62]'}`}>
               <Zap className="w-4 h-4 fill-current" />
             </div>
-            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
-              Fun Reels
-            </span>
+            {(isExpanded || isMobileOpen) && (
+              <span className="font-display tracking-wide text-[14px] font-bold">
+                Fun Reels
+              </span>
+            )}
           </a>
 
           {/* Nav Item 3: Favorites */}
@@ -127,7 +131,7 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
                 ? 'px-3.5 py-3 gap-3.5 justify-start'
-                : 'flex-col py-3 px-1 gap-1.5 justify-center'
+                : 'justify-center p-2.5'
             } ${
               activeNav === 'favorites'
                 ? 'bg-[#151D33] text-white border border-[#FFB300]/40 shadow-sm shadow-[#FFB300]/10'
@@ -138,9 +142,11 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'favorites' ? 'bg-[#FFB300] text-[#0B0F19]' : 'bg-[#151D33] text-[#FFB300]'}`}>
               <Heart className="w-4 h-4 fill-current" />
             </div>
-            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
-              Favorites
-            </span>
+            {(isExpanded || isMobileOpen) && (
+              <span className="font-display tracking-wide text-[14px] font-bold">
+                Favorites
+              </span>
+            )}
           </a>
 
           {/* Nav Item 4: Channels */}
@@ -155,7 +161,7 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
                 ? 'px-3.5 py-3 gap-3.5 justify-start'
-                : 'flex-col py-3 px-1 gap-1.5 justify-center'
+                : 'justify-center p-2.5'
             } ${
               activeNav === 'channels'
                 ? 'bg-[#151D33] text-white border border-[#10B981]/40 shadow-sm shadow-[#10B981]/10'
@@ -166,9 +172,11 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'channels' ? 'bg-[#10B981] text-white' : 'bg-[#151D33] text-[#10B981]'}`}>
               <Tv className="w-4 h-4" />
             </div>
-            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
-              Channels
-            </span>
+            {(isExpanded || isMobileOpen) && (
+              <span className="font-display tracking-wide text-[14px] font-bold">
+                Channels
+              </span>
+            )}
           </a>
 
           {/* Nav Item 5: Parent Studio */}
@@ -177,20 +185,22 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
             className={`flex items-center rounded-2xl transition-all ${
               isExpanded || isMobileOpen
                 ? 'px-3.5 py-3 gap-3.5 justify-start'
-                : 'flex-col py-3 px-1 gap-1.5 justify-center'
+                : 'justify-center p-2.5'
             } ${
               activeNav === 'studio'
                 ? 'bg-[#151D33] text-white border border-indigo-400/40 shadow-sm'
                 : 'text-[#94A3B8] hover:text-white hover:bg-[#151D33]/60'
             }`}
-            title="Parent Studio"
+            title="Parent Lock"
           >
             <div className={`p-2 rounded-xl shrink-0 ${activeNav === 'studio' ? 'bg-indigo-600 text-white' : 'bg-[#151D33] text-indigo-400'}`}>
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <span className={`font-display tracking-wide ${isExpanded || isMobileOpen ? 'text-[14px] font-bold' : 'text-[11px] font-semibold'}`}>
-              Parent Lock
-            </span>
+            {(isExpanded || isMobileOpen) && (
+              <span className="font-display tracking-wide text-[14px] font-bold">
+                Parent Lock
+              </span>
+            )}
           </a>
 
           {/* Subscribed Channels Shelf */}
@@ -241,7 +251,7 @@ export const KidsSidebar: React.FC<KidsSidebarProps> = ({
 
         {/* Footer */}
         <div className="p-3 border-t border-[#1E294B] text-[10.5px] font-semibold text-[#64748B] text-center font-display shrink-0">
-          🌟 Safe Play Zone
+          {isExpanded || isMobileOpen ? '🌟 Safe Play Zone' : '🌟'}
         </div>
       </aside>
     </>
