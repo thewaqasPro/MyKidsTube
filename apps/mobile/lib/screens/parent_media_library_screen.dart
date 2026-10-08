@@ -647,11 +647,20 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
                     color: video.isOfflineReady ? KidColors.green : Colors.white70,
                     size: 20,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     if (video.isOfflineReady) {
                       provider.deleteDownloaded(video);
                     } else {
-                      provider.startDownload(video);
+                      final err = await provider.startDownload(video);
+                      if (err != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(err),
+                            backgroundColor: KidColors.red,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
                     }
                   },
                 ),

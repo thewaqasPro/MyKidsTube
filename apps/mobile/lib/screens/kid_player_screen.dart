@@ -574,6 +574,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                                           ? KidEmbedPlayer(
                                               youtubeId: _currentVideo.effectiveYoutubeId,
                                               autoPlay: true,
+                                              scale: 1.14,
                                             )
                                           : (_isInitialized
                                               ? AspectRatio(
@@ -813,6 +814,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   ? KidEmbedPlayer(
                       youtubeId: _currentVideo.effectiveYoutubeId,
                       autoPlay: true,
+                      scale: 1.14,
                     )
                   : (_isInitialized
                       ? AspectRatio(
@@ -1093,6 +1095,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                                 ? KidEmbedPlayer(
                                     youtubeId: _currentVideo.effectiveYoutubeId,
                                     autoPlay: true,
+                                    scale: 1.14,
                                   )
                                 : (_isInitialized
                                     ? AspectRatio(

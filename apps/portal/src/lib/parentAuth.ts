@@ -102,15 +102,6 @@ export async function verifyParentSession(request: Request, db: any): Promise<bo
       return true;
     }
 
-    // Check if token matches a paired authorized device
-    const device: any = await db
-      .prepare("SELECT id FROM devices WHERE auth_token = ? AND status = 'paired'")
-      .bind(tokenHash)
-      .first();
-    if (device) {
-      return true;
-    }
-
     return false;
   } catch (err) {
     console.error('Error verifying parent session:', err);
@@ -121,6 +112,11 @@ export async function verifyParentSession(request: Request, db: any): Promise<bo
 export async function requireParent(context: any): Promise<Response | null> {
   const { requireAuthenticatedParent } = await import('./auth');
   return requireAuthenticatedParent(context);
+}
+
+export async function requireDevice(context: any): Promise<Response | null> {
+  const { requireAuthenticatedDevice } = await import('./auth');
+  return requireAuthenticatedDevice(context);
 }
 
 export async function destroyParentSession(request: Request, db: any): Promise<void> {

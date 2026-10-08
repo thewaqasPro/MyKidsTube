@@ -14,7 +14,21 @@ function getLocalD1DB(): string {
   return '.wrangler/state/v3/d1/miniflare-D1DatabaseObject/db.sqlite';
 }
 
-const isRemote = process.env.DB_REMOTE === 'true' && Boolean(process.env.CLOUDFLARE_D1_TOKEN || process.env.CLOUDFLARE_API_TOKEN);
+function getRemoteD1Credentials() {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const databaseId = process.env.CLOUDFLARE_DATABASE_ID;
+  const token = process.env.CLOUDFLARE_D1_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
+
+  if (!accountId || !databaseId || !token) {
+    throw new Error(
+      'Missing required remote D1 credentials. Ensure CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_DATABASE_ID, and CLOUDFLARE_D1_TOKEN or CLOUDFLARE_API_TOKEN are set in your environment.'
+    );
+  }
+
+  return { accountId, databaseId, token };
+}
+
+const isRemote = process.env.DB_REMOTE === 'true';
 
 export default defineConfig(
   isRemote
@@ -23,11 +37,7 @@ export default defineConfig(
         out: './drizzle',
         dialect: 'sqlite',
         driver: 'd1-http',
-        dbCredentials: {
-          accountId: process.env.CLOUDFLARE_ACCOUNT_ID || 'e625c672ee355cd19487de814338560a',
-          databaseId: process.env.CLOUDFLARE_DATABASE_ID || 'dce947fe-b59f-40f0-9788-c76414b476b4',
-          token: (process.env.CLOUDFLARE_D1_TOKEN || process.env.CLOUDFLARE_API_TOKEN)!,
-        },
+        dbCredentials: getRemoteD1Credentials(),
       }
     : {
         schema: './src/db/schema/index.ts',

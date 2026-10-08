@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
+import 'parent_security_screen.dart';
 
 class ParentServerScreen extends StatefulWidget {
   const ParentServerScreen({super.key});
@@ -116,6 +117,14 @@ class _ParentServerScreenState extends State<ParentServerScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
+        final isDefault = await provider.isUsingDefaultPin();
+        if (isDefault && mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ParentSecurityScreen(isForceChange: true),
+            ),
+          );
+        }
       } else if (status == 'pending') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

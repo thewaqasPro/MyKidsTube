@@ -40,7 +40,7 @@ services:
       - ${MEDIA_THUMBS_DIR:-./data/media/thumbs}:/var/www/media/thumbs:rw
     environment:
       - CLEANUP_PORT=8081
-      - CLEANUP_SECRET=${CLEANUP_SECRET:-mykidstube_default_secret_2026}
+      - CLEANUP_SECRET=${CLEANUP_SECRET}
       - MEDIA_VIDEOS_DIR=/var/www/media/videos
       - MEDIA_THUMBS_DIR=/var/www/media/thumbs
     ports:

@@ -1,17 +1,12 @@
 import type { APIRoute } from 'astro';
 import { getDrizzleDb } from '../../../db';
 import { adminSettings } from '../../../db/schema/devices';
-import { getAuthenticatedParent } from '../../../lib/auth';
+import { requireParent } from '../../../lib/parentAuth';
 import { eq } from 'drizzle-orm';
 
 export const GET: APIRoute = async (context) => {
-  const auth = await getAuthenticatedParent(context);
-  if (!auth) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
 
   const drizzleDb = await getDrizzleDb(context);
   if (!drizzleDb) {
@@ -45,13 +40,8 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await getAuthenticatedParent(context);
-  if (!auth) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
 
   const drizzleDb = await getDrizzleDb(context);
   if (!drizzleDb) {

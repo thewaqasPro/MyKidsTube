@@ -1,8 +1,24 @@
 import type { APIRoute } from 'astro';
 import { getDatabase } from '../../../lib/db';
 import { createParentSession, buildSessionCookie } from '../../../lib/parentAuth';
+import { checkRateLimit, createRateLimitResponse } from '../../../lib/rateLimit';
 
 export const POST: APIRoute = async (context) => {
+  // 1. Rate-limit PIN attempts: 10 attempts per minute per IP
+  const rateLimit = checkRateLimit(context.request, 10, 60000);
+  const clientIp =
+    context.request.headers.get('CF-Connecting-IP') ||
+    context.request.headers.get('x-real-ip') ||
+    context.request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    'anonymous_client';
+
+  if (!rateLimit.allowed) {
+    console.error(
+      `[SECURITY ALERT] Rate limit exceeded on /api/auth/login for IP: ${clientIp}. Brute-force lockout triggered (429).`
+    );
+    return createRateLimitResponse();
+  }
+
   try {
     const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const pin = String(body.pin || '').trim();
@@ -43,6 +59,14 @@ export const POST: APIRoute = async (context) => {
 
     // Strictly match expected PIN - no hardcoded '1234' fallback when custom PIN is set
     if (pin !== expectedPin) {
+      console.warn(
+        `[SECURITY WARNING] Incorrect Parent PIN attempt from IP: ${clientIp}. Remaining attempts: ${rateLimit.remaining}`
+      );
+      if (rateLimit.remaining <= 3) {
+        console.warn(
+          `[SECURITY ALERT] Elevated failed login volume detected from IP: ${clientIp}. Approaching lockout threshold.`
+        );
+      }
       return new Response(JSON.stringify({ error: 'Incorrect Parent PIN' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -62,6 +86,7 @@ export const POST: APIRoute = async (context) => {
     }
 
     const cookieHeader = buildSessionCookie(sessionToken);
+    console.log(`[AUTH] Successful Parent PIN login from IP: ${clientIp}`);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Parent authenticated successfully' }),

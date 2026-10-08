@@ -99,6 +99,19 @@ export const DELETE: APIRoute = async (context) => {
     if (ids.length === 1) {
       const singleId = ids[0];
       const res = await CatalogService.deleteVideo(drizzleDb, singleId, context);
+      if (res.notFound || !res.success) {
+        return new Response(
+          JSON.stringify({
+            error: 'not_found',
+            message: `Video with ID '${singleId}' not found`,
+          }),
+          {
+            status: 404,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          }
+        );
+      }
+
       return new Response(
         JSON.stringify({
           success: true,

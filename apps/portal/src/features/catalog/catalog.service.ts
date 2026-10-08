@@ -25,8 +25,14 @@ export class CatalogService {
     db: DrizzleDb,
     id: string,
     context?: unknown
-  ): Promise<{ success: boolean; vpsCleanup?: boolean }> {
+  ): Promise<{ success: boolean; notFound?: boolean; vpsCleanup?: boolean }> {
     const found = await CatalogRepository.getVideoById(db, id);
+    if (!found) {
+      return {
+        success: false,
+        notFound: true,
+      };
+    }
 
     // 1. Delete database record first to guarantee catalog consistency
     await CatalogRepository.deleteVideoById(db, id);
@@ -83,9 +89,18 @@ export class CatalogService {
 
     // 1. Fetch matching videos to get file paths for disk & R2 cleanup
     const foundVideos = await CatalogRepository.getVideosByIds(db, ids);
+    const existingIds = foundVideos.map((v) => v.id);
+
+    if (existingIds.length === 0) {
+      return {
+        deletedCount: 0,
+        deletedIds: [],
+        vpsCleanup: { requested: false },
+      };
+    }
 
     // 2. Delete database records first to guarantee catalog consistency
-    const deletedCount = await CatalogRepository.deleteVideosByIds(db, ids);
+    const deletedCount = await CatalogRepository.deleteVideosByIds(db, existingIds);
 
     // 3. Batch R2 asset cleanup in a single subrequest call (prevents Cloudflare subrequest limit)
     const r2 = await getR2Bucket(context).catch(() => null);
@@ -112,9 +127,9 @@ export class CatalogService {
 
     // 4. VPS disk cleanup (pass video IDs matching Python SAFE_ID_REGEX)
     let vpsResult = { requested: false as boolean, success: false, deletedFiles: [] as string[] };
-    if (ids.length > 0) {
+    if (existingIds.length > 0) {
       try {
-        const vpsRes = await cleanupVpsMedia(ids, context);
+        const vpsRes = await cleanupVpsMedia(existingIds, context);
         vpsResult = {
           requested: true,
           success: vpsRes.success,
@@ -126,8 +141,8 @@ export class CatalogService {
     }
 
     return {
-      deletedCount,
-      deletedIds: ids,
+      deletedCount: existingIds.length,
+      deletedIds: existingIds,
       vpsCleanup: vpsResult,
     };
   }

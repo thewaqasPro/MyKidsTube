@@ -29,6 +29,8 @@ class DownloadService {
   // Storage error reporting
   String? lastErrorMessage;
 
+  static int? Function(String path)? freeDiskSpaceOverride;
+
   DownloadService._init();
 
   Future<String> get _mediaDirectory async {
@@ -38,6 +40,39 @@ class DownloadService {
       await mediaDir.create(recursive: true);
     }
     return mediaDir.path;
+  }
+
+  Future<int?> getFreeDiskSpace([String? targetPath]) async {
+    if (freeDiskSpaceOverride != null) {
+      return freeDiskSpaceOverride!(targetPath ?? '');
+    }
+    try {
+      final path = targetPath ?? await _mediaDirectory;
+      final result = await Process.run('df', ['-k', path]);
+      if (result.exitCode == 0) {
+        final lines = (result.stdout as String).trim().split('\n');
+        if (lines.length >= 2) {
+          final tokens = lines[1].trim().split(RegExp(r'\s+'));
+          if (tokens.length >= 4) {
+            final availKb = int.tryParse(tokens[3]);
+            if (availKb != null) {
+              return availKb * 1024;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static String formatBytes(int bytes) {
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+    }
   }
 
   bool isDownloading(String videoId) {
@@ -57,9 +92,18 @@ class DownloadService {
     _lastProgressValue.remove(videoId);
   }
 
-  /// Enqueues video download with concurrency cap of 2
+  /// Enqueues video download with concurrency cap of 2 and pre-flight space check
   Future<bool> downloadVideo(VideoItem video, {DownloadProgressCallback? onProgress}) async {
     if (isDownloading(video.id)) return false;
+
+    // Pre-flight check: ensure sufficient free disk space exists before initiating download
+    final freeBytes = await getFreeDiskSpace();
+    final requiredBytes = video.fileSizeBytes > 0 ? video.fileSizeBytes : 25 * 1024 * 1024;
+    if (freeBytes != null && freeBytes < requiredBytes) {
+      final shortfall = requiredBytes - freeBytes;
+      lastErrorMessage = "Not enough storage space for '${video.title}'. Short by ${formatBytes(shortfall)}.";
+      return false;
+    }
 
     if (onProgress != null) {
       _progressCallbacks[video.id] = onProgress;

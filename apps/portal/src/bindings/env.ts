@@ -9,6 +9,7 @@ export interface AppEnv {
   BETTER_AUTH_URL?: string;
   VPS_API_URL?: string;
   VPS_API_KEY?: string;
+  VPS_CLEANUP_SECRET?: string;
   IMAGES?: unknown;
   SESSION?: unknown;
   [key: string]: unknown;

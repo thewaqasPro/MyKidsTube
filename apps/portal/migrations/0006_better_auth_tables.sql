@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS user (
     email TEXT NOT NULL UNIQUE,
     email_verified INTEGER DEFAULT 0 NOT NULL,
     image TEXT,
-    role TEXT DEFAULT 'parent',
+    role TEXT DEFAULT 'unapproved',
     pin_hash TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL

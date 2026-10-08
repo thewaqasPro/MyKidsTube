@@ -9,7 +9,12 @@ import 'parent_media_library_screen.dart';
 import 'parent_analytics_screen.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key});
+  final bool? isUsingDefaultPinOverride;
+
+  const ParentDashboardScreen({
+    super.key,
+    this.isUsingDefaultPinOverride,
+  });
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
@@ -21,10 +26,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _checkDefaultPin();
+    if (widget.isUsingDefaultPinOverride != null) {
+      _isUsingDefaultPin = widget.isUsingDefaultPinOverride!;
+    } else {
+      _checkDefaultPin();
+    }
   }
 
   Future<void> _checkDefaultPin() async {
+    if (widget.isUsingDefaultPinOverride != null) return;
     final provider = Provider.of<AppProvider>(context, listen: false);
     final isDefault = await provider.isUsingDefaultPin();
     if (mounted) setState(() => _isUsingDefaultPin = isDefault);
@@ -95,53 +105,70 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               ],
             ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Security Alert Banner if using default PIN
-                if (_isUsingDefaultPin) ...[
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context)
-                          .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
-                          .then((_) => _checkDefaultPin());
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 20),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: KidColors.yellow.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: KidColors.yellow.withValues(alpha: 0.4)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, color: KidColors.yellow, size: 26),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Security Action Recommended',
-                                  style: TextStyle(color: KidColors.yellow, fontWeight: FontWeight.w700, fontSize: 14),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  'Default PIN (1234) is currently active. Tap to configure a private PIN.',
-                                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                                ),
-                              ],
+          body: _isUsingDefaultPin
+              ? Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(28.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(22),
+                          decoration: BoxDecoration(
+                            color: KidColors.red.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: KidColors.red.withValues(alpha: 0.4), width: 1.5),
+                          ),
+                          child: const Icon(Icons.lock_rounded, color: KidColors.red, size: 56),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Parent Dashboard Locked',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'For child safety, the default PIN (1234) must be changed before accessing parental controls and dashboard settings.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+                        ),
+                        const SizedBox(height: 28),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context)
+                                .push(MaterialPageRoute(
+                                  builder: (_) => const ParentSecurityScreen(isForceChange: true),
+                                ))
+                                .then((_) => _checkDefaultPin());
+                          },
+                          icon: const Icon(Icons.key_rounded, size: 20),
+                          label: const Text(
+                            'Set New PIN to Unlock',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: KidColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios_rounded, color: KidColors.yellow, size: 16),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
 
                 // Executive Quick Stats (2x2 Grid)
                 Row(
@@ -287,6 +314,85 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
 
                 const SizedBox(height: 24),
+
+                // Safety Cap Pending Mass Prune Confirmation Alert
+                if (provider.hasPendingMassPrune) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF332014),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.orange.shade700, width: 1.2),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+                            SizedBox(width: 8),
+                            Text(
+                              'Mass Removal Blocked (Safety Cap)',
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'The server requested deleting ${provider.pendingPruneCount} video(s) (>50% of the local library). This was held to protect offline downloads.',
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            color: Colors.orange.shade100,
+                            fontSize: 12.5,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade800,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () async {
+                                  await provider.confirmPendingPrune();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Removed pending videos from local library')),
+                                    );
+                                  }
+                                },
+                                child: const Text('Confirm Deletion', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: Colors.orange.shade300),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => provider.dismissPendingPrune(),
+                                child: const Text('Keep Offline', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Footer Quick Actions Toolbar in a Single Row
                 Container(

@@ -46,6 +46,10 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
             onRefresh: () => provider.syncCatalog(),
             child: Column(
               children: [
+                // Notice banner if catalog refresh failed or removal held
+                if (provider.hasRefreshFailedNotice)
+                  _buildRefreshNoticeBanner(context, provider),
+
                 // 1. YouTube Horizontal Filter Pills Bar
                 _buildCategoryPills(provider),
 
@@ -220,6 +224,43 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
     );
   }
 
+  Widget _buildRefreshNoticeBanner(BuildContext context, AppProvider provider) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(14, 6, 14, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2C2416),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF8A6D3B), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.sync_problem_rounded, color: Color(0xFFE5B560), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              provider.refreshNoticeMessage ?? "Couldn't refresh video catalog. Using offline library.",
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                color: Color(0xFFF1D49B),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Dismiss',
+            onPressed: () => provider.dismissRefreshNotice(),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==========================================
   // TOP CATEGORY FILTER PILLS (YOUTUBE STANDARD)
   // ==========================================
@@ -360,7 +401,18 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 video: video,
                 downloadProgress: provider.downloadProgress[video.id],
                 onTap: () => _openPlayer(context, video, videos),
-                onDownloadTap: () => provider.startDownload(video),
+                onDownloadTap: () async {
+                  final err = await provider.startDownload(video);
+                  if (err != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(err),
+                        backgroundColor: KidColors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
               );
             },
           );
@@ -385,7 +437,18 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 video: video,
                 downloadProgress: provider.downloadProgress[video.id],
                 onTap: () => _openPlayer(context, video, videos),
-                onDownloadTap: () => provider.startDownload(video),
+                onDownloadTap: () async {
+                  final err = await provider.startDownload(video);
+                  if (err != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(err),
+                        backgroundColor: KidColors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
               ),
             );
           },

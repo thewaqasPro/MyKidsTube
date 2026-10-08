@@ -31,8 +31,45 @@ class DatabaseService {
           final backupPath = '$path.corrupt.${DateTime.now().millisecondsSinceEpoch}';
           await corruptFile.rename(backupPath);
         }
+        final wal = File('$path-wal');
+        if (await wal.exists()) await wal.delete();
+        final shm = File('$path-shm');
+        if (await shm.exists()) await shm.delete();
       } catch (_) {}
       return await _openAndConfigure(path);
+    }
+  }
+
+  /// Closes any open connection, renames corrupted database file as backup,
+  /// and initializes a fresh replacement database.
+  Future<void> recoverCorruptedDatabase() async {
+    try {
+      if (_database != null) {
+        try {
+          await _database!.close();
+        } catch (_) {}
+        _database = null;
+      }
+      final dbPath = await getDatabasesPath();
+      final path = join(dbPath, 'kidstube_v2.db');
+      final corruptFile = File(path);
+      if (await corruptFile.exists()) {
+        final backupPath = '$path.corrupt.${DateTime.now().millisecondsSinceEpoch}';
+        try {
+          await corruptFile.rename(backupPath);
+        } catch (_) {}
+      }
+      final walFile = File('$path-wal');
+      if (await walFile.exists()) {
+        try { await walFile.delete(); } catch (_) {}
+      }
+      final shmFile = File('$path-shm');
+      if (await shmFile.exists()) {
+        try { await shmFile.delete(); } catch (_) {}
+      }
+      _database = await _initDB('kidstube_v2.db');
+    } catch (_) {
+      _database = null;
     }
   }
 
@@ -259,7 +296,13 @@ class DatabaseService {
 
   /// Prunes any videos from SQLite that no longer exist on the server,
   /// and deletes their cached/downloaded local video and thumbnail files from device disk.
-  Future<void> pruneRemovedVideos(List<String> validServerVideoIds) async {
+  /// Gated by allowEmpty guard and maxPruneRatio safety cap to protect offline libraries.
+  Future<List<String>> pruneRemovedVideos(
+    List<String> validServerVideoIds, {
+    bool allowEmpty = false,
+    double maxPruneRatio = 0.50,
+    bool force = false,
+  }) async {
     try {
       final db = await database;
       final Set<String> validIds = validServerVideoIds.toSet();
@@ -270,8 +313,31 @@ class DatabaseService {
         columns: ['id', 'local_file_path', 'local_thumbnail_path'],
       );
 
-      final toDelete = allLocalVideos.where((row) => !validIds.contains(row['id'] as String)).toList();
+      if (allLocalVideos.isEmpty) {
+        return [];
+      }
 
+      // 1. Guard: Never wipe on an empty list without an explicit allowEmpty flag
+      if (validIds.isEmpty && !allowEmpty) {
+        // ignore: avoid_print
+        print('DatabaseService: pruneRemovedVideos called with empty validServerVideoIds and allowEmpty=false. Skipping destructive prune to protect local library.');
+        return [];
+      }
+
+      final toDelete = allLocalVideos.where((row) => !validIds.contains(row['id'] as String)).toList();
+      if (toDelete.isEmpty) {
+        return [];
+      }
+
+      // 2. Safety Cap: Never delete more than maxPruneRatio (default 50%) in one sync without explicit force confirmation
+      final pruneRatio = toDelete.length / allLocalVideos.length;
+      if (!force && allLocalVideos.length > 2 && pruneRatio > maxPruneRatio) {
+        // ignore: avoid_print
+        print('DatabaseService: pruneRemovedVideos safety cap blocked deletion of ${toDelete.length}/${allLocalVideos.length} videos (${(pruneRatio * 100).toStringAsFixed(1)}% > ${(maxPruneRatio * 100).toStringAsFixed(1)}%). Explicit confirmation required.');
+        return [];
+      }
+
+      final deletedIds = <String>[];
       for (final row in toDelete) {
         final id = row['id'] as String;
         final localFilePath = row['local_file_path'] as String?;
@@ -305,10 +371,14 @@ class DatabaseService {
 
         // 3. Delete from SQLite
         await db.delete('videos', where: 'id = ?', whereArgs: [id]);
+        await db.delete('favorites', where: 'video_id = ?', whereArgs: [id]);
+        deletedIds.add(id);
       }
+      return deletedIds;
     } catch (e) {
       // ignore: avoid_print
       print('Database pruneRemovedVideos error: $e');
+      return [];
     }
   }
 

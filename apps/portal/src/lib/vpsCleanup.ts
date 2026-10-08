@@ -18,13 +18,18 @@ export async function cleanupVpsMedia(ids: string[], context?: any): Promise<Vps
     return { success: true, deleted_count: 0 };
   }
 
-  // Retrieve secret from Cloudflare Worker runtime environment
+  // Retrieve secret strictly from environment bindings
   const locals = context?.locals as any;
   const runtimeEnv = locals?.runtime?.env || locals?.cloudflare?.env || locals?.env;
   const secret =
     runtimeEnv?.VPS_CLEANUP_SECRET ||
-    (typeof process !== 'undefined' && process.env?.VPS_CLEANUP_SECRET) ||
-    'mykidstube_default_secret_2026';
+    (typeof process !== 'undefined' ? process.env?.VPS_CLEANUP_SECRET : undefined);
+
+  if (!secret || typeof secret !== 'string' || secret.trim().length === 0) {
+    const errorMsg = 'VPS_CLEANUP_SECRET environment variable is missing or empty. VPS cleanup refused.';
+    console.error(`[VPS Cleanup] Fail-closed: ${errorMsg}`);
+    throw new Error(errorMsg);
+  }
 
   const vpsUrl = `${API_BASE}/api/storage/cleanup`;
 

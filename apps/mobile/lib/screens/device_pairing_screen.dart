@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import 'kid_home_screen.dart';
+import 'parent_security_screen.dart';
 
 class DevicePairingScreen extends StatefulWidget {
   const DevicePairingScreen({super.key});
@@ -70,9 +71,22 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
 
       if (status == 'paired') {
         _pollTimer?.cancel();
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const KidHomeScreen()),
-        );
+        final isDefaultPin = await provider.isUsingDefaultPin();
+        if (!mounted) return;
+        if (isDefaultPin) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const ParentSecurityScreen(
+                isForceChange: true,
+                destinationOnSuccess: KidHomeScreen(),
+              ),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const KidHomeScreen()),
+          );
+        }
         return;
       } else if (status == 'expired') {
         setState(() => _isExpired = true);

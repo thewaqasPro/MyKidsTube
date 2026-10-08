@@ -5,6 +5,7 @@ Runs alongside Nginx to safely delete videos & thumbnails from VPS SSD
 when removed from the Cloudflare Studio catalog.
 """
 
+import hmac
 import http.server
 import json
 import os
@@ -14,7 +15,7 @@ import sys
 
 PORT = int(os.environ.get("CLEANUP_PORT", 8081))
 HOST = os.environ.get("CLEANUP_HOST", "0.0.0.0")
-CLEANUP_SECRET = os.environ.get("CLEANUP_SECRET", "mykidstube_default_secret_2026")
+CLEANUP_SECRET = os.environ.get("CLEANUP_SECRET")
 VIDEOS_DIR = os.environ.get("MEDIA_VIDEOS_DIR", "/var/www/media/videos")
 THUMBS_DIR = os.environ.get("MEDIA_THUMBS_DIR", "/var/www/media/thumbs")
 STAGING_DIR = os.environ.get("MEDIA_STAGING_DIR", "/var/www/media/staging")
@@ -32,6 +33,11 @@ class CleanupHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(response_bytes)
 
     def _check_auth(self) -> bool:
+        configured_secret = os.environ.get("CLEANUP_SECRET", "").strip()
+        if not configured_secret:
+            sys.stderr.write("[cleaner] REJECTED: CLEANUP_SECRET is not configured on server.\n")
+            return False
+
         # Check X-Media-Secret or Authorization: Bearer <secret>
         header_secret = self.headers.get("X-Media-Secret")
         if not header_secret:
@@ -39,7 +45,10 @@ class CleanupHandler(http.server.BaseHTTPRequestHandler):
             if auth_header.startswith("Bearer "):
                 header_secret = auth_header[7:].strip()
 
-        return bool(header_secret and header_secret == CLEANUP_SECRET)
+        if not header_secret:
+            return False
+
+        return hmac.compare_digest(header_secret.strip(), configured_secret)
 
     def do_GET(self):
         if self.path in ("/health", "/api/storage/health"):
@@ -137,6 +146,11 @@ def run():
     print(f"🚀 KidsTube Cleanup Daemon starting on {HOST}:{PORT}")
     print(f"   Videos storage: {VIDEOS_DIR}")
     print(f"   Thumbs storage: {THUMBS_DIR}")
+
+    if not os.environ.get("CLEANUP_SECRET", "").strip():
+        sys.stderr.write("⚠️  SECURITY WARNING: CLEANUP_SECRET environment variable is NOT set. All cleanup requests will fail closed (401 Unauthorized).\n")
+    else:
+        print("   Cleanup auth: Configured (fail-closed)")
 
     with socketserver.ThreadingTCPServer((HOST, PORT), CleanupHandler) as httpd:
         httpd.allow_reuse_address = True

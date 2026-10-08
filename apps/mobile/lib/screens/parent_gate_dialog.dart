@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import 'parent_dashboard_screen.dart';
+import 'parent_security_screen.dart';
 
 class ParentGateDialog extends StatefulWidget {
   const ParentGateDialog({super.key});
@@ -52,11 +53,22 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
     if (!mounted) return;
 
     if (entered == _expectedAnswer || isPinValid) {
+      final isDefaultPin = await provider.isUsingDefaultPin();
+      if (!mounted) return;
       final nav = Navigator.of(context);
       nav.pop();
-      nav.push(
-        MaterialPageRoute(builder: (context) => const ParentDashboardScreen()),
-      );
+      if (isDefaultPin) {
+        // Fresh install / default PIN active: block parent dashboard access until PIN is changed
+        nav.push(
+          MaterialPageRoute(
+            builder: (context) => const ParentSecurityScreen(isForceChange: true),
+          ),
+        );
+      } else {
+        nav.push(
+          MaterialPageRoute(builder: (context) => const ParentDashboardScreen()),
+        );
+      }
     } else {
       setState(() {
         _errorMessage = 'Incorrect answer. Try again!';

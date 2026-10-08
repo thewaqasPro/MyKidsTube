@@ -19,7 +19,7 @@ class KidEmbedPlayer extends StatefulWidget {
     required this.youtubeId,
     this.autoPlay = true,
     this.aspectRatio,
-    this.scale = 1.0,
+    this.scale = 1.14,
   });
 
   @override
@@ -128,7 +128,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
         }
         var frame = document.getElementById('player');
         if (frame && frame.contentWindow) {
-          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', 'https://www.youtube-nocookie.com');
         }
       } catch(e) {}
     ''';
@@ -187,7 +187,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
 <body>
   <iframe
     id="player"
-    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen>
   </iframe>
@@ -216,7 +216,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
         }
         var frame = document.getElementById('player');
         if (frame && frame.contentWindow) {
-          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', 'https://www.youtube-nocookie.com');
         }
       } catch(e) {}
     }

@@ -1,13 +1,12 @@
 ---
 import '../styles/global.css';
 import { UploadPage } from '../components/UploadPage';
-import { getDatabase, getDbData } from '../lib/db';
-import { verifyParentSession } from '../lib/parentAuth';
+import { getDbData } from '../lib/db';
+import { getAuthenticatedParent } from '../lib/auth';
 
 // Verify authentic server-side parent session
-const db = await getDatabase(Astro);
-const isAuthed = await verifyParentSession(Astro.request, db);
-if (!isAuthed) {
+const auth = await getAuthenticatedParent(Astro);
+if (!auth || auth.user?.role !== 'parent') {
   return Astro.redirect('/login?redirect=/upload');
 }
 

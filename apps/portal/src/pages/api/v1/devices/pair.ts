@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getDatabase } from '../../../../lib/db';
-import { hashToken } from '../../../../lib/parentAuth';
+import { hashToken, requireParent } from '../../../../lib/parentAuth';
 import { checkRateLimit, createRateLimitResponse } from '../../../../lib/rateLimit';
 import { getCorsHeaders, handleOptions } from '../../../../lib/cors';
 
@@ -9,6 +9,9 @@ export const OPTIONS: APIRoute = async ({ request }) => {
 };
 
 export const POST: APIRoute = async (context) => {
+  const authErr = await requireParent(context);
+  if (authErr) return authErr;
+
   const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
 
   // Rate-limit: 10 attempts/minute per IP

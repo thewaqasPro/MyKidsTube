@@ -6,7 +6,7 @@ import { getAuthenticatedParent } from '../../lib/auth';
 
 // Verify authentic server-side parent session (Better Auth or Legacy PIN)
 const auth = await getAuthenticatedParent(Astro);
-if (!auth) {
+if (!auth || auth.user?.role !== 'parent') {
   return Astro.redirect('/login?redirect=/studio');
 }
 

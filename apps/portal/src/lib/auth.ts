@@ -7,6 +7,33 @@ import { getDrizzle } from '../db';
 import * as schema from '../db/schema';
 import { getEnv } from './env';
 
+let devEphemeralSecret: string | null = null;
+
+export function resolveBetterAuthSecret(env: any): string {
+  const secret =
+    env?.BETTER_AUTH_SECRET ||
+    (typeof process !== 'undefined' ? process.env?.BETTER_AUTH_SECRET : undefined);
+
+  if (secret && typeof secret === 'string' && secret.trim().length > 0) {
+    return secret.trim();
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Cloudflare binding or environment variable "BETTER_AUTH_SECRET" is required in production.');
+  }
+
+  if (!devEphemeralSecret) {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    devEphemeralSecret = Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+    console.warn(
+      '[AUTH SECURITY] BETTER_AUTH_SECRET not found in environment. Generated ephemeral 256-bit development secret.'
+    );
+  }
+
+  return devEphemeralSecret;
+}
+
 export function getAuth(env: any, request?: Request) {
   if (!env?.DB) {
     throw new Error('Cloudflare D1 database binding "DB" is missing.');
@@ -21,17 +48,18 @@ export function getAuth(env: any, request?: Request) {
       provider: 'sqlite',
       schema,
     }),
-    secret: env.BETTER_AUTH_SECRET || 'kidstube_dev_secret_key_change_in_production_32bytes',
-    baseURL: env.BETTER_AUTH_URL || origin,
+    secret: resolveBetterAuthSecret(env),
+    baseURL: env.BETTER_AUTH_URL || (typeof process !== 'undefined' ? process.env?.BETTER_AUTH_URL : undefined) || origin,
     emailAndPassword: {
       enabled: true,
-      autoSignIn: true,
+      disableSignUp: true,
+      autoSignIn: false,
     },
     user: {
       additionalFields: {
         role: {
           type: 'string',
-          defaultValue: 'parent',
+          defaultValue: 'unapproved',
         },
         pinHash: {
           type: 'string',
@@ -97,7 +125,10 @@ export async function getAuthenticatedParent(context: any): Promise<{ user: any;
 
     if (sessionRes?.user && sessionRes?.session) {
       return {
-        user: sessionRes.user,
+        user: {
+          ...sessionRes.user,
+          role: sessionRes.user.role || 'unapproved',
+        },
         session: sessionRes.session,
       };
     }
@@ -151,12 +182,73 @@ export async function getAuthenticatedParent(context: any): Promise<{ user: any;
 }
 
 /**
- * Require parent auth route guard
+ * Require parent auth route guard:
+ * Strictly requires role === 'parent'. Device tokens (role: 'device') and unauthenticated requests are rejected with 401.
  */
 export async function requireAuthenticatedParent(context: any): Promise<Response | null> {
   const auth = await getAuthenticatedParent(context);
-  if (!auth) {
+  if (!auth || auth.user?.role !== 'parent') {
     return new Response(JSON.stringify({ error: 'unauthorized', message: 'Parent authentication required' }), {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+  return null;
+}
+
+/**
+ * Universal device token verifier:
+ * Inspects Authorization: Bearer <device_auth_token>
+ * Returns device user & session if paired and valid, null otherwise.
+ */
+export async function getAuthenticatedDevice(context: any): Promise<{ user: any; session: any } | null> {
+  const env = await getEnv(context);
+  if (!env?.DB) return null;
+
+  const request: Request = context.request;
+  const token = extractLegacyToken(request);
+  if (!token || token === 'authenticated') return null;
+
+  try {
+    const tokenHash = await hashToken(token);
+    const drizzleDb = getDrizzle(env.DB);
+
+    const deviceRow = await drizzleDb
+      .select()
+      .from(schema.devices)
+      .where(eq(schema.devices.authToken, tokenHash))
+      .get();
+
+    if (deviceRow && deviceRow.status === 'paired') {
+      if (deviceRow.expiresAt) {
+        const expiresAt = new Date(deviceRow.expiresAt).getTime();
+        if (expiresAt <= Date.now()) {
+          return null;
+        }
+      }
+      return {
+        user: { id: deviceRow.id, name: deviceRow.deviceName, email: `${deviceRow.id}@device.kidstube.local`, role: 'device' },
+        session: { id: `device_${deviceRow.id}`, userId: deviceRow.id },
+      };
+    }
+  } catch (err) {
+    console.warn('Device authentication error:', err);
+  }
+
+  return null;
+}
+
+/**
+ * Require device auth route guard:
+ * Strictly requires a paired device token in Authorization header. Missing or invalid credentials return 401.
+ */
+export async function requireAuthenticatedDevice(context: any): Promise<Response | null> {
+  const auth = await getAuthenticatedDevice(context);
+  if (!auth || auth.user?.role !== 'device') {
+    return new Response(JSON.stringify({ error: 'unauthorized', message: 'Device authentication required' }), {
       status: 401,
       headers: {
         'Content-Type': 'application/json',

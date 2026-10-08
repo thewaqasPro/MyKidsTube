@@ -6,7 +6,7 @@ export const user = sqliteTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   image: text('image'),
-  role: text('role').default('parent'),
+  role: text('role').default('unapproved'),
   pinHash: text('pin_hash'), // Salted hash for Quick PIN mode unlock
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getDatabase } from '../../../../lib/db';
+import { checkRateLimit, createRateLimitResponse } from '../../../../lib/rateLimit';
 import { getCorsHeaders, handleOptions } from '../../../../lib/cors';
 
 function generateSecurePairingCode(): string {
@@ -26,25 +27,41 @@ export const OPTIONS: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
 
+  // Rate-limit: 20 registrations/minute per IP (50 rapid calls trigger 429)
+  const rateLimit = checkRateLimit(context.request, 20, 60000);
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse();
+  }
+
   try {
     const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const rawName = String(body.device_name || 'Kids Tablet');
     const sanitizedName = rawName.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 64) || 'Kids Tablet';
 
     const db = await getDatabase(context);
+    // Fail closed: Never generate or return pairing code when database is down
+    if (!db) {
+      return new Response(
+        JSON.stringify({ error: 'database_unavailable', message: 'Database connection required for device registration' }),
+        { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
     const deviceId = 'dev_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
     const pairingCode = generateSecurePairingCode();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
 
-    if (db) {
-      await db
-        .prepare(`
-          INSERT INTO devices (id, device_name, pairing_code, status, expires_at, used, created_at)
-          VALUES (?, ?, ?, 'pending', ?, 0, ?)
-        `)
-        .bind(deviceId, sanitizedName, pairingCode, expiresAt, now.toISOString())
-        .run();
+    const insertRes = await db
+      .prepare(`
+        INSERT INTO devices (id, device_name, pairing_code, status, expires_at, used, created_at)
+        VALUES (?, ?, ?, 'pending', ?, 0, ?)
+      `)
+      .bind(deviceId, sanitizedName, pairingCode, expiresAt, now.toISOString())
+      .run();
+
+    if (!insertRes || (insertRes as any).success === false) {
+      throw new Error('Database insert failed');
     }
 
     return new Response(
@@ -63,7 +80,7 @@ export const POST: APIRoute = async (context) => {
   } catch (error: any) {
     console.error('v1/devices/register error:', error);
     return new Response(
-      JSON.stringify({ error: 'internal_error' }),
+      JSON.stringify({ error: 'internal_error', message: 'Failed to persist device registration' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }

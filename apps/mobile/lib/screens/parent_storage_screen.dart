@@ -30,19 +30,57 @@ class _ParentStorageScreenState extends State<ParentStorageScreen> {
       return;
     }
 
+    // Pre-flight check: ensure sufficient free space exists for all videos
+    final totalNeeded = toDownload.fold<int>(
+      0,
+      (sum, v) => sum + (v.fileSizeBytes > 0 ? v.fileSizeBytes : 25 * 1024 * 1024),
+    );
+    final freeBytes = await provider.getFreeDiskSpace();
+    if (freeBytes != null && freeBytes < totalNeeded) {
+      final shortfall = totalNeeded - freeBytes;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Not enough storage space to download all (${toDownload.length}) videos. Short by ${provider.formatBytes(shortfall)}.',
+            ),
+            backgroundColor: KidColors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isDownloadingAll = true);
+    int downloadedCount = 0;
     for (final v in toDownload) {
-      await provider.startDownload(v);
+      final error = await provider.startDownload(v);
+      if (error != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error),
+              backgroundColor: KidColors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        break;
+      }
+      downloadedCount++;
     }
     if (mounted) {
       setState(() => _isDownloadingAll = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Completed offline download of ${toDownload.length} videos!'),
-          backgroundColor: KidColors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (downloadedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Completed offline download of $downloadedCount videos!'),
+            backgroundColor: KidColors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 

@@ -3,8 +3,17 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 
+import 'parent_dashboard_screen.dart';
+
 class ParentSecurityScreen extends StatefulWidget {
-  const ParentSecurityScreen({super.key});
+  final bool isForceChange;
+  final Widget? destinationOnSuccess;
+
+  const ParentSecurityScreen({
+    super.key,
+    this.isForceChange = false,
+    this.destinationOnSuccess,
+  });
 
   @override
   State<ParentSecurityScreen> createState() => _ParentSecurityScreenState();
@@ -24,6 +33,9 @@ class _ParentSecurityScreenState extends State<ParentSecurityScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.isForceChange) {
+      _currentPinController.text = '1234';
+    }
     final provider = Provider.of<AppProvider>(context, listen: false);
     provider.isUsingDefaultPin().then((isDefault) {
       if (mounted) setState(() => _isUsingDefaultPin = isDefault);
@@ -71,6 +83,19 @@ class _ParentSecurityScreenState extends State<ParentSecurityScreen> {
       _confirmPinController.clear();
       setState(() => _isUsingDefaultPin = false);
       _showMessage('Parent PIN successfully updated!');
+      if (widget.isForceChange) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
+        if (widget.destinationOnSuccess != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => widget.destinationOnSuccess!),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
+          );
+        }
+      }
     } else {
       _showMessage('Incorrect current PIN. Please try again.', isError: true);
     }
@@ -108,6 +133,45 @@ class _ParentSecurityScreenState extends State<ParentSecurityScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Mandatory Setup Warning Banner
+            if (widget.isForceChange) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: KidColors.red.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: KidColors.red.withValues(alpha: 0.5)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.lock_reset_rounded, color: KidColors.red, size: 28),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Mandatory PIN Setup',
+                            style: TextStyle(
+                              color: KidColors.red,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'The default PIN (1234) must be replaced before accessing parental controls.',
+                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             // Status Banner
             Container(
               padding: const EdgeInsets.all(16),
