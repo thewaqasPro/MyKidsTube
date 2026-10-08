@@ -32,7 +32,7 @@ export function getYoutubeId(video: { id: string; youtube_id?: string }): string
 }
 
 export function getYoutubeEmbedUrl(youtubeId: string, autoplay: boolean = true): string {
-  return `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=${autoplay ? 1 : 0}&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&disablekb=1&fs=0`;
+  return `https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=${autoplay ? 1 : 0}&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&disablekb=1`;
 }
 
 export function isSelfHosted(video: { status?: string; file_verified?: number; video_file?: string }): boolean {
