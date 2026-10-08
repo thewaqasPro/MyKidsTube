@@ -74,6 +74,30 @@ export class CatalogRepository {
     return allVideos;
   }
 
+  static async deleteVideoById(db: DrizzleDb, id: string): Promise<boolean> {
+    try {
+      await db
+        .delete(schema.profileVideoAssignments)
+        .where(eq(schema.profileVideoAssignments.videoId, id));
+    } catch (err) {
+      console.warn('Error clearing profile assignments for video:', id, err);
+    }
+
+    try {
+      await db
+        .delete(schema.watchEvents)
+        .where(eq(schema.watchEvents.videoId, id));
+    } catch (err) {
+      console.warn('Error clearing watch events for video:', id, err);
+    }
+
+    const res = await db
+      .delete(schema.videos)
+      .where(eq(schema.videos.id, id));
+
+    return Boolean(res);
+  }
+
   static async deleteVideosByIds(db: DrizzleDb, ids: string[]): Promise<number> {
     if (ids.length === 0) return 0;
 
@@ -84,15 +108,21 @@ export class CatalogRepository {
       const chunk = ids.slice(i, i + chunkSize);
 
       // Remove foreign references first if present
-      await db
-        .delete(schema.profileVideoAssignments)
-        .where(inArray(schema.profileVideoAssignments.videoId, chunk))
-        .catch((err) => console.warn('Error clearing profile assignments:', err));
+      try {
+        await db
+          .delete(schema.profileVideoAssignments)
+          .where(inArray(schema.profileVideoAssignments.videoId, chunk));
+      } catch (err) {
+        console.warn('Error clearing profile assignments:', err);
+      }
 
-      await db
-        .delete(schema.watchEvents)
-        .where(inArray(schema.watchEvents.videoId, chunk))
-        .catch((err) => console.warn('Error clearing watch events:', err));
+      try {
+        await db
+          .delete(schema.watchEvents)
+          .where(inArray(schema.watchEvents.videoId, chunk));
+      } catch (err) {
+        console.warn('Error clearing watch events:', err);
+      }
 
       const res = await db
         .delete(schema.videos)

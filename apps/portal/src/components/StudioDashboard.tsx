@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { Video, Category, ChildProfile } from '@/types/video';
 import { X } from 'lucide-react';
 import { StudioTopBar } from './StudioTopBar';
 import { StudioSidebar } from './StudioSidebar';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { BulkDeleteProgressModal } from './BulkDeleteProgressModal';
 import { StudioAnalyticsView } from './StudioAnalyticsView';
 import { StudioOverviewTab } from '@/features/studio/components/StudioOverviewTab';
 import { StudioVideosTab } from '@/features/studio/components/StudioVideosTab';
@@ -57,6 +58,28 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
     action: async () => {},
   });
   const [isModalProcessing, setIsModalProcessing] = useState(false);
+
+  // Progressive Bulk Deletion State
+  const [progressState, setProgressState] = useState<{
+    isOpen: boolean;
+    total: number;
+    current: number;
+    currentTitle: string;
+    isProcessing: boolean;
+    successCount: number;
+    failedCount: number;
+    errors: Array<{ id: string; title: string; error: string }>;
+  }>({
+    isOpen: false,
+    total: 0,
+    current: 0,
+    currentTitle: '',
+    isProcessing: false,
+    successCount: 0,
+    failedCount: 0,
+    errors: [],
+  });
+  const cancelDeleteRef = useRef(false);
 
   // Shell & Navigation State
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -175,38 +198,116 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
     });
   };
 
+  const startProgressiveBulkDelete = async (ids: string[]) => {
+    cancelDeleteRef.current = false;
+    const total = ids.length;
+
+    setProgressState({
+      isOpen: true,
+      total,
+      current: 0,
+      currentTitle: '',
+      isProcessing: true,
+      successCount: 0,
+      failedCount: 0,
+      errors: [],
+    });
+
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: Array<{ id: string; title: string; error: string }> = [];
+
+    for (let i = 0; i < ids.length; i++) {
+      if (cancelDeleteRef.current) {
+        break;
+      }
+
+      const id = ids[i];
+      const vid = videos.find((v) => v.id === id);
+      const title = vid?.title || id;
+
+      setProgressState((prev) => ({
+        ...prev,
+        current: i + 1,
+        currentTitle: title,
+      }));
+
+      try {
+        const res = await fetch(`/api/studio/videos?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        const data = (await res.json().catch(() => ({}))) as any;
+
+        if (res.ok && data?.success !== false) {
+          successCount++;
+          // Immediately remove this video from UI state and selection
+          setVideos((prev) => prev.filter((v) => v.id !== id));
+          setSelectedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          setProgressState((prev) => ({
+            ...prev,
+            successCount,
+          }));
+        } else {
+          failedCount++;
+          const errMsg = data?.error || data?.message || 'Server error';
+          errors.push({ id, title, error: errMsg });
+          setProgressState((prev) => ({
+            ...prev,
+            failedCount,
+            errors: [...prev.errors, { id, title, error: errMsg }],
+          }));
+        }
+      } catch (err: any) {
+        failedCount++;
+        const errMsg = err?.message || 'Network error';
+        errors.push({ id, title, error: errMsg });
+        setProgressState((prev) => ({
+          ...prev,
+          failedCount,
+          errors: [...prev.errors, { id, title, error: errMsg }],
+        }));
+      }
+
+      // Small 60ms pause to ensure smooth animation and avoid overwhelming the connection
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+
+    setProgressState((prev) => ({
+      ...prev,
+      isProcessing: false,
+    }));
+
+    if (errors.length === 0) {
+      setNotification({
+        message: `Successfully deleted all ${successCount} video(s) from catalog and storage.`,
+        type: 'success',
+      });
+      setTimeout(() => setNotification(null), 5000);
+    } else {
+      setNotification({
+        message: `Deleted ${successCount} video(s), ${failedCount} failed.`,
+        type: 'error',
+      });
+      setTimeout(() => setNotification(null), 6000);
+    }
+  };
+
   const confirmBulkDelete = () => {
     const count = selectedIds.size;
+    const ids = Array.from(selectedIds);
     setModalConfig({
       isOpen: true,
       title: `Delete ${count} Selected Videos?`,
       message: `Are you sure you want to remove ${count} videos from the catalog?`,
-      details: 'All associated entries will be purged from Cloudflare D1 and storage.',
+      details: 'Each video will be purged one by one from Cloudflare D1 and storage with real-time progress.',
       confirmLabel: `Delete ${count} Videos`,
       action: async () => {
-        const ids = Array.from(selectedIds);
-        try {
-          const queryParam = ids.length <= 50 ? `?ids=${encodeURIComponent(ids.join(','))}` : '';
-          const res = await fetch(`/api/studio/videos${queryParam}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
-          });
-          const data = (await res.json().catch(() => ({}))) as any;
-          if (res.ok) {
-            setVideos((prev) => prev.filter((v) => !selectedIds.has(v.id)));
-            deselectAll();
-            setNotification({ message: data?.message || `Successfully deleted ${count} videos.`, type: 'success' });
-            setTimeout(() => setNotification(null), 4000);
-          } else {
-            setNotification({ message: data?.error || data?.message || 'Failed to delete selected videos.', type: 'error' });
-            setTimeout(() => setNotification(null), 5000);
-          }
-        } catch (e: any) {
-          console.error('Bulk deletion failed:', e);
-          setNotification({ message: e?.message || 'Network error during bulk deletion.', type: 'error' });
-          setTimeout(() => setNotification(null), 5000);
-        }
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+        await startProgressiveBulkDelete(ids);
       },
     });
   };
@@ -362,6 +463,24 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
         }}
         onCancel={() => {
           if (!isModalProcessing) setModalConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
+
+      <BulkDeleteProgressModal
+        isOpen={progressState.isOpen}
+        total={progressState.total}
+        current={progressState.current}
+        currentTitle={progressState.currentTitle}
+        isProcessing={progressState.isProcessing}
+        successCount={progressState.successCount}
+        failedCount={progressState.failedCount}
+        errors={progressState.errors}
+        onCancel={() => {
+          cancelDeleteRef.current = true;
+        }}
+        onClose={() => {
+          setProgressState((prev) => ({ ...prev, isOpen: false }));
+          deselectAll();
         }}
       />
     </div>

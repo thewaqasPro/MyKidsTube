@@ -21,6 +21,53 @@ export class CatalogService {
     return CatalogRepository.getAllVideos(db);
   }
 
+  static async deleteVideo(
+    db: DrizzleDb,
+    id: string,
+    context?: unknown
+  ): Promise<{ success: boolean; vpsCleanup?: boolean }> {
+    const found = await CatalogRepository.getVideoById(db, id);
+
+    // 1. Delete database record first to guarantee catalog consistency
+    await CatalogRepository.deleteVideoById(db, id);
+
+    // 2. R2 asset cleanup (best effort)
+    if (found) {
+      const r2 = await getR2Bucket(context).catch(() => null);
+      if (r2) {
+        const toDelete: string[] = [];
+        if (found.thumbnail_file) {
+          toDelete.push(`thumbnails/${found.thumbnail_file}`, found.thumbnail_file);
+        }
+        if (found.video_file) {
+          toDelete.push(`videos/${found.video_file}`, found.video_file);
+        }
+        const uniqueKeys = Array.from(new Set(toDelete.filter(Boolean)));
+        if (uniqueKeys.length > 0) {
+          try {
+            await r2.delete(uniqueKeys);
+          } catch (r2Err) {
+            console.warn('R2 delete error for video:', id, r2Err);
+          }
+        }
+      }
+    }
+
+    // 3. VPS disk cleanup (best effort)
+    let vpsSuccess = false;
+    try {
+      const vpsRes = await cleanupVpsMedia([id], context);
+      vpsSuccess = Boolean(vpsRes.success);
+    } catch (e) {
+      console.warn('VPS cleanup trigger failed for video:', id, e);
+    }
+
+    return {
+      success: true,
+      vpsCleanup: vpsSuccess,
+    };
+  }
+
   static async deleteVideos(
     db: DrizzleDb,
     ids: string[],

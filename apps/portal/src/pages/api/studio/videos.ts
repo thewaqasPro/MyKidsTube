@@ -96,6 +96,23 @@ export const DELETE: APIRoute = async (context) => {
       });
     }
 
+    if (ids.length === 1) {
+      const singleId = ids[0];
+      const res = await CatalogService.deleteVideo(drizzleDb, singleId, context);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Video deleted successfully',
+          deleted_ids: [singleId],
+          vps_cleanup: res.vpsCleanup,
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        }
+      );
+    }
+
     const res = await CatalogService.deleteVideos(drizzleDb, ids, context);
 
     return new Response(
