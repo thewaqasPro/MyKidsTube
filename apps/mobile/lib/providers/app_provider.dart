@@ -76,6 +76,10 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> applyCurrentOrientationMode() async {
+    await _applyOrientationMode(_orientationMode);
+  }
+
   Future<void> _applyOrientationMode(AppOrientationMode mode) async {
     switch (mode) {
       case AppOrientationMode.portrait:
