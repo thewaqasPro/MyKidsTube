@@ -127,3 +127,27 @@ body {
   transform: translateY(-4px) scale(1.015);
   box-shadow: 0 12px 24px -8px rgba(56, 189, 248, 0.18);
 }
+
+/* Video.js skin kid-safe adjustments: hide title overlays */
+.video-skin [data-part="title"],
+.video-skin .title,
+.video-skin [data-visible] [data-part="title"] {
+  display: none !important;
+}
+
+/* Crop YouTube iframe inside Video.js to push native title, channel link & YouTube logo outside container */
+.video-skin iframe,
+#player-container iframe {
+  border: 0 !important;
+  transform: scaleX(1.05) scaleY(1.22) !important;
+  transform-origin: center center !important;
+}
+
+/* For vertical shorts reel (9:16) */
+[data-reel-container] .video-skin iframe,
+[data-reel-container] iframe {
+  border: 0 !important;
+  transform: scaleX(1.06) scaleY(1.20) !important;
+  transform-origin: center center !important;
+}
+

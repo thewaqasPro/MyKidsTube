@@ -1,7 +1,10 @@
 import React from 'react';
 import type { Video } from '@/types/video';
-import { getStreamUrl } from '@/lib/constants';
+import { getStreamUrl, getThumbnailUrl } from '@/lib/constants';
 import { ArrowRight } from 'lucide-react';
+import '@videojs/react/video/neutral-skin.css';
+import { VideoPlayer, NeutralVideoSkin, Video as VideoElement } from '@videojs/react/video';
+import { YouTubeVideo } from '@videojs/react/media/youtube-video';
 
 interface ShortsReelProps {
   currentShort: Video;
@@ -46,73 +49,87 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
   advanceFeedback,
   formatSeconds,
 }) => {
+  const youtubeUrl = currentShort.youtube_id
+    ? `https://www.youtube.com/watch?v=${currentShort.youtube_id}`
+    : currentShort.source_url || `https://www.youtube.com/watch?v=${currentShort.id}`;
+
   return (
     <div
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      data-reel-container="true"
       className="relative h-full aspect-[9/16] rounded-[32px] overflow-hidden bg-canvas-deep flex items-center justify-center select-none"
     >
-      {selfHosted ? (
-        // MODE A: Native Self-Hosted MP4 Player
-        <video
-          ref={videoRef}
-          src={getStreamUrl(currentShort)}
-          autoPlay
-          loop
-          playsInline
-          muted={isMuted}
-          onTimeUpdate={() => {
-            if (videoRef.current && !isScrubbing) {
-              setCurrentTime(videoRef.current.currentTime);
-            }
-          }}
-          onLoadedMetadata={() => {
-            if (videoRef.current) {
-              setDuration(videoRef.current.duration);
-            }
-          }}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        // MODE B: YouTube Embed with Transparent Shields
-        <>
-          <iframe
-            ref={iframeRef}
-            src={embedUrl}
-            title={currentShort.title}
-            className="w-full h-full border-0 pointer-events-auto transform scale-x-[1.03] scale-y-[1.15] origin-center"
-            sandbox="allow-scripts allow-same-origin allow-presentation"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-
-          {/* SHIELD 1: Top Blocker (Blocks title, channel avatar & share button) */}
-          <div
-            onClick={handleScreenTap}
-            className="absolute top-0 inset-x-0 h-25 z-30 bg-gradient-to-b from-canvas-deep via-canvas-deep/95 to-transparent  cursor-pointer"
-            title="Kid Safe Shield: Top External Links Blocked"
-          />
-
-          {/* SHIELD 2: Bottom-Right Blocker (Blocks YouTube logo & settings gear) */}
-          {/* <div
-            onClick={handleScreenTap}
-            className="absolute bottom-0 right-0 w-36 h-14 z-30 bg-transparent cursor-pointer"
-            title="Kid Safe Shield: YouTube Logo & Settings Blocked"
-          /> */}
-
-          {/* SHIELD 3: Center Touch-to-Next Advance Zone */}
-          {tapToNextEnabled && (
-            <div
-              onClick={handleScreenTap}
-              className="absolute inset-x-0 top-18 bottom-14 z-20 bg-transparent cursor-pointer flex items-center justify-center"
+      <VideoPlayer
+        key={currentShort.id}
+        poster={getThumbnailUrl(currentShort)}
+        title=""
+      >
+        <NeutralVideoSkin className="overflow-hidden w-full h-full" style={{ width: '100%', height: '100%', aspectRatio: '9 / 16' }}>
+          {selfHosted ? (
+            <VideoElement
+              ref={videoRef}
+              src={getStreamUrl(currentShort)}
+              autoPlay
+              loop
+              playsInline
+              muted={isMuted}
+              onTimeUpdate={() => {
+                if (videoRef.current && !isScrubbing) {
+                  setCurrentTime(videoRef.current.currentTime);
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (videoRef.current) {
+                  setDuration(videoRef.current.duration);
+                }
+              }}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <YouTubeVideo
+              src={youtubeUrl}
+              autoPlay
+              loop
+              playsInline
+              muted={isMuted}
+              controls={false}
+              source={{
+                src: youtubeUrl,
+                engine: {
+                  youtube: {
+                    controls: 0,
+                    rel: 0,
+                    iv_load_policy: 3,
+                    disablekb: 1,
+                    fs: 0,
+                  },
+                },
+              }}
             />
           )}
-        </>
+        </NeutralVideoSkin>
+      </VideoPlayer>
+
+      {/* SHIELD 1: Top Blocker (Blocks title, channel avatar & share button) */}
+      <div
+        onClick={handleScreenTap}
+        className="absolute top-0 inset-x-0 h-24 z-30 bg-gradient-to-b from-canvas-deep/80 via-canvas-deep/30 to-transparent cursor-pointer"
+        title="Kid Safe Shield: Top External Links Blocked"
+      />
+
+      {/* SHIELD 2: Center Touch-to-Next Advance Zone */}
+      {tapToNextEnabled && (
+        <div
+          onClick={handleScreenTap}
+          className="absolute inset-x-0 top-20 bottom-16 z-20 bg-transparent cursor-pointer flex items-center justify-center"
+        />
       )}
 
       {/* Animated Kid Touch Visual Feedback */}
       {advanceFeedback && (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+
           <div className="px-6 py-3.5 rounded-3xl bg-gradient-to-r from-coral to-sun text-white flex items-center gap-3 shadow-2xl shadow-coral/50 animate-bounce border-2 border-white/20">
             <span className="text-sm font-display font-black tracking-wide">Next Fun Reel! 🚀</span>
             <ArrowRight className="w-5 h-5 text-white" />

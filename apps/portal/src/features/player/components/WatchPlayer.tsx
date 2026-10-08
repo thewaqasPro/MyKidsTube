@@ -1,14 +1,10 @@
 import React from 'react';
 import type { Video } from '@/types/video';
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  RotateCcw,
-  Layers
-} from 'lucide-react';
+import '@videojs/react/video/neutral-skin.css';
+import { VideoPlayer, NeutralVideoSkin, Video as VideoElement } from '@videojs/react/video';
+import { YouTubeVideo } from '@videojs/react/media/youtube-video';
+import { getThumbnailUrl } from '@/lib/constants';
+import { Layers } from 'lucide-react';
 
 interface WatchPlayerProps {
   video: Video;
@@ -55,120 +51,81 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
   handleSeek,
   formatSeconds,
 }) => {
+  const youtubeUrl = video.youtube_id
+    ? `https://www.youtube.com/watch?v=${video.youtube_id}`
+    : video.source_url || `https://www.youtube.com/watch?v=${video.id}`;
+
   return (
     <div
       id="player-container"
       className="relative aspect-video w-full rounded-[28px] overflow-hidden bg-canvas-deep shadow-2xl border-2 border-border group"
     >
-      {selfHostedAvailable ? (
-        // MODE A: Native Self-Hosted HTML5 MP4 Player
-        <>
-          <video
-            ref={videoRef}
-            src={streamUrl}
-            autoPlay
-            playsInline
-            muted={isMuted}
-            onError={() => {
-              console.warn('Local MP4 stream unreachable, falling back to YouTube Embed');
-              setStreamError(true);
-            }}
-            onTimeUpdate={() => {
-              if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
-            }}
-            onLoadedMetadata={() => {
-              if (videoRef.current) setDuration(videoRef.current.duration);
-            }}
-            onEnded={() => setIsPlaying(false)}
-            className="w-full h-full object-contain cursor-pointer"
-            onClick={togglePlay}
-          />
-
-          {/* Custom Control Bar Overlay */}
-          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-canvas-deep/95 via-canvas-deep/60 to-transparent flex flex-col gap-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <input
-              type="range"
-              min="0"
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeek}
-              className="w-full h-2 bg-border accent-coral rounded-full appearance-none cursor-pointer hover:h-2.5 transition-all"
+      <VideoPlayer
+        key={video.id}
+        poster={getThumbnailUrl(video)}
+        title=""
+      >
+        <NeutralVideoSkin className="overflow-hidden w-full h-full" style={{ width: '100%', height: '100%', aspectRatio: '16 / 9' }}>
+          {selfHostedAvailable && streamUrl ? (
+            <VideoElement
+              ref={videoRef}
+              src={streamUrl}
+              autoPlay
+              playsInline
+              muted={isMuted}
+              onError={() => {
+                console.warn('Local MP4 stream unreachable, falling back to YouTube Embed');
+                setStreamError(true);
+              }}
+              onTimeUpdate={() => {
+                if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+              }}
+              onLoadedMetadata={() => {
+                if (videoRef.current) setDuration(videoRef.current.duration);
+              }}
+              onEnded={() => setIsPlaying(false)}
             />
+          ) : (
+            <YouTubeVideo
+              src={youtubeUrl}
+              autoPlay
+              playsInline
+              controls={false}
+              source={{
+                src: youtubeUrl,
+                engine: {
+                  youtube: {
+                    controls: 0,
+                    rel: 0,
+                    iv_load_policy: 3,
+                    disablekb: 1,
+                    fs: 0,
+                  },
+                },
+              }}
+            />
+          )}
+        </NeutralVideoSkin>
+      </VideoPlayer>
 
-            <div className="flex items-center justify-between text-white text-[13px]">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={togglePlay}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-coral text-white flex items-center justify-center transition-all cursor-pointer shadow-md"
-                  title={isPlaying ? 'Pause' : 'Play'}
-                >
-                  {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-                </button>
-                <button
-                  onClick={toggleMute}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-sky text-white flex items-center justify-center transition-all cursor-pointer"
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? <VolumeX className="w-4 h-4 text-coral" /> : <Volume2 className="w-4 h-4" />}
-                </button>
-                <span className="text-xs text-text-secondary font-bold tracking-wider font-mono bg-surface/80 px-2.5 py-1 rounded-full border border-white/5">
-                  {formatSeconds(currentTime)} / {formatSeconds(duration || video.duration)}
-                </span>
-              </div>
+      {/* Kid-Safe Top Shield: Blocks any click on YouTube title, channel & share links */}
+      <div
+        className="absolute top-0 inset-x-0 h-16 z-20 bg-gradient-to-b from-canvas-deep/80 via-canvas-deep/30 to-transparent cursor-default pointer-events-auto"
+        title="Kid Safe Shield: External Links Blocked"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      />
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (videoRef.current) videoRef.current.currentTime = 0;
-                  }}
-                  title="Replay from start"
-                  className="w-8 h-8 rounded-full hover:bg-white/10 text-text-secondary hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setIsTheater((prev) => !prev)}
-                  title="Theater Mode"
-                  className="w-8 h-8 rounded-full hover:bg-white/10 text-text-secondary hover:text-white hidden sm:flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <Layers className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  title="Fullscreen"
-                  className="w-8 h-8 rounded-full hover:bg-white/10 text-text-secondary hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <Maximize className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        // MODE B: YouTube Privacy-Enhanced Embed with Kid-Safe Click-Blocking Shields
-        <div className="relative w-full h-full overflow-hidden flex items-center justify-center">
-          <iframe
-            src={embedUrl}
-            title={video.title}
-            className="w-full h-full border-0 pointer-events-auto transform scale-x-[1.03] scale-y-[1.2] origin-center"
-            sandbox="allow-scripts allow-same-origin allow-presentation"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-
-          {/* SHIELD 1: Top Blocker (Blocks YouTube title, channel link & share button) */}
-          {/* <div
-            className="absolute top-0 inset-x-0 h-16 z-30 bg-transparent cursor-default"
-            title="Kid Safe Shield: Top External Links Blocked"
-          /> */}
-
-          {/* SHIELD 2: Bottom Blocker (Blocks YouTube logo & settings gear) */}
-          {/* <div
-            className="absolute bottom-0 inset-x-0 h-16 z-30 bg-transparent cursor-default"
-            title="Kid Safe Shield: Bottom YouTube Controls Blocked"
-          /> */}
-        </div>
-      )}
+      {/* Floating Theater Mode Toggle */}
+      <button
+        onClick={() => setIsTheater((prev) => !prev)}
+        title={isTheater ? 'Default view' : 'Theater mode'}
+        className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-canvas-deep/80 hover:bg-canvas-deep text-text-secondary hover:text-white backdrop-blur-md hidden sm:flex items-center justify-center transition-all cursor-pointer shadow-lg border border-white/10 opacity-0 group-hover:opacity-100"
+      >
+        <Layers className="w-4 h-4" />
+      </button>
     </div>
   );
 };
