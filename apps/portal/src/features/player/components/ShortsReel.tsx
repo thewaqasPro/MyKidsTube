@@ -50,7 +50,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
     <div
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="relative h-full aspect-[9/16] rounded-[32px] overflow-hidden bg-canvas-deep shadow-2xl border-2 border-border flex items-center justify-center select-none"
+      className="relative h-full aspect-[9/16] rounded-[32px] overflow-hidden bg-canvas-deep flex items-center justify-center select-none"
     >
       {selfHosted ? (
         // MODE A: Native Self-Hosted MP4 Player
@@ -80,7 +80,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
             ref={iframeRef}
             src={embedUrl}
             title={currentShort.title}
-            className="w-full h-full border-0 pointer-events-auto transform scale-[1.14] origin-center"
+            className="w-full h-full border-0 pointer-events-auto transform scale-x-[1.03] scale-y-[1.15] origin-center"
             sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -89,16 +89,16 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
           {/* SHIELD 1: Top Blocker (Blocks title, channel avatar & share button) */}
           <div
             onClick={handleScreenTap}
-            className="absolute top-0 inset-x-0 h-18 z-30 bg-transparent cursor-pointer"
+            className="absolute top-0 inset-x-0 h-25 z-30 bg-gradient-to-b from-canvas-deep via-canvas-deep/95 to-transparent  cursor-pointer"
             title="Kid Safe Shield: Top External Links Blocked"
           />
 
           {/* SHIELD 2: Bottom-Right Blocker (Blocks YouTube logo & settings gear) */}
-          <div
+          {/* <div
             onClick={handleScreenTap}
             className="absolute bottom-0 right-0 w-36 h-14 z-30 bg-transparent cursor-pointer"
             title="Kid Safe Shield: YouTube Logo & Settings Blocked"
-          />
+          /> */}
 
           {/* SHIELD 3: Center Touch-to-Next Advance Zone */}
           {tapToNextEnabled && (
@@ -121,7 +121,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
       )}
 
       {/* Video Title & Channel Metadata Overlay */}
-      <div className="absolute inset-x-0 bottom-8 p-4 bg-gradient-to-t from-canvas-deep/95 via-canvas-deep/60 to-transparent pointer-events-none z-20">
+      <div className="hidden absolute inset-x-0 bottom-8 p-4 bg-gradient-to-t from-canvas-deep/95 via-canvas-deep/60 to-transparent pointer-events-none z-20">
         <h2 className="text-sm sm:text-base font-display font-bold text-white drop-shadow-md line-clamp-2">
           {currentShort.title}
         </h2>
@@ -145,7 +145,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
-        className="absolute inset-x-0 bottom-0 z-35 px-4 pb-2.5 pt-4 bg-gradient-to-t from-canvas-deep/95 to-transparent flex flex-col gap-1 select-none"
+        className="hidden absolute inset-x-0 bottom-0 z-35 px-4 pb-2.5 pt-4 bg-gradient-to-t from-canvas-deep/95 to-transparent flex flex-col gap-1 select-none"
       >
         <div className="relative flex items-center group/slider py-1">
           <input

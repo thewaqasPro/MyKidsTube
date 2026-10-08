@@ -7,7 +7,7 @@ import { CatalogService } from '@/features/catalog/catalog.service';
 const ALLOWED_STATUSES = new Set(['pending_download', 'ready', 'error']);
 
 export const OPTIONS: APIRoute = async ({ request }) => {
-  return handleOptions(request, ['GET', 'PATCH', 'DELETE', 'OPTIONS']);
+  return handleOptions(request, ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS']);
 };
 
 export const GET: APIRoute = async (context) => {
@@ -42,12 +42,16 @@ export const GET: APIRoute = async (context) => {
   }
 };
 
+export const POST: APIRoute = async (context) => {
+  return DELETE(context);
+};
+
 export const DELETE: APIRoute = async (context) => {
   const authErr = await requireParent(context);
   if (authErr) return authErr;
 
   const corsHeaders = getCorsHeaders(context.request, {
-    methods: ['GET', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     isStateChanging: true,
   });
 

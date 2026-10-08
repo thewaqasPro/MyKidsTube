@@ -150,23 +150,23 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
           <iframe
             src={embedUrl}
             title={video.title}
-            className="w-full h-full border-0 pointer-events-auto transform scale-[1.14] origin-center"
+            className="w-full h-full border-0 pointer-events-auto transform scale-x-[1.03] scale-y-[1.2] origin-center"
             sandbox="allow-scripts allow-same-origin allow-presentation"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
 
           {/* SHIELD 1: Top Blocker (Blocks YouTube title, channel link & share button) */}
-          <div
+          {/* <div
             className="absolute top-0 inset-x-0 h-16 z-30 bg-transparent cursor-default"
             title="Kid Safe Shield: Top External Links Blocked"
-          />
+          /> */}
 
           {/* SHIELD 2: Bottom Blocker (Blocks YouTube logo & settings gear) */}
-          <div
+          {/* <div
             className="absolute bottom-0 inset-x-0 h-16 z-30 bg-transparent cursor-default"
             title="Kid Safe Shield: Bottom YouTube Controls Blocked"
-          />
+          /> */}
         </div>
       )}
     </div>

@@ -37,30 +37,37 @@ export class CatalogService {
     // 1. Fetch matching videos to get file paths for disk & R2 cleanup
     const foundVideos = await CatalogRepository.getVideosByIds(db, ids);
 
-    // 2. R2 asset cleanup (best effort)
+    // 2. Delete database records first to guarantee catalog consistency
+    const deletedCount = await CatalogRepository.deleteVideosByIds(db, ids);
+
+    // 3. Batch R2 asset cleanup in a single subrequest call (prevents Cloudflare subrequest limit)
     const r2 = await getR2Bucket(context).catch(() => null);
-    if (r2) {
-      for (const v of foundVideos) {
+    if (r2 && foundVideos.length > 0) {
+      try {
         const toDelete: string[] = [];
-        if (v.thumbnail_file) {
-          toDelete.push(`thumbnails/${v.thumbnail_file}`, v.thumbnail_file);
+        for (const v of foundVideos) {
+          if (v.thumbnail_file) {
+            toDelete.push(`thumbnails/${v.thumbnail_file}`, v.thumbnail_file);
+          }
+          if (v.video_file) {
+            toDelete.push(`videos/${v.video_file}`, v.video_file);
+          }
         }
-        if (v.video_file) {
-          toDelete.push(`videos/${v.video_file}`, v.video_file);
+        const uniqueKeys = Array.from(new Set(toDelete.filter(Boolean)));
+        if (uniqueKeys.length > 0) {
+          // Cloudflare R2 bucket.delete accepts an array of keys in a single operation
+          await r2.delete(uniqueKeys);
         }
-        await Promise.allSettled(toDelete.map((k) => r2.delete(k)));
+      } catch (r2Err) {
+        console.warn('R2 batch cleanup error:', r2Err);
       }
     }
 
-    // 3. VPS disk cleanup (best effort)
-    const filesToClean = foundVideos
-      .flatMap((v) => [v.video_file, v.thumbnail_file])
-      .filter(Boolean) as string[];
-
+    // 4. VPS disk cleanup (pass video IDs matching Python SAFE_ID_REGEX)
     let vpsResult = { requested: false as boolean, success: false, deletedFiles: [] as string[] };
-    if (filesToClean.length > 0) {
+    if (ids.length > 0) {
       try {
-        const vpsRes = await cleanupVpsMedia(filesToClean, context);
+        const vpsRes = await cleanupVpsMedia(ids, context);
         vpsResult = {
           requested: true,
           success: vpsRes.success,
@@ -70,9 +77,6 @@ export class CatalogService {
         console.warn('VPS cleanup trigger failed:', e);
       }
     }
-
-    // 4. Delete records from database
-    const deletedCount = await CatalogRepository.deleteVideosByIds(db, ids);
 
     return {
       deletedCount,

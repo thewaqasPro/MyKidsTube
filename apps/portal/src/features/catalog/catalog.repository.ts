@@ -61,32 +61,47 @@ export class CatalogRepository {
 
   static async getVideosByIds(db: DrizzleDb, ids: string[]): Promise<Video[]> {
     if (ids.length === 0) return [];
-    const rows = await db
-      .select()
-      .from(schema.videos)
-      .where(inArray(schema.videos.id, ids));
-    return rows.map(mapVideoRowToVideo);
+    const chunkSize = 50;
+    const allVideos: Video[] = [];
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const rows = await db
+        .select()
+        .from(schema.videos)
+        .where(inArray(schema.videos.id, chunk));
+      allVideos.push(...rows.map(mapVideoRowToVideo));
+    }
+    return allVideos;
   }
 
   static async deleteVideosByIds(db: DrizzleDb, ids: string[]): Promise<number> {
     if (ids.length === 0) return 0;
 
-    // Remove foreign references first if present
-    await db
-      .delete(schema.profileVideoAssignments)
-      .where(inArray(schema.profileVideoAssignments.videoId, ids))
-      .catch(() => null);
+    const chunkSize = 50;
+    let totalDeleted = 0;
 
-    await db
-      .delete(schema.watchEvents)
-      .where(inArray(schema.watchEvents.videoId, ids))
-      .catch(() => null);
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
 
-    const res = await db
-      .delete(schema.videos)
-      .where(inArray(schema.videos.id, ids));
+      // Remove foreign references first if present
+      await db
+        .delete(schema.profileVideoAssignments)
+        .where(inArray(schema.profileVideoAssignments.videoId, chunk))
+        .catch((err) => console.warn('Error clearing profile assignments:', err));
 
-    return (res as any)?.rowsAffected ?? ids.length;
+      await db
+        .delete(schema.watchEvents)
+        .where(inArray(schema.watchEvents.videoId, chunk))
+        .catch((err) => console.warn('Error clearing watch events:', err));
+
+      const res = await db
+        .delete(schema.videos)
+        .where(inArray(schema.videos.id, chunk));
+
+      totalDeleted += (res as any)?.rowsAffected ?? (res as any)?.meta?.changes ?? chunk.length;
+    }
+
+    return totalDeleted;
   }
 
   static async getStudioStorageStats(db: DrizzleDb) {

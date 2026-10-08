@@ -151,6 +151,7 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
         setIsDeletingId(id);
         try {
           const res = await fetch(`/api/studio/videos?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+          const data = (await res.json().catch(() => ({}))) as any;
           if (res.ok) {
             setVideos((prev) => prev.filter((v) => v.id !== id));
             setSelectedIds((prev) => {
@@ -158,9 +159,15 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
               n.delete(id);
               return n;
             });
-            setNotification({ message: 'Video deleted successfully.', type: 'success' });
+            setNotification({ message: data?.message || 'Video deleted successfully.', type: 'success' });
             setTimeout(() => setNotification(null), 4000);
+          } else {
+            setNotification({ message: data?.error || data?.message || 'Failed to delete video.', type: 'error' });
+            setTimeout(() => setNotification(null), 5000);
           }
+        } catch (err: any) {
+          setNotification({ message: err?.message || 'Network error while deleting video.', type: 'error' });
+          setTimeout(() => setNotification(null), 5000);
         } finally {
           setIsDeletingId(null);
         }
@@ -179,19 +186,26 @@ export const StudioDashboard: React.FC<StudioDashboardProps> = ({
       action: async () => {
         const ids = Array.from(selectedIds);
         try {
-          const res = await fetch('/api/studio/videos', {
+          const queryParam = ids.length <= 50 ? `?ids=${encodeURIComponent(ids.join(','))}` : '';
+          const res = await fetch(`/api/studio/videos${queryParam}`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids }),
           });
+          const data = (await res.json().catch(() => ({}))) as any;
           if (res.ok) {
             setVideos((prev) => prev.filter((v) => !selectedIds.has(v.id)));
             deselectAll();
-            setNotification({ message: `Successfully deleted ${count} videos.`, type: 'success' });
+            setNotification({ message: data?.message || `Successfully deleted ${count} videos.`, type: 'success' });
             setTimeout(() => setNotification(null), 4000);
+          } else {
+            setNotification({ message: data?.error || data?.message || 'Failed to delete selected videos.', type: 'error' });
+            setTimeout(() => setNotification(null), 5000);
           }
-        } catch (e) {
+        } catch (e: any) {
           console.error('Bulk deletion failed:', e);
+          setNotification({ message: e?.message || 'Network error during bulk deletion.', type: 'error' });
+          setTimeout(() => setNotification(null), 5000);
         }
       },
     });
