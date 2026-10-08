@@ -62,7 +62,7 @@ export const DELETE: APIRoute = async (context) => {
     } else if (queryId) {
       ids = [queryId.trim()];
     } else {
-      const body = await context.request.json().catch(() => ({}));
+      const body = (await context.request.json().catch(() => ({}))) as Record<string, any>;
       if (Array.isArray(body.ids)) {
         ids = body.ids.map((s: unknown) => String(s).trim()).filter(Boolean);
       } else if (body.id) {
@@ -125,7 +125,7 @@ export const PATCH: APIRoute = async (context) => {
   });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, any>;
     const id = String(body.id || '').trim();
     const status = String(body.status || '').trim() as any;
 

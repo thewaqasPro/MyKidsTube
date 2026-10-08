@@ -15,7 +15,7 @@ export const POST: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, any>;
     const { url, category_id = 'cartoons', quality = '720p', allowed_profile_ids = ['kids_all'] } = body;
 
     if (!url || typeof url !== 'string') {

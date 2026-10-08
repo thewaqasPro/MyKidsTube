@@ -18,7 +18,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const rawCode = String(body.pairing_code || '').trim();
     const profileId = String(body.profile_id || 'kids_all').trim();
     const rawDeviceName = body.device_name ? String(body.device_name) : null;

@@ -15,7 +15,7 @@ export const POST: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, any>;
     const categoryId = body.category_id || 'cartoons';
     const profileIds: string[] = body.allowed_profile_ids || ['kids_all'];
     const db = await getDatabase(context);
@@ -170,6 +170,11 @@ export const POST: APIRoute = async (context) => {
     for (let i = 0; i < validItems.length; i++) {
       const item = validItems[i];
       const catId = item.isShort ? 'shorts' : (categoryId === 'shorts' ? 'cartoons' : categoryId);
+      const meta = metaList[i] || {
+        title: `Kids Video ${item.ytId}`,
+        channel_name: 'YouTube Kids',
+        thumbnail_url: `https://i.ytimg.com/vi/${item.ytId}/hqdefault.jpg`,
+      };
 
       if (db) {
         await upsertVideo(db, {

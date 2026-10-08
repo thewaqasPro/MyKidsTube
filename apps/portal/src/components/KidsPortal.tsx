@@ -190,7 +190,11 @@ export const KidsPortal: React.FC<KidsPortalProps> = ({
     try {
       const res = await fetch('/api/catalog');
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as {
+          all_videos?: Video[];
+          categories?: Category[];
+          profiles?: ChildProfile[];
+        };
         if (data.all_videos && Array.isArray(data.all_videos)) {
           setVideos(data.all_videos);
         }

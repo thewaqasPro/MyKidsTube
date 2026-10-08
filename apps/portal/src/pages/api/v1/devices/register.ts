@@ -27,7 +27,7 @@ export const POST: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const rawName = String(body.device_name || 'Kids Tablet');
     const sanitizedName = rawName.replace(/[\x00-\x1F\x7F]/g, '').trim().slice(0, 64) || 'Kids Tablet';
 

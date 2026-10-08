@@ -64,7 +64,7 @@ export class CatalogService {
         vpsResult = {
           requested: true,
           success: vpsRes.success,
-          deletedFiles: vpsRes.deleted_files,
+          deletedFiles: vpsRes.deleted_files || vpsRes.deleted_ids || [],
         };
       } catch (e) {
         console.warn('VPS cleanup trigger failed:', e);

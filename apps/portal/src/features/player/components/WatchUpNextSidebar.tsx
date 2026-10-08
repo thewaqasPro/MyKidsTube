@@ -9,7 +9,7 @@ interface WatchUpNextSidebarProps {
 
 export const WatchUpNextSidebar: React.FC<WatchUpNextSidebarProps> = ({ relatedVideos = [] }) => {
   return (
-    <div className="w-full lg:w-96 shrink-0">
+    <div className="w-full lg:w-120 shrink-0">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-lg font-display font-black text-white tracking-wide">Up Next For You</h2>
         <Sparkles className="w-4 h-4 text-sun" />
@@ -34,7 +34,7 @@ export const WatchUpNextSidebar: React.FC<WatchUpNextSidebarProps> = ({ relatedV
               className="flex gap-3 group p-2 rounded-2xl bg-surface/40 hover:bg-surface border border-transparent hover:border-border transition-all duration-200 no-underline text-inherit"
             >
               {/* Thumbnail with duration badge */}
-              <div className="relative w-36 sm:w-40 aspect-video rounded-xl overflow-hidden bg-canvas-deep shrink-0 border border-border">
+              <div className="relative w-40 sm:w-60 max-w-2xs aspect-video rounded-xl overflow-hidden bg-canvas-deep shrink-0 border border-border">
                 <img
                   src={thumb}
                   alt={relCleanTitle}
@@ -48,7 +48,7 @@ export const WatchUpNextSidebar: React.FC<WatchUpNextSidebarProps> = ({ relatedV
 
               {/* Video Info */}
               <div className="flex flex-col min-w-0 py-0.5 justify-center">
-                <h3 className="text-xs sm:text-[13px] font-bold text-white line-clamp-2 leading-snug group-hover:text-sky transition-colors">
+                <h3 className="text-xs sm:text-[16px] font-bold text-white line-clamp-3 leading-snug group-hover:text-sky transition-colors">
                   {relCleanTitle}
                 </h3>
                 <span className="text-[11px] text-text-secondary mt-1 font-semibold truncate">

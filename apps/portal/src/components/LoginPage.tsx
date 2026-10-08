@@ -102,7 +102,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
     setLoading(true);
 
     try {
-      const res = await authClient.passkey.signIn();
+      const res = await authClient.signIn.passkey();
       if (res?.error) {
         throw new Error(res.error.message || 'Passkey verification failed.');
       }
@@ -130,7 +130,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ redirectTo = '/studio' }) 
         body: JSON.stringify({ pin: pin.trim() }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { error?: string };
       if (!res.ok) {
         throw new Error(data.error || 'Incorrect Parent PIN');
       }

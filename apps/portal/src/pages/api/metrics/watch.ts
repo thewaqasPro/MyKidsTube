@@ -10,7 +10,7 @@ export const POST: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['POST', 'OPTIONS'], isStateChanging: true });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, any>;
     // 1. Support batch sync for local-first clients
     if (Array.isArray(body.events)) {
       const db = await getDatabase(context);

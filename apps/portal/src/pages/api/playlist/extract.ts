@@ -18,7 +18,7 @@ export const POST: APIRoute = async (context) => {
   });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const rawUrl = String(body.playlist_url || body.url || '').trim();
 
     if (!rawUrl) {

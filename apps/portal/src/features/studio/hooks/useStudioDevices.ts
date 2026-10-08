@@ -35,7 +35,7 @@ export function useStudioDevices({
     setLoadingDevices(true);
     fetch('/api/studio/devices')
       .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setDevicesList(data))
+      .then((data: any) => setDevicesList(Array.isArray(data) ? data : []))
       .catch(() => setDevicesList([]))
       .finally(() => setLoadingDevices(false));
   };
@@ -56,7 +56,7 @@ export function useStudioDevices({
           device_name: pairDeviceName.trim() || 'Kids Tablet',
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) setPairError(data.error || 'Failed to pair device.');
       else {
         setPairSuccess(`Device paired successfully!`);

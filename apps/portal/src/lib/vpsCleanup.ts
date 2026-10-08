@@ -4,6 +4,7 @@ export interface VpsCleanupResult {
   success: boolean;
   deleted_count?: number;
   deleted_ids?: string[];
+  deleted_files?: string[];
   freed_bytes?: number;
   error?: string;
 }

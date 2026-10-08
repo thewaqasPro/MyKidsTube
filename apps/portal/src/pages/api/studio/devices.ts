@@ -57,7 +57,7 @@ export const DELETE: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['DELETE', 'OPTIONS'], isStateChanging: true });
 
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const id = String(body.id || '').trim();
 
     if (!id) {

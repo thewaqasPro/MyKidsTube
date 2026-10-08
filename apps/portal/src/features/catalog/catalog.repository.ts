@@ -142,7 +142,7 @@ export class CatalogRepository {
         categoryId,
         sourceUrl,
         videoFile,
-        thumbnailFile,
+        thumbnailFile: thumbFile,
         fileSizeBytes: 0,
         quality,
         createdAt: now,

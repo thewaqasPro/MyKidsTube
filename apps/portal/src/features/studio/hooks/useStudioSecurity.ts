@@ -23,7 +23,7 @@ export function useStudioSecurity() {
   const fetchPasskeys = async () => {
     setLoadingPasskeys(true);
     try {
-      const res = await authClient.passkey.listPasskeys();
+      const res = await authClient.passkey.listUserPasskeys();
       if (res && 'data' in res && Array.isArray(res.data)) {
         setPasskeysList(res.data);
       }
@@ -100,7 +100,10 @@ export function useStudioSecurity() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: newPin }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      if (!res.ok) {
+        const errData = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(errData.error || 'Failed to update PIN.');
+      }
       setPinNotice({ message: 'Parent PIN updated successfully!', type: 'success' });
       setNewPin('');
       setConfirmPin('');

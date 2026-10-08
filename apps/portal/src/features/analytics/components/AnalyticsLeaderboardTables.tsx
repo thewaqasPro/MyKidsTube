@@ -57,7 +57,7 @@ export const AnalyticsLeaderboardTables: React.FC<AnalyticsLeaderboardTablesProp
                   #{idx + 1}
                 </span>
                 <img
-                  src={getThumbnailUrl(video.thumbnail_file, video.video_id)}
+                  src={getThumbnailUrl({ id: video.video_id, thumbnail_file: video.thumbnail_file })}
                   alt=""
                   className="w-16 h-10 object-cover rounded-xl bg-black border border-border"
                 />
@@ -103,7 +103,7 @@ export const AnalyticsLeaderboardTables: React.FC<AnalyticsLeaderboardTablesProp
                   &times;
                 </span>
                 <img
-                  src={getThumbnailUrl(video.thumbnail_file, video.video_id)}
+                  src={getThumbnailUrl({ id: video.video_id, thumbnail_file: video.thumbnail_file })}
                   alt=""
                   className="w-16 h-10 object-cover rounded-xl bg-black border border-border opacity-80"
                 />

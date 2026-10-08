@@ -4,7 +4,7 @@ import { createParentSession, buildSessionCookie } from '../../../lib/parentAuth
 
 export const POST: APIRoute = async (context) => {
   try {
-    const body = await context.request.json().catch(() => ({}));
+    const body = (await context.request.json().catch(() => ({}))) as Record<string, unknown>;
     const pin = String(body.pin || '').trim();
 
     if (!pin) {

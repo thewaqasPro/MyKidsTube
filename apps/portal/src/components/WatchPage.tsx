@@ -57,7 +57,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({
   const youtubeId = getYoutubeId(video);
   const selfHostedAvailable = isSelfHosted(video) && !streamError && !forceEmbed;
   const streamUrl = getStreamUrl(video);
-  const avatarUrl = getChannelIconUrl(video);
+  const avatarUrl = getChannelIconUrl(video) || '';
   const embedUrl = getYoutubeEmbedUrl(youtubeId, true);
 
   const cleanChannelName = video.channel_name || (video.title.includes('•') ? video.title.split('•')[0].trim() : 'KidsTube');

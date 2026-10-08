@@ -143,7 +143,7 @@ export const StudioDevicesTab: React.FC<StudioDevicesTabProps> = ({
                     : [{ id: 'kids_all', name: 'All Kids' }, { id: 'kids_toddler', name: 'Little Kids' }]
                   ).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} {p.age_bracket ? `(${p.age_bracket})` : ''}
+                      {p.name} {'age_bracket' in p && p.age_bracket ? `(${p.age_bracket})` : ''}
                     </option>
                   ))}
                 </select>

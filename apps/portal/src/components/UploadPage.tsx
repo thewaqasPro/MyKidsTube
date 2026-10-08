@@ -62,7 +62,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         body: JSON.stringify({ playlist_url: trimmed }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as ExtractedPlaylist & { error?: string };
       if (!res.ok) {
         throw new Error(data.error || 'Failed to inspect playlist');
       }
@@ -98,7 +98,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as { count?: number; message?: string; error?: string };
       if (!res.ok) {
         throw new Error(data.error || 'Failed to import playlist items');
       }
@@ -160,7 +160,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({
         }),
       });
 
-      const data = await res.json();
+      const data = (await res.json()) as SubmitResult & { error?: string };
       if (!res.ok) {
         throw new Error(data.error || 'Failed to add links to queue');
       }

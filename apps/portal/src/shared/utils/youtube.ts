@@ -59,12 +59,13 @@ export interface YoutubeOEmbedMetadata {
   thumbnail_url: string;
 }
 
-export async function getYoutubeMetadata(youtubeId: string): Promise<YoutubeOEmbedMetadata> {
+export async function getYoutubeMetadata(youtubeId: string, timeoutMs: number = 5000): Promise<YoutubeOEmbedMetadata> {
   try {
     const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${youtubeId}&format=json`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; KidsTube/1.0; +https://mykidstube.com)',
       },
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (res.ok) {
