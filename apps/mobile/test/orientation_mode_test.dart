@@ -4,6 +4,18 @@ import 'package:provider/provider.dart';
 import 'package:safe_tube/providers/app_provider.dart';
 import 'package:safe_tube/widgets/orientation_mode_switch.dart';
 
+import 'package:safe_tube/services/database_service.dart';
+
+class FakeDatabaseService extends Fake implements DatabaseService {
+  final Map<String, String> settings = {};
+  @override
+  Future<String?> getSetting(String key) async => settings[key];
+  @override
+  Future<void> setSetting(String key, String value) async {
+    settings[key] = value;
+  }
+}
+
 void main() {
   test('AppOrientationMode enum serialization', () {
     expect(AppOrientationMode.auto.name, 'auto');
@@ -18,7 +30,7 @@ void main() {
   });
 
   testWidgets('OrientationModeSwitch cycles directly between portrait, landscape, and auto on tap', (WidgetTester tester) async {
-    final mockProvider = AppProvider();
+    final mockProvider = AppProvider(db: FakeDatabaseService());
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AppProvider>.value(

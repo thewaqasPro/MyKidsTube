@@ -138,9 +138,9 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> setOrientationMode(AppOrientationMode mode) async {
     _orientationMode = mode;
+    notifyListeners();
     await _applyOrientationMode(mode);
     await _db.setSetting('orientation_mode', mode.name);
-    notifyListeners();
   }
 
   Future<void> applyCurrentOrientationMode() async {

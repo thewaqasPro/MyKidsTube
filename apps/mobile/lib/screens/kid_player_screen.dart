@@ -44,6 +44,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   bool _isMuted = false;
   bool _useEmbed = false;
   bool _isImmersiveLandscape = false;
+  bool _wasLandscapeBeforeFullscreen = false;
+  AppOrientationMode? _orientationModeBeforeFullscreen;
   bool _didInitOrientation = false;
   AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
 
@@ -291,6 +293,24 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     }
   }
 
+  void _exitFullscreen() {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    if (_wasLandscapeBeforeFullscreen || provider.orientationMode == AppOrientationMode.landscape) {
+      // User was already in landscape before entering fullscreen: retain landscape split view!
+      if (_orientationModeBeforeFullscreen != null && provider.orientationMode != _orientationModeBeforeFullscreen) {
+        provider.setOrientationMode(_orientationModeBeforeFullscreen!);
+      }
+    } else {
+      // User was initially in portrait mode: restore initial portrait view
+      if (_orientationModeBeforeFullscreen != null) {
+        provider.setOrientationMode(_orientationModeBeforeFullscreen!);
+      } else {
+        _toggleOrientation(toLandscape: false);
+      }
+    }
+    setState(() => _isImmersiveLandscape = false);
+  }
+
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
@@ -408,14 +428,12 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
           // Back / Close Button
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: Icon(
-              isLandscape
-                  ? Icons.arrow_back_ios_new_rounded
-                  : Icons.keyboard_arrow_down_rounded,
+            icon: const Icon(
+              Icons.arrow_back_rounded,
               color: Colors.white,
-              size: isLandscape ? 18 : 22,
+              size: 20,
             ),
-            tooltip: isLandscape ? 'Back' : 'Close Player',
+            tooltip: 'Back',
             onPressed: () => Navigator.of(context).pop(),
           ),
           const SizedBox(width: 4),
@@ -442,7 +460,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             icon: const Icon(
               Icons.lock_outline_rounded,
               color: Colors.white,
-              size: 18,
+              size: 20,
             ),
             tooltip: 'Lock Screen',
             onPressed: () => setState(() {
@@ -461,6 +479,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             ),
             tooltip: isLandscape ? 'Full Bleed Video' : 'Landscape Fullscreen',
             onPressed: () {
+              final provider = Provider.of<AppProvider>(context, listen: false);
+              _orientationModeBeforeFullscreen = provider.orientationMode;
+              _wasLandscapeBeforeFullscreen = isLandscape;
               if (isLandscape) {
                 setState(() => _isImmersiveLandscape = true);
               } else {
@@ -469,10 +490,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               }
             },
           ),
-          const SizedBox(width: 2),
 
-          // Mode Selector
-          const OrientationModeSwitch(),
+          // Mode Selector (3-way cycle toggle)
+          const OrientationModeSwitch(size: 20, color: Colors.white),
         ],
       ),
     );
@@ -762,7 +782,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   // ==========================================
   Widget _buildLandscapeFullscreen(BuildContext context) {
     return PopScope(
-      canPop: !_isLocked,
+      canPop: !_isLocked && !_isImmersiveLandscape,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isImmersiveLandscape && !_isLocked) {
+          _exitFullscreen();
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
@@ -801,10 +827,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 top: 14,
                 left: 14,
                 child: GestureDetector(
-                  onTap: () {
-                    _toggleOrientation(toLandscape: false);
-                    setState(() => _isImmersiveLandscape = false);
-                  },
+                  onTap: _exitFullscreen,
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -812,9 +835,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
+                      Icons.arrow_back_rounded,
                       color: Colors.white,
-                      size: 18,
+                      size: 20,
                     ),
                   ),
                 ),
@@ -858,8 +881,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 22),
-                    onPressed: () => setState(() => _isImmersiveLandscape = false),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                    onPressed: _exitFullscreen,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -876,11 +900,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white, size: 20),
                     onPressed: _toggleMute,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.lock_outline_rounded, color: Colors.white),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 20),
                     onPressed: () => setState(() {
                       _isLocked = true;
                       _showControls = false;
@@ -950,7 +976,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 24),
-                        onPressed: () => setState(() => _isImmersiveLandscape = false),
+                        onPressed: _exitFullscreen,
                       ),
                     ],
                   ),
