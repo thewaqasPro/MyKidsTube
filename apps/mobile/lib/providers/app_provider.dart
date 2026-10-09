@@ -11,6 +11,7 @@ import '../models/child_profile.dart';
 import '../services/database_service.dart';
 import '../services/vps_api_service.dart';
 import '../services/download_service.dart';
+import '../services/recommendation_service.dart';
 
 enum AppOrientationMode {
   auto,
@@ -56,6 +57,10 @@ class AppProvider extends ChangeNotifier {
   int _cachedBytes = 0;
   int _todayWatchSeconds = 0;
   AppOrientationMode _orientationMode = AppOrientationMode.auto;
+
+  // Recommendation Engine State
+  Map<String, VideoWatchMetric> _watchMetrics = {};
+  int _sessionSeed = DateTime.now().millisecondsSinceEpoch;
 
   // R5 Safeguard & Safety Cap State
   bool _hasRefreshFailedNotice = false;
@@ -119,6 +124,68 @@ class AppProvider extends ChangeNotifier {
     _hasRefreshFailedNotice = false;
     _refreshNoticeMessage = null;
     notifyListeners();
+  }
+
+  // --- Recommendation Engine Public API ---
+  Map<String, VideoWatchMetric> get watchMetrics => _watchMetrics;
+
+  void reseedRecommendations() {
+    _sessionSeed = DateTime.now().millisecondsSinceEpoch;
+    notifyListeners();
+  }
+
+  Future<void> _loadWatchMetrics() async {
+    try {
+      final raw = await _db.getVideoWatchSummaries(profileId: _activeProfile?.id);
+      _watchMetrics = raw.map((k, v) => MapEntry(k, VideoWatchMetric.fromMap(v)));
+    } catch (_) {}
+  }
+
+  List<String> get _preferredCategoryIds {
+    final catCounts = <String, int>{};
+    for (final metric in _watchMetrics.values) {
+      if (metric.categoryId.isNotEmpty) {
+        catCounts[metric.categoryId] = (catCounts[metric.categoryId] ?? 0) + metric.watchCount;
+      }
+    }
+    final sorted = catCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(3).map((e) => e.key).toList();
+  }
+
+  List<VideoItem> getRecommendationsFor(
+    VideoItem currentVideo, {
+    String? filterCategory,
+    int limit = 25,
+  }) {
+    return RecommendationService.getRecommendationsForVideo(
+      currentVideo: currentVideo,
+      catalog: allVideos,
+      metrics: _watchMetrics,
+      favoriteVideoIds: _favoriteVideoIds,
+      preferredCategoryIds: _preferredCategoryIds,
+      filterCategory: filterCategory,
+      sessionSeed: _sessionSeed,
+      limit: limit,
+    );
+  }
+
+  List<VideoItem> getPersonalizedFeed({
+    String? categoryId,
+    String? searchQuery,
+    bool? isShort,
+    int limit = 60,
+  }) {
+    return RecommendationService.getPersonalizedFeed(
+      catalog: allVideos,
+      metrics: _watchMetrics,
+      favoriteVideoIds: _favoriteVideoIds,
+      preferredCategoryIds: _preferredCategoryIds,
+      categoryId: categoryId,
+      searchQuery: searchQuery,
+      isShort: isShort,
+      sessionSeed: _sessionSeed,
+      limit: limit,
+    );
   }
 
   void _scheduleCatalogRetry() {
@@ -331,6 +398,7 @@ class AppProvider extends ChangeNotifier {
         final analytics = await _db.getWatchAnalytics(profileId: _activeProfile?.id);
         _todayWatchSeconds = (analytics['today_seconds'] as num?)?.toInt() ?? 0;
       } catch (_) {}
+      await _loadWatchMetrics();
     } catch (e) {
       // Corrupt DB file recovery: backup corrupt DB file and recreate fresh DB
       try {
@@ -555,6 +623,8 @@ class AppProvider extends ChangeNotifier {
       final analytics = await _db.getWatchAnalytics(profileId: profile.id);
       _todayWatchSeconds = (analytics['today_seconds'] as num?)?.toInt() ?? 0;
     } catch (_) {}
+    await _loadWatchMetrics();
+    reseedRecommendations();
     notifyListeners();
     await syncCatalog();
   }
@@ -706,6 +776,7 @@ class AppProvider extends ChangeNotifier {
       isCompleted: isCompleted,
       isSkipped: isSkipped,
     );
+    await _loadWatchMetrics();
   }
 
   Future<Map<String, dynamic>> getWatchAnalytics({String? profileId}) async {

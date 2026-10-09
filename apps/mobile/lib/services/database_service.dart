@@ -802,6 +802,50 @@ class DatabaseService {
     }
   }
 
+  /// Fast aggregation query for the recommendation engine
+  Future<Map<String, Map<String, dynamic>>> getVideoWatchSummaries({String? profileId}) async {
+    try {
+      final db = await database;
+      String whereClause = '';
+      List<dynamic> whereArgs = [];
+      if (profileId != null && profileId.isNotEmpty && profileId != 'all') {
+        whereClause = ' WHERE profile_id = ?';
+        whereArgs.add(profileId);
+      }
+
+      final rows = await db.rawQuery('''
+        SELECT 
+          video_id,
+          category_id,
+          MAX(watched_at) as last_watched_at,
+          COUNT(*) as watch_count,
+          COALESCE(SUM(is_completed), 0) as completed_count,
+          COALESCE(SUM(is_skipped), 0) as skipped_count,
+          COALESCE(SUM(seconds_watched), 0) as total_seconds
+        FROM local_watch_events$whereClause
+        GROUP BY video_id
+      ''', whereArgs);
+
+      final Map<String, Map<String, dynamic>> result = {};
+      for (final r in rows) {
+        final videoId = r['video_id'] as String?;
+        if (videoId != null && videoId.isNotEmpty) {
+          result[videoId] = {
+            'last_watched_at': (r['last_watched_at'] as num?)?.toInt() ?? 0,
+            'watch_count': (r['watch_count'] as num?)?.toInt() ?? 0,
+            'completed_count': (r['completed_count'] as num?)?.toInt() ?? 0,
+            'skipped_count': (r['skipped_count'] as num?)?.toInt() ?? 0,
+            'total_seconds': (r['total_seconds'] as num?)?.toInt() ?? 0,
+            'category_id': r['category_id'] as String? ?? '',
+          };
+        }
+      }
+      return result;
+    } catch (e) {
+      return {};
+    }
+  }
+
   // --- Local Child Profiles CRUD ---
   Future<List<ChildProfile>> getAllLocalProfiles() async {
     try {

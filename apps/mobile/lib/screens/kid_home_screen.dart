@@ -43,7 +43,10 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
           body: RefreshIndicator(
             color: KidColors.primary,
             backgroundColor: KidColors.cardDark,
-            onRefresh: () => provider.syncCatalog(),
+            onRefresh: () async {
+              provider.reseedRecommendations();
+              await provider.syncCatalog();
+            },
             child: Column(
               children: [
                 // Notice banner if catalog refresh failed or removal held
@@ -306,7 +309,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
             onTap: () {
               if (filter.id == 'shorts') {
                 // Tapping Shorts pill launches the dedicated vertical shorts feed
-                final shorts = provider.allVideos.where((v) => v.isShort).toList();
+                final shorts = provider.getPersonalizedFeed(isShort: true);
                 if (shorts.isNotEmpty) {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -451,7 +454,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
 
   /// Compact Horizontal Shorts & Reels Shelf (YouTube Home style)
   Widget _buildShortsShelf(BuildContext context, AppProvider provider) {
-    final shorts = provider.allVideos.where((v) => v.isShort).toList();
+    final shorts = provider.getPersonalizedFeed(isShort: true, limit: 12);
     if (shorts.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -729,27 +732,38 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
   }
 
   List<VideoItem> _filterVideos(AppProvider provider) {
-    List<VideoItem> list = provider.allVideos;
-
     if (_selectedFilter == 'favorites') {
-      list = provider.favoriteVideos;
+      var list = provider.favoriteVideos;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        list = list.where((v) => v.title.toLowerCase().contains(q)).toList();
+      }
+      return list;
     } else if (_selectedFilter == 'downloaded') {
-      list = provider.downloadedVideos;
+      var list = provider.downloadedVideos;
+      if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
+        list = list.where((v) => v.title.toLowerCase().contains(q)).toList();
+      }
+      return list;
     } else if (_selectedFilter == 'shorts') {
-      list = provider.allVideos.where((v) => v.isShort).toList();
+      return provider.getPersonalizedFeed(
+        searchQuery: _searchQuery,
+        isShort: true,
+      );
     } else if (_selectedFilter != 'all') {
-      list = provider.getVideosForCategory(_selectedFilter).where((v) => !v.isShort).toList();
+      return provider.getPersonalizedFeed(
+        categoryId: _selectedFilter,
+        searchQuery: _searchQuery,
+        isShort: false,
+      );
     } else {
-      // In 'all' feed, horizontal shelf shows shorts; main feed shows full-length videos
-      list = provider.allVideos.where((v) => !v.isShort).toList();
+      // In 'all' feed, horizontal shelf shows shorts; main feed shows personalized ranked full-length videos
+      return provider.getPersonalizedFeed(
+        searchQuery: _searchQuery,
+        isShort: false,
+      );
     }
-
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      list = list.where((v) => v.title.toLowerCase().contains(q)).toList();
-    }
-
-    return list;
   }
 
   Widget _buildEmptyState(BuildContext context, AppProvider provider) {

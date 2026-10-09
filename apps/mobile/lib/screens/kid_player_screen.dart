@@ -50,6 +50,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
   late final GlobalKey _embedPlayerKey = GlobalKey(debugLabel: 'kid_embed_player');
   late final GlobalKey _nativePlayerKey = GlobalKey(debugLabel: 'kid_native_player');
+  String? _selectedRelatedCategory;
 
   @override
   void initState() {
@@ -140,6 +141,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
     setState(() {
       _currentVideo = video;
+      _selectedRelatedCategory = null;
       _useEmbed = shouldEmbed;
       _isInitialized = false;
       _hasError = false;
@@ -387,15 +389,14 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     final provider = context.watch<AppProvider>();
     _savedOrientationMode = provider.orientationMode;
     final isLandscape = orientation == Orientation.landscape || provider.orientationMode == AppOrientationMode.landscape;
-    final isFavorite = provider.isFavorite(_currentVideo.id);
 
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
     final padding = mediaQuery.padding;
 
-    final relatedVideos = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
-        .where((v) => v.id != _currentVideo.id && !v.isShort)
-        .toList();
+    final relatedVideos = widget.playlist.isNotEmpty
+        ? widget.playlist.where((v) => v.id != _currentVideo.id && !v.isShort).toList()
+        : provider.getRecommendationsFor(_currentVideo, filterCategory: _selectedRelatedCategory);
 
     // 1. Calculate Player Geometry (Dynamic positioning in unified Stack)
     late final double playerLeft;
@@ -498,7 +499,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 right: padding.right,
                 top: padding.top,
                 height: 40.0,
-                child: _buildFixedTopBar(context, isFavorite: isFavorite, isLandscape: isLandscape),
+                child: _buildFixedTopBar(context, isLandscape: isLandscape),
               ),
 
             // ==========================================
@@ -529,7 +530,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   top: playerTop + playerHeight,
                   right: padding.right,
                   bottom: padding.bottom,
-                  child: _buildPortraitDetailsAndPlaylist(isFavorite, relatedVideos, position, duration),
+                  child: _buildPortraitDetailsAndPlaylist(relatedVideos, position, duration),
                 ),
               ],
             ],
@@ -625,26 +626,62 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   Widget _buildLandscapePlaylistSection(List<VideoItem> relatedVideos) {
     return Container(
       color: KidColors.canvasDark,
-      child: relatedVideos.isEmpty
-          ? const Center(
-              child: Text(
-                'No more videos',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  color: KidColors.textMuted,
-                  fontSize: 11,
-                ),
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              itemCount: relatedVideos.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 6),
-              itemBuilder: (context, index) {
-                final item = relatedVideos[index];
-                return _buildLandscapeVideoCard(item);
-              },
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: KidColors.borderDark, width: 0.5)),
             ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Up Next',
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    color: KidColors.textLight,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.shuffle_rounded, color: KidColors.primary, size: 16),
+                  tooltip: 'Shuffle',
+                  onPressed: () {
+                    context.read<AppProvider>().reseedRecommendations();
+                  },
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: relatedVideos.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No more videos',
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        color: KidColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    itemCount: relatedVideos.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      final item = relatedVideos[index];
+                      return _buildLandscapeVideoCard(item);
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -704,12 +741,10 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   }
 
   Widget _buildPortraitDetailsAndPlaylist(
-    bool isFavorite,
     List<VideoItem> relatedVideos,
     Duration position,
     Duration duration,
   ) {
-    final provider = context.watch<AppProvider>();
     return Container(
       color: KidColors.bgDark,
       child: ListView(
@@ -742,81 +777,110 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             const SizedBox(height: 10),
           ],
 
-          // Single-Row Action Bar (YouTube Pill Buttons)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                // Toggle Mode (Embed vs MP4)
-                _buildPillButton(
-                  icon: _useEmbed ? Icons.bolt_rounded : Icons.public_rounded,
-                  iconColor: _useEmbed ? KidColors.yellow : Colors.white,
-                  label: _useEmbed ? 'Try Direct MP4' : 'YouTube Embed',
-                  onTap: () {
-                    _initControllerForVideo(_currentVideo, forceEmbed: !_useEmbed);
-                  },
-                ),
-                const SizedBox(width: 10),
+          // Single-Row Action Bar (Kids Landscape & Lock Screen)
+          Row(
+            children: [
+              // Kids Landscape Mode
+              _buildPillButton(
+                icon: Icons.stay_current_landscape_rounded,
+                iconColor: KidColors.accent,
+                label: 'Kids Landscape',
+                onTap: () {
+                  _toggleOrientation(toLandscape: true);
+                  setState(() => _isImmersiveLandscape = false);
+                },
+              ),
+              const SizedBox(width: 10),
 
-                // Star / Favorite
-                _buildPillButton(
-                  icon: isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                  iconColor: isFavorite ? KidColors.yellow : Colors.white,
-                  label: isFavorite ? 'Starred' : 'Favorite',
-                  onTap: () => provider.toggleFavorite(_currentVideo.id),
-                ),
-                const SizedBox(width: 10),
-
-                // Mute / Sound
-                _buildPillButton(
-                  icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                  iconColor: _isMuted ? KidColors.primary : Colors.white,
-                  label: _isMuted ? 'Muted' : 'Sound',
-                  onTap: _toggleMute,
-                ),
-                const SizedBox(width: 10),
-
-                // Kids Landscape Mode
-                _buildPillButton(
-                  icon: Icons.stay_current_landscape_rounded,
-                  iconColor: KidColors.accent,
-                  label: 'Kids Landscape',
-                  onTap: () {
-                    _toggleOrientation(toLandscape: true);
-                    setState(() => _isImmersiveLandscape = false);
-                  },
-                ),
-                const SizedBox(width: 10),
-
-                // Toddler Lock
-                _buildPillButton(
-                  icon: Icons.lock_outline_rounded,
-                  iconColor: Colors.white,
-                  label: 'Lock Screen',
-                  onTap: () => setState(() {
-                    _isLocked = true;
-                    _showControls = false;
-                  }),
-                ),
-              ],
-            ),
+              // Toddler Lock
+              _buildPillButton(
+                icon: Icons.lock_outline_rounded,
+                iconColor: Colors.white,
+                label: 'Lock Screen',
+                onTap: () => setState(() {
+                  _isLocked = true;
+                  _showControls = false;
+                }),
+              ),
+            ],
           ),
 
           const SizedBox(height: 16),
           const Divider(color: KidColors.borderDark, height: 1),
           const SizedBox(height: 16),
 
-          // "Up Next / More Videos" Header
-          const Text(
-            'More for Kids',
-            style: TextStyle(
-              fontFamily: 'Roboto',
-              color: KidColors.textLight,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+          // "Up Next / More Videos" Header with Shuffle & Quick Filters
+          Row(
+            children: [
+              const Text(
+                'More for Kids',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: KidColors.textLight,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  context.read<AppProvider>().reseedRecommendations();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: KidColors.cardDark,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: KidColors.borderDark, width: 0.8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shuffle_rounded, size: 13, color: KidColors.primary),
+                      SizedBox(width: 4),
+                      Text(
+                        'Shuffle',
+                        style: TextStyle(
+                          fontFamily: 'Roboto',
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // Category Quick-Filters (All Picks vs More [Category])
+          if (_currentCategoryName.isNotEmpty) ...[
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildRecommendationFilterChip(
+                    label: 'All Picks',
+                    isSelected: _selectedRelatedCategory == null,
+                    onTap: () => setState(() => _selectedRelatedCategory = null),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildRecommendationFilterChip(
+                    label: 'More $_currentCategoryName',
+                    isSelected: _selectedRelatedCategory == _currentVideo.categoryId,
+                    onTap: () => setState(() {
+                      _selectedRelatedCategory = _selectedRelatedCategory == _currentVideo.categoryId
+                          ? null
+                          : _currentVideo.categoryId;
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // List of more curated parent-approved videos
           ...relatedVideos.map((item) => Padding(
@@ -836,7 +900,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   // ==========================================
   Widget _buildFixedTopBar(
     BuildContext context, {
-    bool isFavorite = false,
     required bool isLandscape,
   }) {
     return Container(
@@ -1321,6 +1384,46 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  String get _currentCategoryName {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final catName = provider.categories
+        .where((c) => c.id == _currentVideo.categoryId)
+        .firstOrNull
+        ?.name;
+    if (catName == null || catName.isEmpty) return 'Category';
+    return catName.replaceAll(RegExp(r'^[^\w\s&]+'), '').trim();
+  }
+
+  Widget _buildRecommendationFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? KidColors.chipSelectedBg : KidColors.surfaceDark,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : KidColors.borderDark,
+            width: 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Roboto',
+            color: isSelected ? KidColors.chipSelectedText : KidColors.chipUnselectedText,
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ),
     );
