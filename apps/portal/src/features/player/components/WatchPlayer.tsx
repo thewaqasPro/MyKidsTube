@@ -70,6 +70,7 @@ export const WatchPlayer: React.FC<WatchPlayerProps> = ({
             <VideoElement
               ref={videoRef}
               src={streamUrl}
+              preload="auto"
               autoPlay
               playsInline
               muted={isMuted}

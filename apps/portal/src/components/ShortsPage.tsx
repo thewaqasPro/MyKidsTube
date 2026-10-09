@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Video, ChildProfile } from '@/types/video';
-import { getYoutubeId, getYoutubeEmbedUrl, isSelfHosted } from '@/lib/constants';
+import { getYoutubeId, getYoutubeEmbedUrl, isSelfHosted, getStreamUrl } from '@/lib/constants';
 import { KidsTopBar } from './KidsTopBar';
 import { KidsSidebar } from './KidsSidebar';
 import { ShortsReel } from '@/features/player/components/ShortsReel';
@@ -46,6 +46,8 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const currentShort = shorts[currentIndex];
+  const nextShort = currentIndex + 1 < shorts.length ? shorts[currentIndex + 1] : null;
+  const nextShortStreamUrl = nextShort && isSelfHosted(nextShort) ? getStreamUrl(nextShort) : null;
 
   // Extract unique channels
   const channels = useMemo(() => {
@@ -267,6 +269,18 @@ export const ShortsPage: React.FC<ShortsPageProps> = ({
               advanceFeedback={advanceFeedback}
               formatSeconds={formatSeconds}
             />
+
+            {nextShortStreamUrl && (
+              <video
+                key={nextShortStreamUrl}
+                src={nextShortStreamUrl}
+                preload="auto"
+                muted
+                playsInline
+                className="hidden pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
 
             <ShortsActionPills
               currentIndex={currentIndex}

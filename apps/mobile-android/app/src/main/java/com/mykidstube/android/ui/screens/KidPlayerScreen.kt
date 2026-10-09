@@ -139,7 +139,18 @@ fun KidPlayerScreen(
         if (useEmbedFallback || currentVideo.needsEmbed) {
             null
         } else {
-            ExoPlayer.Builder(context).build().apply {
+            val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    15_000, // minBufferMs
+                    50_000, // maxBufferMs
+                    500,    // bufferForPlaybackMs (low-latency instant start)
+                    1_000   // bufferForPlaybackAfterRebufferMs
+                )
+                .build()
+
+            ExoPlayer.Builder(context)
+                .setLoadControl(loadControl)
+                .build().apply {
                 playWhenReady = true
 
                 val mediaSourceUri = if (currentVideo.isOfflineReady && currentVideo.localFilePath != null) {

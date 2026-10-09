@@ -70,6 +70,7 @@ export const ShortsReel: React.FC<ShortsReelProps> = ({
             <VideoElement
               ref={videoRef}
               src={getStreamUrl(currentShort)}
+              preload="auto"
               autoPlay
               loop
               playsInline

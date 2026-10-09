@@ -254,7 +254,18 @@ private fun ShortPageItem(
         if (useEmbedFallback || video.needsEmbed) {
             null
         } else {
-            ExoPlayer.Builder(context).build().apply {
+            val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    15_000,
+                    50_000,
+                    500, // Instant playback startup
+                    1_000
+                )
+                .build()
+
+            ExoPlayer.Builder(context)
+                .setLoadControl(loadControl)
+                .build().apply {
                 val mediaSourceUri = if (video.isOfflineReady && video.localFilePath != null) {
                     Uri.fromFile(File(video.localFilePath!!))
                 } else {
