@@ -165,7 +165,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -182,7 +182,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         color: KidColors.primary,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _buildSummaryCard(
                         title: "Today's Watch",
@@ -194,7 +194,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
@@ -206,7 +206,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         color: KidColors.green,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _buildSummaryCard(
                         title: 'VPS Server',
@@ -219,18 +219,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 const Text(
                   'Management Sections',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Navigation Tile 1: Media Library & Ingestion
                 _buildNavTile(
@@ -246,7 +246,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Navigation Tile 2: Local Watch Time & Analytics
                 _buildNavTile(
@@ -262,7 +262,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Navigation Tile 3: Device Storage & Offline Media
                 _buildNavTile(
@@ -278,7 +278,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Navigation Tile 4: PIN & Security Settings
                 _buildNavTile(
@@ -295,7 +295,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         .then((_) => _checkDefaultPin());
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Navigation Tile 5: VPS Server Connection
                 _buildNavTile(
@@ -313,7 +313,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
                 // Safety Cap Pending Mass Prune Confirmation Alert
                 if (provider.hasPendingMassPrune) ...[
@@ -455,11 +455,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: KidColors.cardDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: KidColors.borderDark),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KidColors.borderDark, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,21 +467,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(color: KidColors.textMuted, fontSize: 12)),
-              Icon(icon, color: color, size: 18),
+              Text(title, style: const TextStyle(color: KidColors.textMuted, fontSize: 11.5, fontWeight: FontWeight.w500)),
+              Icon(icon, color: color, size: 16),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
+            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
+            style: TextStyle(color: color.withValues(alpha: 0.85), fontSize: 10.5, fontWeight: FontWeight.w600),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -505,31 +505,31 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return Container(
       decoration: BoxDecoration(
         color: KidColors.cardDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: KidColors.borderDark),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KidColors.borderDark, width: 0.8),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
                 // Icon avatar
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
-                    child: Icon(icon, color: accentColor, size: 22),
+                    child: Icon(icon, color: accentColor, size: 20),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
 
                 // Title & Subtitle
                 Expanded(
@@ -543,8 +543,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               title,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -555,24 +555,24 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: effectiveBadgeColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: effectiveBadgeColor.withValues(alpha: 0.4)),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: effectiveBadgeColor.withValues(alpha: 0.4), width: 0.8),
                             ),
                             child: Text(
                               badgeText,
                               style: TextStyle(
                                 color: effectiveBadgeColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         subtitle,
-                        style: const TextStyle(color: KidColors.textMuted, fontSize: 12),
+                        style: const TextStyle(color: KidColors.textMuted, fontSize: 11.5),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -585,7 +585,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 const Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: KidColors.textMuted,
-                  size: 14,
+                  size: 13,
                 ),
               ],
             ),

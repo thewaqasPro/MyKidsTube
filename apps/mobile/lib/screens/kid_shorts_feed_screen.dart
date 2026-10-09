@@ -9,14 +9,11 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
-import '../widgets/ambient_blur_background.dart';
 import '../widgets/child_avatar.dart';
 import '../widgets/kid_embed_player.dart';
 import '../widgets/kid_profile_switcher_sheet.dart';
-import '../widgets/shorts_action_rail.dart';
 import '../widgets/touch_lock_overlay.dart';
 import 'kid_player_screen.dart';
-import 'parent_gate_dialog.dart';
 
 class KidShortsFeedScreen extends StatefulWidget {
   final List<VideoItem> videos;
@@ -41,8 +38,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   final Set<int> _failedIndices = {};
 
   bool _isLocked = false;
-  bool _isMuted = false;
-  bool _autoAdvance = true;
+  final bool _isMuted = false;
+  final bool _autoAdvance = true;
 
   bool _showPlayPauseIcon = false;
   bool _lastActionWasPlay = true;
@@ -316,24 +313,81 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     });
   }
 
-  void _toggleFavorite() {
-    final video = _shorts[_currentIndex];
-    context.read<AppProvider>().toggleFavorite(video.id);
-  }
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xEB0D1A33),
+        border: const Border(
+          bottom: BorderSide(color: KidColors.borderDark, width: 0.8),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 44,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                // 1. Back button
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+                  tooltip: 'Back',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 4),
 
-  void _toggleMute() {
-    setState(() {
-      _isMuted = !_isMuted;
-      for (final ctrl in _controllers.values) {
-        ctrl.setVolume(_isMuted ? 0.0 : 1.0);
-      }
-    });
-  }
+                // 2. Shorts Title
+                const Text(
+                  'Shorts',
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
 
-  void _toggleAutoAdvance() {
-    setState(() {
-      _autoAdvance = !_autoAdvance;
-    });
+                const Spacer(),
+
+                // 3. Toddler Lock
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  tooltip: 'Lock Screen',
+                  onPressed: () => setState(() => _isLocked = true),
+                ),
+
+                // 4. Active Child Avatar
+                Padding(
+                  padding: const EdgeInsets.only(right: 8, left: 4),
+                  child: GestureDetector(
+                    onTap: () => KidProfileSwitcherSheet.show(context),
+                    child: ChildAvatar(
+                      avatarIcon: context.watch<AppProvider>().activeProfile?.avatarIcon,
+                      radius: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -408,6 +462,15 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
               onLock: () => setState(() => _isLocked = true),
               onUnlock: () => setState(() => _isLocked = false),
             ),
+
+            // 4. Fixed Blue Top Bar (Visible & Stable across Shorts transitions)
+            if (!_isLocked)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildTopBar(context),
+              ),
           ],
         ),
       ),
@@ -419,7 +482,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     final ctrl = _controllers[index];
     final isInitialized = ctrl != null && ctrl.value.isInitialized;
     final isInitializing = ctrl != null && !ctrl.value.isInitialized;
-    final isFavorite = context.watch<AppProvider>().isFavorite(video.id);
     final isCurrent = index == _currentIndex;
 
     // Only activate embed when on current visible index, not initializing, and video genuinely needs embed
@@ -436,14 +498,13 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
           }
         }
       },
-      onDoubleTap: _toggleFavorite,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // A. Ambient Background for landscape videos
-          AmbientBlurBackground(controller: ctrl),
+          // A. Clean Solid Black Backdrop (No Gaussian blur on transitions!)
+          Container(color: Colors.black),
 
-          // B. Main Video Player (Centered with native aspect ratio or full 9:16)
+          // B. Main Video Player (Centered or Edge-to-Edge)
           Center(
             child: isInitialized
                 ? AspectRatio(
@@ -454,13 +515,17 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     ),
                   )
                 : (isEmbed
-                    ? AspectRatio(
-                        aspectRatio: 9 / 16,
+                    ? Padding(
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 40,
+                        ),
                         child: KidEmbedPlayer(
                           youtubeId: video.effectiveYoutubeId,
                           autoPlay: isCurrent,
-                          aspectRatio: 9 / 16,
-                          // scale: 1.14,
+                          scale: 1.14,
+                          topShieldHeight: 68.0,
+                          bottomShieldHeight: 74.0,
+                          shieldColor: const Color(0xFF0D1A33),
                         ),
                       )
                     : (_failedIndices.contains(index)
@@ -470,11 +535,22 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                                 child: CircularProgressIndicator(color: KidColors.primary),
                               )
                             : (video.thumbnailUrl.isNotEmpty
-                                ? CachedNetworkImage(
-                                    imageUrl: video.thumbnailUrl,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => const Center(
-                                      child: CircularProgressIndicator(color: KidColors.primary),
+                                ? SizedBox.expand(
+                                    child: FittedBox(
+                                      fit: BoxFit.cover,
+                                      clipBehavior: Clip.hardEdge,
+                                      child: SizedBox(
+                                        width: 9,
+                                        height: 16,
+                                        child: Transform.scale(
+                                          scale: 1.78,
+                                          child: CachedNetworkImage(
+                                            imageUrl: video.thumbnailUrl,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (_, __, ___) => Container(color: Colors.black),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   )
                                 : const Center(
@@ -482,100 +558,11 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                                   ))))),
           ),
 
-          // C. Top Navigation Bar (Back + Parent Shield)
-          if (!_isLocked)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 8,
-              left: 12,
-              right: 12,
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Category Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.bolt_rounded, color: KidColors.yellow, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${index + 1} / ${_shorts.length}',
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Parent Gate
-                  GestureDetector(
-                    onTap: () => ParentGateDialog.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.shield_outlined, color: Colors.white, size: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Active Kid Avatar Switcher
-                  GestureDetector(
-                    onTap: () => KidProfileSwitcherSheet.show(context),
-                    child: ChildAvatar(
-                      avatarIcon: context.watch<AppProvider>().activeProfile?.avatarIcon,
-                      radius: 17,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // D. Right Floating Action Rail
-          Positioned(
-            right: 14,
-            bottom: 85,
-            child: ShortsActionRail(
-              isFavorite: isFavorite,
-              isLocked: _isLocked,
-              isMuted: _isMuted,
-              autoAdvance: _autoAdvance,
-              onToggleFavorite: _toggleFavorite,
-              onToggleMute: _toggleMute,
-              onToggleAutoAdvance: _toggleAutoAdvance,
-              onExit: () => Navigator.of(context).pop(),
-              onLockTap: () => setState(() => _isLocked = true),
-              onNextShort: _goToNextShort,
-            ),
-          ),
-
-          // E. Bottom Video Meta Info & Scrub Bar
+          // C. Bottom Video Meta Info & Scrub Bar (Full Width, No Side Rail)
           if (!_isLocked)
             Positioned(
               left: 16,
-              right: 80, // leaves room for action rail
+              right: 16,
               bottom: 24,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,10 +625,21 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       fit: StackFit.expand,
       children: [
         if (video.thumbnailUrl.isNotEmpty)
-          CachedNetworkImage(
-            imageUrl: video.thumbnailUrl,
+          FittedBox(
             fit: BoxFit.cover,
-            errorWidget: (_, __, ___) => Container(color: const Color(0xFF18181B)),
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: 9,
+              height: 16,
+              child: Transform.scale(
+                scale: 1.78,
+                child: CachedNetworkImage(
+                  imageUrl: video.thumbnailUrl,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => Container(color: const Color(0xFF18181B)),
+                ),
+              ),
+            ),
           ),
         Container(
           color: Colors.black.withValues(alpha: 0.65),

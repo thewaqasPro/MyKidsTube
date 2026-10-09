@@ -201,15 +201,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
         // 2b. Orientation Mode Pill (Portrait vs Kids Landscape)
         const OrientationModeSwitch(),
 
-        // 3. Parent Lock Icon (Minimal)
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Parent Dashboard',
-          icon: const Icon(Icons.shield_outlined, color: KidColors.textMuted, size: 21),
-          onPressed: () => ParentGateDialog.show(context),
-        ),
-
-        // 4. Authentic YouTube Profile Avatar
+        // 3. Authentic YouTube Profile Avatar (opens profile switcher and parent controls)
         Padding(
           padding: const EdgeInsets.only(right: 12, left: 4),
           child: GestureDetector(
@@ -360,7 +352,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                     style: TextStyle(
                       fontFamily: 'Roboto',
                       color: isSelected ? KidColors.chipSelectedText : KidColors.chipUnselectedText,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
@@ -484,7 +476,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 style: TextStyle(
                   fontFamily: 'Roboto',
                   color: Colors.white,
-                  fontSize: 17,
+                  fontSize: 15.5,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.2,
                 ),
@@ -506,7 +498,7 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   style: TextStyle(
                     fontFamily: 'Roboto',
                     color: KidColors.textMuted,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

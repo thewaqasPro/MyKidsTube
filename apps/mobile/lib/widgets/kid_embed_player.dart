@@ -37,6 +37,7 @@ class KidEmbedPlayer extends StatefulWidget {
 
 class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   late final WebViewController _controller;
+  double _currentPlaybackSeconds = 0.0;
   bool _isLoading = true;
   bool _hasError = false;
   bool _showShields = true;
@@ -62,10 +63,8 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   @override
   void didUpdateWidget(KidEmbedPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.youtubeId != widget.youtubeId ||
-        oldWidget.autoPlay != widget.autoPlay ||
-        oldWidget.scale != widget.scale ||
-        oldWidget.zoom != widget.zoom) {
+    if (oldWidget.youtubeId != widget.youtubeId) {
+      _currentPlaybackSeconds = 0.0;
       _loadVideo(widget.youtubeId);
     }
   }
@@ -103,6 +102,15 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
     _controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
+      ..addJavaScriptChannel(
+        'KidsTubeBridge',
+        onMessageReceived: (JavaScriptMessage msg) {
+          final t = double.tryParse(msg.message);
+          if (t != null && t > 0) {
+            _currentPlaybackSeconds = t;
+          }
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
@@ -197,6 +205,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
     _scheduleShieldDismiss();
 
     final autoPlayFlag = widget.autoPlay ? 1 : 0;
+    final startParam = _currentPlaybackSeconds > 2 ? '&start=${_currentPlaybackSeconds.toInt()}' : '';
     final html = '''
 <!DOCTYPE html>
 <html>
@@ -225,7 +234,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
 <body>
   <iframe
     id="player"
-    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag$startParam&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen>
   </iframe>
@@ -258,6 +267,17 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
         }
       } catch(e) {}
     }
+
+    setInterval(function() {
+      try {
+        if (window.player && typeof window.player.getCurrentTime === 'function') {
+          var t = window.player.getCurrentTime();
+          if (t && t > 0 && window.KidsTubeBridge) {
+            window.KidsTubeBridge.postMessage(t.toString());
+          }
+        }
+      } catch(e) {}
+    }, 1000);
 
     ${widget.autoPlay ? """
     window.addEventListener('load', function() {

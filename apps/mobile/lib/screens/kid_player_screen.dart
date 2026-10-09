@@ -48,6 +48,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   AppOrientationMode? _orientationModeBeforeFullscreen;
   bool _didInitOrientation = false;
   AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
+  late final GlobalKey _embedPlayerKey = GlobalKey(debugLabel: 'kid_embed_player');
+  late final GlobalKey _nativePlayerKey = GlobalKey(debugLabel: 'kid_native_player');
 
   @override
   void initState() {
@@ -317,15 +319,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     return '$minutes:$seconds';
   }
 
-  String get _channelName {
-    if (_currentVideo.channelName != null && _currentVideo.channelName!.isNotEmpty) {
-      return _currentVideo.channelName!;
-    }
-    if (_currentVideo.title.contains('•')) {
-      return _currentVideo.title.split('•').first.trim();
-    }
-    return 'KidsTube';
-  }
 
   String get _cleanTitle {
     if (_currentVideo.title.contains('•')) {
@@ -394,16 +387,448 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     final provider = context.watch<AppProvider>();
     _savedOrientationMode = provider.orientationMode;
     final isLandscape = orientation == Orientation.landscape || provider.orientationMode == AppOrientationMode.landscape;
+    final isFavorite = provider.isFavorite(_currentVideo.id);
 
-    if (isLandscape) {
-      if (_isImmersiveLandscape) {
-        return _buildLandscapeFullscreen(context);
-      } else {
-        return _buildLandscapeSplitPlayer(context);
-      }
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final padding = mediaQuery.padding;
+
+    final relatedVideos = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
+        .where((v) => v.id != _currentVideo.id && !v.isShort)
+        .toList();
+
+    // 1. Calculate Player Geometry (Dynamic positioning in unified Stack)
+    late final double playerLeft;
+    late final double playerTop;
+    late final double playerWidth;
+    late final double playerHeight;
+
+    if (_isImmersiveLandscape) {
+      // Fullscreen mode: fills entire screen
+      playerLeft = 0;
+      playerTop = 0;
+      playerWidth = screenSize.width;
+      playerHeight = screenSize.height;
+    } else if (isLandscape) {
+      // Landscape Split mode: occupies left side below top bar
+      final availableWidth = screenSize.width - padding.left - padding.right;
+      final availableHeight = (screenSize.height - padding.top - padding.bottom - 40.0).clamp(100.0, double.infinity);
+      final naturalVideoWidth = availableHeight * (16 / 9);
+      final maxVideoWidth = (availableWidth - 140.0).clamp(200.0, availableWidth * 0.76);
+      final videoWidth = naturalVideoWidth.clamp(200.0, maxVideoWidth);
+
+      playerLeft = padding.left;
+      playerTop = padding.top + 40.0;
+      playerWidth = videoWidth;
+      playerHeight = availableHeight;
     } else {
-      return _buildPortraitInlinePlayer(context);
+      // Portrait mode: occupies full available width below top bar with natural 16:9 ratio
+      final effectiveAspectRatio = (_isInitialized && _controller != null && _controller!.value.aspectRatio > 0)
+          ? _controller!.value.aspectRatio
+          : (_currentVideo.isShort ? (9 / 16) : (16 / 9));
+      final availableWidth = screenSize.width - padding.left - padding.right;
+      final videoHeight = availableWidth / effectiveAspectRatio;
+
+      playerLeft = padding.left;
+      playerTop = padding.top + 40.0;
+      playerWidth = availableWidth;
+      playerHeight = videoHeight;
     }
+
+    final position = _controller?.value.position ?? Duration.zero;
+    final duration = _controller?.value.duration ?? Duration.zero;
+
+    return PopScope(
+      canPop: !_isLocked && !_isImmersiveLandscape,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isImmersiveLandscape && !_isLocked) {
+          _exitFullscreen();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: isLandscape ? Colors.black : KidColors.bgDark,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ==========================================
+            // LAYER 1: VIDEO PLAYER SURFACE (STABLE WIDGET NODE)
+            // Stays permanently mounted; never destroyed across rotation/fullscreen
+            // ==========================================
+            Positioned(
+              left: playerLeft,
+              top: playerTop,
+              width: playerWidth,
+              height: playerHeight,
+              child: _buildPlayerSurface(),
+            ),
+
+            // Controls & scrubber for MP4 direct playback over player surface
+            if (!_useEmbed)
+              Positioned(
+                left: playerLeft,
+                top: playerTop,
+                width: playerWidth,
+                height: playerHeight,
+                child: Stack(
+                  children: [
+                    if (_showControls && !_isLocked)
+                      (_isImmersiveLandscape
+                          ? _buildLandscapeControls(context)
+                          : (isLandscape
+                              ? _buildSplitPlayerControls(position, duration)
+                              : _buildPortraitControls(position, duration))),
+                    if (!_isImmersiveLandscape)
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: _buildRedScrubber(position, duration),
+                      ),
+                  ],
+                ),
+              ),
+
+            // ==========================================
+            // LAYER 2: FIXED TOP BAR (NOT IN FULLSCREEN)
+            // ==========================================
+            if (!_isLocked && !_isImmersiveLandscape)
+              Positioned(
+                left: padding.left,
+                right: padding.right,
+                top: padding.top,
+                height: 40.0,
+                child: _buildFixedTopBar(context, isFavorite: isFavorite, isLandscape: isLandscape),
+              ),
+
+            // ==========================================
+            // LAYER 3: PLAYLIST / DETAILS AREA
+            // ==========================================
+            if (!_isImmersiveLandscape) ...[
+              if (isLandscape) ...[
+                // Vertical divider
+                Positioned(
+                  left: playerLeft + playerWidth,
+                  top: playerTop,
+                  width: 1,
+                  height: playerHeight,
+                  child: Container(color: KidColors.borderDark),
+                ),
+                // Landscape Right Playlist
+                Positioned(
+                  left: playerLeft + playerWidth + 1,
+                  top: playerTop,
+                  right: padding.right,
+                  bottom: padding.bottom,
+                  child: _buildLandscapePlaylistSection(relatedVideos),
+                ),
+              ] else ...[
+                // Portrait Bottom Details & Playlist
+                Positioned(
+                  left: padding.left,
+                  top: playerTop + playerHeight,
+                  right: padding.right,
+                  bottom: padding.bottom,
+                  child: _buildPortraitDetailsAndPlaylist(isFavorite, relatedVideos, position, duration),
+                ),
+              ],
+            ],
+
+            // ==========================================
+            // LAYER 4: FULLSCREEN FLOATING EXIT BUTTON
+            // ==========================================
+            if (!_isLocked && _isImmersiveLandscape)
+              Positioned(
+                top: padding.top + 16,
+                left: padding.left + 16,
+                child: _buildFullscreenExitButton(),
+              ),
+
+            // ==========================================
+            // LAYER 5: TOUCH LOCK OVERLAY
+            // ==========================================
+            TouchLockOverlay(
+              isLocked: _isLocked,
+              showLockButton: false,
+              onLock: () => setState(() {
+                _isLocked = true;
+                _showControls = false;
+              }),
+              onUnlock: () => setState(() {
+                _isLocked = false;
+                _showControls = true;
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayerSurface() {
+    return Container(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: _useEmbed
+                ? KidEmbedPlayer(
+                    key: _embedPlayerKey,
+                    youtubeId: _currentVideo.effectiveYoutubeId,
+                    autoPlay: true,
+                    scale: 1.14,
+                  )
+                : (_isInitialized
+                    ? AspectRatio(
+                        aspectRatio: _controller!.value.aspectRatio,
+                        child: VideoPlayer(
+                          key: _nativePlayerKey,
+                          _controller!,
+                        ),
+                      )
+                    : (_hasError
+                        ? _buildPendingOrErrorState()
+                        : const CircularProgressIndicator(color: KidColors.primary))),
+          ),
+
+          // Tap detector (direct MP4 mode only)
+          if (!_isLocked && !_useEmbed)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _toggleControls,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullscreenExitButton() {
+    return SafeArea(
+      child: GestureDetector(
+        onTap: _exitFullscreen,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24),
+          ),
+          child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLandscapePlaylistSection(List<VideoItem> relatedVideos) {
+    return Container(
+      color: KidColors.canvasDark,
+      child: relatedVideos.isEmpty
+          ? const Center(
+              child: Text(
+                'No more videos',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: KidColors.textMuted,
+                  fontSize: 11,
+                ),
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              itemCount: relatedVideos.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 6),
+              itemBuilder: (context, index) {
+                final item = relatedVideos[index];
+                return _buildLandscapeVideoCard(item);
+              },
+            ),
+    );
+  }
+
+  Widget _buildPortraitControls(Duration position, Duration duration) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.3),
+      child: Stack(
+        children: [
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28),
+                  onPressed: () => _seekRelative(-10),
+                ),
+                const SizedBox(width: 14),
+                GestureDetector(
+                  onTap: _togglePlayPause,
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 34,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                IconButton(
+                  icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28),
+                  onPressed: () => _seekRelative(10),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 12,
+            right: 8,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 24),
+              onPressed: () {
+                _toggleOrientation(toLandscape: true);
+                setState(() => _isImmersiveLandscape = true);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortraitDetailsAndPlaylist(
+    bool isFavorite,
+    List<VideoItem> relatedVideos,
+    Duration position,
+    Duration duration,
+  ) {
+    final provider = context.watch<AppProvider>();
+    return Container(
+      color: KidColors.bgDark,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        children: [
+          // Video Title (FontWeight 500, 14.5px)
+          Text(
+            _cleanTitle,
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              color: KidColors.textLight,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // Metadata & Stream Mode Row (hidden for embeds where playback time is unavailable)
+          if (!_useEmbed) ...[
+            Text(
+              '${_formatDuration(position)} / ${_formatDuration(duration)} • ${_currentVideo.quality}${_currentVideo.fileSizeBytes > 0 ? " • ${(_currentVideo.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                color: KidColors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Single-Row Action Bar (YouTube Pill Buttons)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Toggle Mode (Embed vs MP4)
+                _buildPillButton(
+                  icon: _useEmbed ? Icons.bolt_rounded : Icons.public_rounded,
+                  iconColor: _useEmbed ? KidColors.yellow : Colors.white,
+                  label: _useEmbed ? 'Try Direct MP4' : 'YouTube Embed',
+                  onTap: () {
+                    _initControllerForVideo(_currentVideo, forceEmbed: !_useEmbed);
+                  },
+                ),
+                const SizedBox(width: 10),
+
+                // Star / Favorite
+                _buildPillButton(
+                  icon: isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                  iconColor: isFavorite ? KidColors.yellow : Colors.white,
+                  label: isFavorite ? 'Starred' : 'Favorite',
+                  onTap: () => provider.toggleFavorite(_currentVideo.id),
+                ),
+                const SizedBox(width: 10),
+
+                // Mute / Sound
+                _buildPillButton(
+                  icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                  iconColor: _isMuted ? KidColors.primary : Colors.white,
+                  label: _isMuted ? 'Muted' : 'Sound',
+                  onTap: _toggleMute,
+                ),
+                const SizedBox(width: 10),
+
+                // Kids Landscape Mode
+                _buildPillButton(
+                  icon: Icons.stay_current_landscape_rounded,
+                  iconColor: KidColors.accent,
+                  label: 'Kids Landscape',
+                  onTap: () {
+                    _toggleOrientation(toLandscape: true);
+                    setState(() => _isImmersiveLandscape = false);
+                  },
+                ),
+                const SizedBox(width: 10),
+
+                // Toddler Lock
+                _buildPillButton(
+                  icon: Icons.lock_outline_rounded,
+                  iconColor: Colors.white,
+                  label: 'Lock Screen',
+                  onTap: () => setState(() {
+                    _isLocked = true;
+                    _showControls = false;
+                  }),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          const Divider(color: KidColors.borderDark, height: 1),
+          const SizedBox(height: 16),
+
+          // "Up Next / More Videos" Header
+          const Text(
+            'More for Kids',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              color: KidColors.textLight,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // List of more curated parent-approved videos
+          ...relatedVideos.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: VideoCard(
+                  video: item,
+                  onTap: () => _initControllerForVideo(item),
+                ),
+              )),
+        ],
+      ),
+    );
   }
 
   // ==========================================
@@ -498,156 +923,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  // ==========================================
-  // 1b. LANDSCAPE SPLIT-SCREEN PLAYER (FIXED TOP BAR + VIDEO & THUMBNAILS BELOW)
-  // ==========================================
-  Widget _buildLandscapeSplitPlayer(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final isFavorite = provider.isFavorite(_currentVideo.id);
-    final position = _controller?.value.position ?? Duration.zero;
-    final duration = _controller?.value.duration ?? Duration.zero;
 
-    final relatedVideos = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
-        .where((v) => v.id != _currentVideo.id && !v.isShort)
-        .toList();
-
-    return PopScope(
-      canPop: !_isLocked,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Column(
-                children: [
-                  // 1. FIXED TOP BAR ON ABOVE (ACROSS FULL WIDTH, SOLID FIXED POSITION)
-                  if (!_isLocked)
-                    _buildFixedTopBar(context, isFavorite: isFavorite, isLandscape: true),
-
-                  // 2. VIDEO + THUMBNAILS ROW (BELOW TOP BAR)
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final availableWidth = constraints.maxWidth;
-                        final availableHeight = constraints.maxHeight;
-
-                        // Calculate natural 16:9 video width based on remaining height below top bar
-                        final naturalVideoWidth = availableHeight * (16 / 9);
-                        final maxVideoWidth = (availableWidth - 140.0).clamp(200.0, availableWidth * 0.76);
-                        final videoWidth = naturalVideoWidth.clamp(200.0, maxVideoWidth);
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // LEFT SIDE: Video Player (occupies exact remaining height)
-                            SizedBox(
-                              width: videoWidth,
-                              height: availableHeight,
-                              child: Container(
-                                color: Colors.black,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Center(
-                                      child: _useEmbed
-                                          ? KidEmbedPlayer(
-                                              youtubeId: _currentVideo.effectiveYoutubeId,
-                                              autoPlay: true,
-                                              // scale: 1.14,
-                                            )
-                                          : (_isInitialized
-                                              ? AspectRatio(
-                                                  aspectRatio: _controller!.value.aspectRatio,
-                                                  child: VideoPlayer(_controller!),
-                                                )
-                                              : (_hasError
-                                                  ? _buildPendingOrErrorState()
-                                                  : const CircularProgressIndicator(color: KidColors.primary))),
-                                    ),
-
-                                    // Tap Detector (direct MP4 mode only)
-                                    if (!_isLocked && !_useEmbed)
-                                      Positioned.fill(
-                                        child: GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: _toggleControls,
-                                        ),
-                                      ),
-
-                                    // Split Controls Overlay (direct MP4 center controls)
-                                    if (_showControls && !_isLocked && !_useEmbed)
-                                      _buildSplitPlayerControls(position, duration),
-
-                                    // Scrubber Bar directly along bottom of video player
-                                    if (!_useEmbed)
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: _buildRedScrubber(position, duration),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Vertical Divider
-                            Container(width: 1, color: KidColors.borderDark),
-
-                            // RIGHT SIDE: Remaining Space for Video Thumbnails
-                            Expanded(
-                              child: Container(
-                                color: KidColors.canvasDark,
-                                child: relatedVideos.isEmpty
-                                    ? const Center(
-                                        child: Text(
-                                          'No more videos',
-                                          style: TextStyle(
-                                            fontFamily: 'Roboto',
-                                            color: KidColors.textMuted,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      )
-                                    : ListView.separated(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                                        itemCount: relatedVideos.length,
-                                        separatorBuilder: (_, __) => const SizedBox(height: 6),
-                                        itemBuilder: (context, index) {
-                                          final item = relatedVideos[index];
-                                          return _buildLandscapeVideoCard(item);
-                                        },
-                                      ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-
-              // Touch Lock Overlay
-              TouchLockOverlay(
-                isLocked: _isLocked,
-                showLockButton: false,
-                onLock: () => setState(() {
-                  _isLocked = true;
-                  _showControls = false;
-                }),
-                onUnlock: () => setState(() {
-                  _isLocked = false;
-                  _showControls = true;
-                }),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildSplitPlayerControls(Duration position, Duration duration) {
     return Container(
@@ -729,7 +1005,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Container(color: Colors.black26),
                       ),
-                      if (item.durationFormatted.isNotEmpty)
+                      if (item.isShort || (!item.needsEmbed && item.duration > 0 && item.durationFormatted.isNotEmpty && item.durationFormatted != '0:00'))
                         Positioned(
                           bottom: 3,
                           right: 3,
@@ -777,93 +1053,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  // ==========================================
-  // 1. LANDSCAPE IMMERSIVE FULLSCREEN
-  // ==========================================
-  Widget _buildLandscapeFullscreen(BuildContext context) {
-    return PopScope(
-      canPop: !_isLocked && !_isImmersiveLandscape,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        if (_isImmersiveLandscape && !_isLocked) {
-          _exitFullscreen();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Video Surface
-            Center(
-              child: _useEmbed
-                  ? KidEmbedPlayer(
-                      youtubeId: _currentVideo.effectiveYoutubeId,
-                      autoPlay: true,
-                      // scale: 1.14,
-                    )
-                  : (_isInitialized
-                      ? AspectRatio(
-                          aspectRatio: _controller!.value.aspectRatio,
-                          child: VideoPlayer(_controller!),
-                        )
-                      : (_hasError
-                          ? _buildPendingOrErrorState()
-                          : const CircularProgressIndicator(color: KidColors.primary))),
-            ),
 
-            // Tap detector (direct MP4 mode only)
-            if (!_isLocked && !_useEmbed)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _toggleControls,
-                ),
-              ),
-
-            // Floating back/exit button in fullscreen mode
-            if (!_isLocked)
-              Positioned(
-                top: 14,
-                left: 14,
-                child: GestureDetector(
-                  onTap: _exitFullscreen,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-
-            // Controls Overlay (direct MP4 mode only)
-            if (_showControls && !_isLocked && !_useEmbed) _buildLandscapeControls(context),
-
-            // Touch Lock Overlay
-            TouchLockOverlay(
-              isLocked: _isLocked,
-              showLockButton: false,
-              onLock: () => setState(() {
-                _isLocked = true;
-                _showControls = false;
-              }),
-              onUnlock: () => setState(() {
-                _isLocked = false;
-                _showControls = true;
-              }),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildLandscapeControls(BuildContext context) {
     final position = _controller?.value.position ?? Duration.zero;
@@ -989,356 +1179,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  // ==========================================
-  // 2. PORTRAIT INLINE PLAYER (YOUTUBE AUTHENTIC)
-  // ==========================================
-  Widget _buildPortraitInlinePlayer(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final isFavorite = provider.isFavorite(_currentVideo.id);
-    final position = _controller?.value.position ?? Duration.zero;
-    final duration = _controller?.value.duration ?? Duration.zero;
 
-    final relatedVideos = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
-        .where((v) => v.id != _currentVideo.id && !v.isShort)
-        .toList();
-
-    // Natural video aspect ratio (prevents cropping at top and bottom)
-    final effectiveAspectRatio = (_isInitialized && _controller != null && _controller!.value.aspectRatio > 0)
-        ? _controller!.value.aspectRatio
-        : (_currentVideo.isShort ? (9 / 16) : (16 / 9));
-
-    return PopScope(
-      canPop: !_isLocked,
-      child: Scaffold(
-        backgroundColor: KidColors.bgDark,
-        body: SafeArea(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Column(
-                children: [
-                  // 1. FIXED TOP BAR ON ABOVE (ACROSS FULL WIDTH, SOLID FIXED POSITION)
-                  if (!_isLocked)
-                    _buildFixedTopBar(context, isFavorite: isFavorite, isLandscape: false),
-
-                  // 2. Inline Video Player (BELOW TOP BAR WITH TRUE ASPECT RATIO)
-                  AspectRatio(
-                    aspectRatio: effectiveAspectRatio,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(
-                          color: Colors.black,
-                          child: Center(
-                            child: _useEmbed
-                                ? KidEmbedPlayer(
-                                    youtubeId: _currentVideo.effectiveYoutubeId,
-                                    autoPlay: true,
-                                    // scale: 1.14,
-                                  )
-                                : (_isInitialized
-                                    ? AspectRatio(
-                                        aspectRatio: _controller!.value.aspectRatio,
-                                        child: VideoPlayer(_controller!),
-                                      )
-                                    : (_hasError
-                                        ? _buildPendingOrErrorState()
-                                        : const CircularProgressIndicator(color: KidColors.primary))),
-                          ),
-                        ),
-
-                        // Tap to toggle controls (direct MP4 mode only)
-                        if (!_isLocked && !_useEmbed)
-                          Positioned.fill(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _toggleControls,
-                            ),
-                          ),
-
-                    // Inline Controls Overlay (direct MP4 mode only)
-                    if (_showControls && !_isLocked && !_useEmbed)
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        child: Stack(
-                          children: [
-                            // Center Controls: Rewind 10, Play/Pause, Forward 10
-                            Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28),
-                                    onPressed: () => _seekRelative(-10),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  GestureDetector(
-                                    onTap: _togglePlayPause,
-                                    child: Container(
-                                      width: 54,
-                                      height: 54,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.65),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                        color: Colors.white,
-                                        size: 34,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  IconButton(
-                                    icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28),
-                                    onPressed: () => _seekRelative(10),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Bottom Right Fullscreen Icon
-                            Positioned(
-                              bottom: 12,
-                              right: 8,
-                              child: IconButton(
-                                visualDensity: VisualDensity.compact,
-                                icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 24),
-                                onPressed: () {
-                                  _toggleOrientation(toLandscape: true);
-                                  setState(() => _isImmersiveLandscape = false);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Red Scrubber Bar at bottom of video (direct MP4 mode only)
-                    if (!_useEmbed)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: _buildRedScrubber(position, duration),
-                      ),
-                  ],
-                ),
-              ),
-
-              // 2. Video Details & Actions Underneath (Scrollable)
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  children: [
-                    // Video Title (FontWeight 500, 16px)
-                    Text(
-                      _cleanTitle,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        color: KidColors.textLight,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Metadata & Stream Mode Row
-                    Row(
-                      children: [
-                        Text(
-                          _useEmbed
-                              ? 'YouTube Kids Safe Embed'
-                              : '${_formatDuration(position)} / ${_formatDuration(duration)} • ${_currentVideo.quality}${_currentVideo.fileSizeBytes > 0 ? " • ${(_currentVideo.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            color: KidColors.textMuted,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _useEmbed ? KidColors.primary.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _useEmbed ? KidColors.primary : Colors.green,
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _useEmbed ? Icons.tv_rounded : Icons.bolt_rounded,
-                                size: 12,
-                                color: _useEmbed ? KidColors.primary : Colors.green,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _useEmbed ? 'Embed' : 'Direct Stream',
-                                style: TextStyle(
-                                  fontFamily: 'Roboto',
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _useEmbed ? KidColors.primary : Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Channel Avatar + Name Row
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: KidColors.primary,
-                          backgroundImage: (_currentVideo.channelIconUrl != null && _currentVideo.channelIconUrl!.isNotEmpty)
-                              ? CachedNetworkImageProvider(_currentVideo.channelIconUrl!)
-                              : null,
-                          child: (_currentVideo.channelIconUrl != null && _currentVideo.channelIconUrl!.isNotEmpty)
-                              ? null
-                              : Text(
-                                  _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
-                                  style: const TextStyle(
-                                    fontFamily: 'Roboto',
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _channelName,
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              color: KidColors.textLight,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Single-Row Action Bar (YouTube Pill Buttons)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          // Toggle Mode (Embed vs MP4)
-                          _buildPillButton(
-                            icon: _useEmbed ? Icons.bolt_rounded : Icons.public_rounded,
-                            iconColor: _useEmbed ? KidColors.yellow : Colors.white,
-                            label: _useEmbed ? 'Try Direct MP4' : 'YouTube Embed',
-                            onTap: () {
-                              _initControllerForVideo(_currentVideo, forceEmbed: !_useEmbed);
-                            },
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Star / Favorite
-                          _buildPillButton(
-                            icon: isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                            iconColor: isFavorite ? KidColors.yellow : Colors.white,
-                            label: isFavorite ? 'Starred' : 'Favorite',
-                            onTap: () => provider.toggleFavorite(_currentVideo.id),
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Mute / Sound
-                          _buildPillButton(
-                            icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                            iconColor: _isMuted ? KidColors.primary : Colors.white,
-                            label: _isMuted ? 'Muted' : 'Sound',
-                            onTap: _toggleMute,
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Kids Landscape Mode
-                          _buildPillButton(
-                            icon: Icons.stay_current_landscape_rounded,
-                            iconColor: KidColors.accent,
-                            label: 'Kids Landscape',
-                            onTap: () {
-                              _toggleOrientation(toLandscape: true);
-                              setState(() => _isImmersiveLandscape = false);
-                            },
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Toddler Lock
-                          _buildPillButton(
-                            icon: Icons.lock_outline_rounded,
-                            iconColor: Colors.white,
-                            label: 'Lock Screen',
-                            onTap: () => setState(() {
-                              _isLocked = true;
-                              _showControls = false;
-                            }),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-                    const Divider(color: KidColors.borderDark, height: 1),
-                    const SizedBox(height: 16),
-
-                    // "Up Next / More Videos" Header
-                    const Text(
-                      'More for Kids',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        color: KidColors.textLight,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // List of more curated parent-approved videos
-                    ...relatedVideos.map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: VideoCard(
-                            video: item,
-                            onTap: () => _initControllerForVideo(item),
-                          ),
-                        )),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          // Touch Lock Overlay
-          TouchLockOverlay(
-            isLocked: _isLocked,
-            showLockButton: false,
-            onLock: () => setState(() {
-              _isLocked = true;
-              _showControls = false;
-            }),
-            onUnlock: () => setState(() {
-              _isLocked = false;
-              _showControls = true;
-            }),
-          ),
-        ],
-      ),
-    ),
-  ),
-);
-  }
 
   Widget _buildPendingOrErrorState() {
     return Stack(

@@ -75,66 +75,24 @@ class VideoCard extends StatelessWidget {
           // 1. 16:9 Thumbnail with Duration Pill
           _buildThumbnail(context, borderRadius: 12),
 
-          // 2. Metadata row with 36x36 Channel Avatar
+          // 2. Clean Video Title
           Padding(
-            padding: const EdgeInsets.only(top: 10, bottom: 14, left: 4, right: 4),
+            padding: const EdgeInsets.only(top: 8, bottom: 10, left: 2, right: 2),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 36x36 Circular Channel Avatar
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: _avatarColor,
-                  backgroundImage: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
-                      ? CachedNetworkImageProvider(video.channelIconUrl!)
-                      : null,
-                  child: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
-                      ? null
-                      : Text(
-                          _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 12),
-
-                // Title + Subtitle
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Video Title (max 2 lines, FontWeight 500)
-                      Text(
-                        _cleanTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          color: KidColors.textLight,
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w500,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-
-                      // Metadata (Channel • Quality • Size)
-                      Text(
-                        '$_channelName • ${video.quality}${video.fileSizeBytes > 0 ? " • ${(video.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          color: KidColors.textMuted,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    _cleanTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      color: KidColors.textLight,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                    ),
                   ),
                 ),
 
@@ -161,45 +119,20 @@ class VideoCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildThumbnail(context, borderRadius: 14, aspectRatio: 9 / 16),
+              _buildThumbnail(context, borderRadius: 12, aspectRatio: 9 / 16),
               Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4, left: 2, right: 2),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _cleanTitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        color: KidColors.textLight,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        const Icon(Icons.bolt_rounded, color: KidColors.coral, size: 14),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            '$_channelName • Shorts',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              color: KidColors.textMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                padding: const EdgeInsets.only(top: 6, bottom: 4, left: 2, right: 2),
+                child: Text(
+                  _cleanTitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Roboto',
+                    color: KidColors.textLight,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.25,
+                  ),
                 ),
               ),
             ],
@@ -219,8 +152,8 @@ class VideoCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: 220,
-        margin: const EdgeInsets.only(right: 12),
+        width: 190,
+        margin: const EdgeInsets.only(right: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -228,63 +161,20 @@ class VideoCard extends StatelessWidget {
             // 16:9 Thumbnail
             _buildThumbnail(context, borderRadius: 10, aspectRatio: 16 / 9),
 
-            // Metadata Row
+            // Video Title
             Padding(
-              padding: const EdgeInsets.only(top: 8, left: 2, right: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: _avatarColor,
-                    backgroundImage: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
-                        ? CachedNetworkImageProvider(video.channelIconUrl!)
-                        : null,
-                    child: (video.channelIconUrl != null && video.channelIconUrl!.isNotEmpty)
-                        ? null
-                        : Text(
-                            _channelName.isNotEmpty ? _channelName[0].toUpperCase() : 'K',
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _cleanTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            color: KidColors.textLight,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _channelName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            color: KidColors.textMuted,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.only(top: 6, left: 2, right: 2),
+              child: Text(
+                _cleanTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  color: KidColors.textLight,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
               ),
             ),
           ],
@@ -416,46 +306,25 @@ class VideoCard extends StatelessWidget {
                     ),
                   ),
 
-                // 6. Overlaid Title and Channel (Bottom)
+                // 6. Overlaid Title (Bottom)
                 Positioned(
                   bottom: 10,
                   left: 10,
                   right: 10,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _cleanTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                          shadows: [
-                            Shadow(color: Colors.black87, blurRadius: 4),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _channelName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          shadows: [
-                            Shadow(color: Colors.black87, blurRadius: 4),
-                          ],
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    _cleanTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      shadows: [
+                        Shadow(color: Colors.black87, blurRadius: 4),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -507,46 +376,47 @@ class VideoCard extends StatelessWidget {
                       : _buildFallbackThumbnail()),
             ),
 
-            // Duration Pill or Shorts Badge
-            Positioned(
-              bottom: 6,
-              right: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: video.isShort ? KidColors.coral.withValues(alpha: 0.9) : KidColors.durationBadgeBg,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (video.isShort) ...[
-                      const Icon(Icons.bolt_rounded, color: Colors.white, size: 12),
-                      const SizedBox(width: 2),
-                      const Text(
-                        'Shorts',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+            // Duration Pill or Shorts Badge (hidden for embeds where duration is unavailable)
+            if (video.isShort || (!video.needsEmbed && video.duration > 0 && video.durationFormatted.isNotEmpty && video.durationFormatted != '0:00'))
+              Positioned(
+                bottom: 6,
+                right: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: video.isShort ? KidColors.coral.withValues(alpha: 0.9) : KidColors.durationBadgeBg,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (video.isShort) ...[
+                        const Icon(Icons.bolt_rounded, color: Colors.white, size: 12),
+                        const SizedBox(width: 2),
+                        const Text(
+                          'Shorts',
+                          style: TextStyle(
+                            fontFamily: 'Roboto',
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                    ] else
-                      Text(
-                        video.durationFormatted,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          color: Colors.white,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
+                      ] else
+                        Text(
+                          video.durationFormatted,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
             // Downloaded indicator checkmark (Top-Right)
             if (video.downloadStatus == DownloadStatus.downloaded)
