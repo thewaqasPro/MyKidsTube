@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -14,10 +15,12 @@ class KidEmbedPlayer extends StatefulWidget {
   final bool autoPlay;
   final double? aspectRatio;
   final double scale;
-  final double zoom;
   final Color shieldColor;
   final double? topShieldHeight;
   final double? bottomShieldHeight;
+  final VoidCallback? onEnded;
+  final ValueChanged<String>? onVideoChanged;
+  final ValueChanged<String>? onUnknownVideoDetected;
 
   const KidEmbedPlayer({
     super.key,
@@ -25,18 +28,183 @@ class KidEmbedPlayer extends StatefulWidget {
     this.autoPlay = true,
     this.aspectRatio,
     this.scale = 1.0,
-    this.zoom = 1.0,
     this.shieldColor = KidColors.canvasDark,
     this.topShieldHeight,
     this.bottomShieldHeight,
+    this.onEnded,
+    this.onVideoChanged,
+    this.onUnknownVideoDetected,
   });
 
+  /// Builds the sandboxed YouTube iframe HTML string.
+  /// controls=0 disables YouTube native controls.
+  /// allowfullscreen and web-share are trimmed for child safety and sandbox enforcement.
+  static String buildEmbedHtml({
+    required String youtubeId,
+    bool autoPlay = true,
+    double scale = 1.0,
+    double currentPlaybackSeconds = 0.0,
+  }) {
+    final id = youtubeId;
+    final autoPlayFlag = autoPlay ? 1 : 0;
+    final startParam = currentPlaybackSeconds > 2 ? '&start=${currentPlaybackSeconds.toInt()}' : '';
+    return '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      ${scale != 1.0 ? 'transform: scale($scale); transform-origin: center center;' : ''}
+    }
+  </style>
+</head>
+<body>
+  <iframe
+    id="player"
+    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag$startParam&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+  </iframe>
+  <script>
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    var expectedId = "$id";
+    var player;
+
+    function extractVideoId(p) {
+      try {
+        if (p && typeof p.getVideoData === 'function') {
+          var d = p.getVideoData();
+          if (d && (d.video_id || d.videoId)) {
+            return d.video_id || d.videoId;
+          }
+        }
+      } catch(e) {}
+      try {
+        if (p && typeof p.getVideoUrl === 'function') {
+          var u = p.getVideoUrl();
+          if (u) {
+            var m = u.match(/[?&]v=([^&#]+)/) || u.match(/\\/embed\\/([^?&#]+)/);
+            if (m && m[1]) return m[1];
+          }
+        }
+      } catch(e) {}
+      return '';
+    }
+
+    function checkVideoEscape(p) {
+      var currentId = extractVideoId(p);
+      if (currentId && currentId !== expectedId) {
+        try {
+          if (typeof p.stopVideo === 'function') {
+            p.stopVideo();
+          } else if (typeof p.pauseVideo === 'function') {
+            p.pauseVideo();
+          }
+        } catch(e) {}
+        if (window.KidsTubeBridge) {
+          window.KidsTubeBridge.postMessage(JSON.stringify({
+            event: 'videoChanged',
+            videoId: currentId
+          }));
+        }
+        return true;
+      }
+      return false;
+    }
+
+    function onPlayerStateChange(event) {
+      if (checkVideoEscape(event.target)) {
+        return;
+      }
+      if (event.data === 0) {
+        if (window.KidsTubeBridge) {
+          window.KidsTubeBridge.postMessage(JSON.stringify({
+            event: 'ended',
+            videoId: expectedId
+          }));
+        }
+      }
+    }
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        events: {
+          'onReady': function(event) {
+            ${autoPlay ? "try { event.target.playVideo(); } catch(e) {}" : ""}
+          },
+          'onStateChange': onPlayerStateChange
+        }
+      });
+      window.player = player;
+    }
+
+    function sendPlay() {
+      try {
+        if (window.player && typeof window.player.playVideo === 'function') {
+          window.player.playVideo();
+        }
+        var frame = document.getElementById('player');
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', 'https://www.youtube-nocookie.com');
+        }
+      } catch(e) {}
+    }
+
+    setInterval(function() {
+      try {
+        if (window.player) {
+          if (checkVideoEscape(window.player)) {
+            return;
+          }
+          if (typeof window.player.getCurrentTime === 'function') {
+            var t = window.player.getCurrentTime();
+            if (t && t > 0 && window.KidsTubeBridge) {
+              window.KidsTubeBridge.postMessage(t.toString());
+            }
+          }
+        }
+      } catch(e) {}
+    }, 1000);
+
+    ${autoPlay ? """
+    window.addEventListener('load', function() {
+      setTimeout(sendPlay, 100);
+      setTimeout(sendPlay, 300);
+      setTimeout(sendPlay, 800);
+      setTimeout(sendPlay, 1600);
+    });
+    """ : ""}
+  </script>
+</body>
+</html>
+''';
+  }
+
   @override
-  State<KidEmbedPlayer> createState() => _KidEmbedPlayerState();
+  State<KidEmbedPlayer> createState() => KidEmbedPlayerState();
 }
 
-class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
+class KidEmbedPlayerState extends State<KidEmbedPlayer> {
   late final WebViewController _controller;
+  String? _currentHtml;
+  String? get currentHtml => _currentHtml;
   double _currentPlaybackSeconds = 0.0;
   bool _isLoading = true;
   bool _hasError = false;
@@ -44,6 +212,11 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   Timer? _shieldDismissTimer;
   Timer? _playRetryTimer1;
   Timer? _playRetryTimer2;
+
+  void reloadCuratedVideo() {
+    _currentPlaybackSeconds = 0.0;
+    _loadVideo(widget.youtubeId);
+  }
 
   @override
   void initState() {
@@ -105,7 +278,29 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
       ..addJavaScriptChannel(
         'KidsTubeBridge',
         onMessageReceived: (JavaScriptMessage msg) {
-          final t = double.tryParse(msg.message);
+          final raw = msg.message.trim();
+          if (raw.startsWith('{') && raw.endsWith('}')) {
+            try {
+              final data = jsonDecode(raw);
+              if (data is Map<String, dynamic>) {
+                final event = data['event'] as String?;
+                final videoId = data['videoId'] as String? ?? '';
+                if (event == 'ended') {
+                  widget.onEnded?.call();
+                } else if (event == 'videoChanged') {
+                  if (videoId.isNotEmpty && videoId != widget.youtubeId) {
+                    widget.onVideoChanged?.call(videoId);
+                    widget.onUnknownVideoDetected?.call(videoId);
+                    if (widget.onVideoChanged == null && widget.onUnknownVideoDetected == null) {
+                      reloadCuratedVideo();
+                    }
+                  }
+                }
+              }
+            } catch (_) {}
+            return;
+          }
+          final t = double.tryParse(raw);
           if (t != null && t > 0) {
             _currentPlaybackSeconds = t;
           }
@@ -204,92 +399,13 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
     }
     _scheduleShieldDismiss();
 
-    final autoPlayFlag = widget.autoPlay ? 1 : 0;
-    final startParam = _currentPlaybackSeconds > 2 ? '&start=${_currentPlaybackSeconds.toInt()}' : '';
-    final html = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      background-color: #000;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    iframe {
-      width: ${widget.zoom != 1.0 ? '${(100 / widget.zoom).toStringAsFixed(1)}%' : '100%'};
-      height: ${widget.zoom != 1.0 ? '${(100 / widget.zoom).toStringAsFixed(1)}%' : '100%'};
-      border: 0;
-      ${widget.zoom != 1.0 ? 'zoom: ${widget.zoom};' : ''}
-      ${widget.scale != 1.0 ? 'transform: scale(${widget.scale}); transform-origin: center center;' : ''}
-    }
-  </style>
-</head>
-<body>
-  <iframe
-    id="player"
-    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag$startParam&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    allowfullscreen>
-  </iframe>
-  <script>
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-    var player;
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        events: {
-          'onReady': function(event) {
-            ${widget.autoPlay ? "try { event.target.playVideo(); } catch(e) {}" : ""}
-          }
-        }
-      });
-      window.player = player;
-    }
-
-    function sendPlay() {
-      try {
-        if (window.player && typeof window.player.playVideo === 'function') {
-          window.player.playVideo();
-        }
-        var frame = document.getElementById('player');
-        if (frame && frame.contentWindow) {
-          frame.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', 'https://www.youtube-nocookie.com');
-        }
-      } catch(e) {}
-    }
-
-    setInterval(function() {
-      try {
-        if (window.player && typeof window.player.getCurrentTime === 'function') {
-          var t = window.player.getCurrentTime();
-          if (t && t > 0 && window.KidsTubeBridge) {
-            window.KidsTubeBridge.postMessage(t.toString());
-          }
-        }
-      } catch(e) {}
-    }, 1000);
-
-    ${widget.autoPlay ? """
-    window.addEventListener('load', function() {
-      setTimeout(sendPlay, 300);
-      setTimeout(sendPlay, 800);
-      setTimeout(sendPlay, 1600);
-    });
-    """ : ""}
-  </script>
-</body>
-</html>
-''';
+    final html = KidEmbedPlayer.buildEmbedHtml(
+      youtubeId: id,
+      autoPlay: widget.autoPlay,
+      scale: widget.scale,
+      currentPlaybackSeconds: _currentPlaybackSeconds,
+    );
+    _currentHtml = html;
     _controller.loadHtmlString(html, baseUrl: 'https://www.youtube-nocookie.com');
   }
 

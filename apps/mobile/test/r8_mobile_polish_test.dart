@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 import 'package:safe_tube/models/video_item.dart';
 import 'package:safe_tube/models/category_item.dart';
 import 'package:safe_tube/models/child_profile.dart';
@@ -12,6 +13,82 @@ import 'package:safe_tube/services/database_service.dart';
 import 'package:safe_tube/services/download_service.dart';
 import 'package:safe_tube/services/vps_api_service.dart';
 import 'package:safe_tube/widgets/kid_embed_player.dart';
+
+class TestWebViewPlatform extends WebViewPlatform {
+  @override
+  PlatformWebViewController createPlatformWebViewController(
+    PlatformWebViewControllerCreationParams params,
+  ) {
+    return TestPlatformWebViewController(params);
+  }
+
+  @override
+  PlatformWebViewWidget createPlatformWebViewWidget(
+    PlatformWebViewWidgetCreationParams params,
+  ) {
+    return TestPlatformWebViewWidget(params);
+  }
+
+  @override
+  PlatformNavigationDelegate createPlatformNavigationDelegate(
+    PlatformNavigationDelegateCreationParams params,
+  ) {
+    return TestPlatformNavigationDelegate(params);
+  }
+}
+
+class TestPlatformNavigationDelegate extends PlatformNavigationDelegate {
+  TestPlatformNavigationDelegate(super.params) : super.implementation();
+
+  @override
+  Future<void> setOnNavigationRequest(NavigationRequestCallback onNavigationRequest) async {}
+
+  @override
+  Future<void> setOnPageStarted(PageEventCallback onPageStarted) async {}
+
+  @override
+  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {}
+
+  @override
+  Future<void> setOnWebResourceError(WebResourceErrorCallback onWebResourceError) async {}
+}
+
+class TestPlatformWebViewController extends PlatformWebViewController {
+  TestPlatformWebViewController(super.params) : super.implementation();
+
+  String? loadedHtml;
+  String? loadedBaseUrl;
+
+  @override
+  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
+    loadedHtml = html;
+    loadedBaseUrl = baseUrl;
+  }
+
+  @override
+  Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
+
+  @override
+  Future<void> setBackgroundColor(Color color) async {}
+
+  @override
+  Future<void> setPlatformNavigationDelegate(PlatformNavigationDelegate handler) async {}
+
+  @override
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams javaScriptChannelParams) async {}
+
+  @override
+  Future<void> runJavaScript(String javaScript) async {}
+}
+
+class TestPlatformWebViewWidget extends PlatformWebViewWidget {
+  TestPlatformWebViewWidget(super.params) : super.implementation();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink();
+  }
+}
 
 class FakeVpsApiService extends Fake implements VpsApiService {
   @override
@@ -36,13 +113,13 @@ class CorruptThrowingDatabaseService extends Fake implements DatabaseService {
   }
 
   @override
-  Future<List<VideoItem>> getAllVideos() async => [];
+  Future<List<VideoItem>> getAllVideos({String? profileId}) async => [];
 
   @override
-  Future<List<VideoItem>> getDownloadedVideos() async => [];
+  Future<List<VideoItem>> getDownloadedVideos({String? profileId}) async => [];
 
   @override
-  Future<Set<String>> getFavoriteIds() async => {};
+  Future<Set<String>> getFavoriteIds({String? profileId}) async => {};
 
   @override
   Future<List<ChildProfile>> getAllLocalProfiles() async => [];
@@ -63,38 +140,92 @@ class CorruptThrowingDatabaseService extends Fake implements DatabaseService {
 }
 
 void main() {
+  setUp(() {
+    WebViewPlatform.instance = TestWebViewPlatform();
+  });
+
   group('R8 — Player Honesty & Sandbox Shield Tests', () {
-    test('KidEmbedPlayer defaults to scale 1.0 and zoom 1.0', () {
+    test('KidEmbedPlayer defaults to scale 1.0', () {
       const player = KidEmbedPlayer(youtubeId: 'abc12345678');
       expect(player.scale, equals(1.0));
-      expect(player.zoom, equals(1.0));
     });
 
-    test('KidEmbedPlayer embed source and postMessage strings contain controls=0 and scoped origin', () {
-      final file = File('lib/widgets/kid_embed_player.dart');
-      final content = file.readAsStringSync();
+    testWidgets('pumps KidEmbedPlayer and asserts shield GestureDetectors with HitTestBehavior.opaque over chrome regions', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 250,
+              child: KidEmbedPlayer(
+                youtubeId: 'abc12345678',
+                scale: 1.14,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
 
-      // Check controls=0 in URL
-      expect(content.contains('controls=0'), isTrue,
-          reason: 'Embed URL must include controls=0');
+      expect(find.byType(KidEmbedPlayer), findsOneWidget);
 
-      // Check origin scoping in postMessage
-      expect(content.contains("postMessage('{\"event\":\"command\",\"func\":\"playVideo\",\"args\":\"\"}', 'https://www.youtube-nocookie.com')"), isTrue,
-          reason: 'postMessage must be scoped to https://www.youtube-nocookie.com instead of wildcard *');
+      final player = tester.widget<KidEmbedPlayer>(find.byType(KidEmbedPlayer));
+      expect(player.scale, equals(1.14));
 
-      // Ensure no wildcard postMessage exists in the player
-      expect(content.contains("postMessage('{\"event\":\"command\",\"func\":\"playVideo\",\"args\":\"\"}', '*')"), isFalse,
-          reason: 'Wildcard * postMessage must not be used');
+      final gestureDetectors = tester.widgetList<GestureDetector>(find.descendant(
+        of: find.byType(KidEmbedPlayer),
+        matching: find.byType(GestureDetector),
+      )).toList();
+
+      final opaqueShields = gestureDetectors.where((g) => g.behavior == HitTestBehavior.opaque).toList();
+      expect(opaqueShields.length, greaterThanOrEqualTo(2),
+          reason: 'Must render at least top and bottom opaque hit-test shield tap-blockers');
+
+      final positionedWidgets = tester.widgetList<Positioned>(find.descendant(
+        of: find.byType(KidEmbedPlayer),
+        matching: find.byType(Positioned),
+      )).toList();
+
+      final hasTopShield = positionedWidgets.any((p) => p.top == 0 && p.left == 0 && p.right == 0 && p.height != null);
+      final hasBottomShield = positionedWidgets.any((p) => p.bottom == 0 && p.left == 0 && p.right == 0 && p.height != null);
+      expect(hasTopShield, isTrue, reason: 'Top chrome region must be covered by top shield Positioned container');
+      expect(hasBottomShield, isTrue, reason: 'Bottom chrome region must be covered by bottom shield Positioned container');
     });
 
-    test('Call sites in kid_player_screen and kid_shorts_feed_screen pass scale: 1.14', () {
-      final playerScreen = File('lib/screens/kid_player_screen.dart').readAsStringSync();
-      final shortsScreen = File('lib/screens/kid_shorts_feed_screen.dart').readAsStringSync();
+    testWidgets('KidEmbedPlayer embed URL contains controls=0 and iframe HTML lacks allowfullscreen and web-share', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 400,
+              height: 250,
+              child: KidEmbedPlayer(
+                youtubeId: 'kid_safe_vid_99',
+                scale: 1.14,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
 
-      expect(playerScreen.contains('scale: 1.14'), isTrue,
-          reason: 'kid_player_screen.dart must specify scale: 1.14');
-      expect(shortsScreen.contains('scale: 1.14'), isTrue,
-          reason: 'kid_shorts_feed_screen.dart must specify scale: 1.14');
+      final state = tester.state<KidEmbedPlayerState>(find.byType(KidEmbedPlayer));
+      final html = state.currentHtml;
+      expect(html, isNotNull, reason: 'KidEmbedPlayer must generate embed HTML upon loading');
+
+      // Assert embed URL contains controls=0
+      expect(html!.contains('controls=0'), isTrue,
+          reason: 'Embed URL must contain controls=0 to suppress native YouTube controls');
+      expect(html.contains('https://www.youtube-nocookie.com/embed/kid_safe_vid_99'), isTrue,
+          reason: 'Embed URL must point to nocookie domain with curated video ID');
+      expect(html.contains('origin=https://www.youtube-nocookie.com'), isTrue,
+          reason: 'Embed URL origin must be scoped to https://www.youtube-nocookie.com');
+
+      // Assert iframe HTML lacks allowfullscreen and web-share
+      expect(html.contains('allowfullscreen'), isFalse,
+          reason: 'Iframe HTML must NOT contain allowfullscreen (child sandbox enforcement)');
+      expect(html.contains('web-share'), isFalse,
+          reason: 'Iframe HTML must NOT contain web-share (prevent social escape)');
     });
   });
 

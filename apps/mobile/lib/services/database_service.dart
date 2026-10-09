@@ -8,10 +8,48 @@ import '../models/child_profile.dart';
 class DatabaseService {
   static Database? _database;
   static final DatabaseService instance = DatabaseService._init();
+  final Database? _customDb;
 
-  DatabaseService._init();
+  DatabaseService._init() : _customDb = null;
+  DatabaseService({Database? db}) : _customDb = db;
+  DatabaseService.withDatabase(Database db) : _customDb = db;
+
+  static Future<DatabaseService> createTestInstance(Database db) async {
+    await instance._createDB(db, 1);
+    try {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS local_child_profiles (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          avatar_icon TEXT DEFAULT 'bear',
+          age_bracket TEXT DEFAULT 'all',
+          created_at INTEGER
+        );
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS local_watch_events (
+          id TEXT PRIMARY KEY,
+          video_id TEXT NOT NULL,
+          video_title TEXT,
+          category_id TEXT,
+          device_id TEXT DEFAULT 'kids_tablet',
+          profile_id TEXT,
+          profile_name TEXT,
+          seconds_watched INTEGER NOT NULL,
+          video_duration INTEGER DEFAULT 0,
+          completion_rate REAL DEFAULT 0.0,
+          is_completed INTEGER DEFAULT 0,
+          is_skipped INTEGER DEFAULT 0,
+          watched_at INTEGER NOT NULL,
+          is_synced INTEGER DEFAULT 0
+        );
+      ''');
+    } catch (_) {}
+    return DatabaseService.withDatabase(db);
+  }
 
   Future<Database> get database async {
+    if (_customDb != null) return _customDb;
     if (_database != null) return _database!;
     _database = await _initDB('kidstube_v2.db');
     return _database!;
@@ -79,12 +117,43 @@ class DatabaseService {
       version: 1,
       onCreate: _createDB,
       onOpen: (db) async {
+        // Favorites table migration: support per-profile favorites with composite key (profile_id, video_id)
         await db.execute('''
-          CREATE TABLE IF NOT EXISTS favorites (
-            video_id TEXT PRIMARY KEY,
-            created_at INTEGER
+          CREATE TABLE IF NOT EXISTS favorites_v2 (
+            profile_id TEXT NOT NULL DEFAULT 'kids_all',
+            video_id TEXT NOT NULL,
+            created_at INTEGER,
+            PRIMARY KEY (profile_id, video_id)
           );
         ''');
+        try {
+          final oldFavExists = await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'"
+          );
+          if (oldFavExists.isNotEmpty) {
+            final tableInfo = await db.rawQuery("PRAGMA table_info(favorites)");
+            final hasProfileId = tableInfo.any((col) => col['name'] == 'profile_id');
+            if (hasProfileId) {
+              await db.execute('''
+                INSERT OR IGNORE INTO favorites_v2 (profile_id, video_id, created_at)
+                SELECT COALESCE(profile_id, 'kids_all'), video_id, created_at FROM favorites;
+              ''');
+            } else {
+              await db.execute('''
+                INSERT OR IGNORE INTO favorites_v2 (profile_id, video_id, created_at)
+                SELECT 'kids_all', video_id, created_at FROM favorites;
+              ''');
+            }
+            await db.execute('DROP TABLE favorites;');
+            await db.execute('ALTER TABLE favorites_v2 RENAME TO favorites;');
+          } else {
+            await db.execute('ALTER TABLE favorites_v2 RENAME TO favorites;');
+          }
+        } catch (_) {}
+        try {
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_profile ON favorites (profile_id, video_id);');
+        } catch (_) {}
+
         await db.execute('''
           CREATE TABLE IF NOT EXISTS local_child_profiles (
             id TEXT PRIMARY KEY,
@@ -136,6 +205,9 @@ class DatabaseService {
           await db.execute('CREATE INDEX IF NOT EXISTS idx_watch_events_profile ON local_watch_events (profile_id, watched_at);');
         } catch (_) {}
         try {
+          await db.execute("UPDATE local_watch_events SET profile_id = 'no-profile' WHERE profile_id IS NULL OR profile_id = '' OR profile_id = 'all';");
+        } catch (_) {}
+        try {
           await db.execute('ALTER TABLE videos ADD COLUMN status TEXT DEFAULT "pending_download";');
         } catch (_) {}
         try {
@@ -146,6 +218,15 @@ class DatabaseService {
         } catch (_) {}
         try {
           await db.execute('ALTER TABLE videos ADD COLUMN channel_icon_url TEXT;');
+        } catch (_) {}
+        try {
+          await db.execute('ALTER TABLE videos ADD COLUMN profile_id TEXT DEFAULT "kids_all";');
+        } catch (_) {}
+        try {
+          await db.execute('UPDATE videos SET profile_id = "kids_all" WHERE profile_id IS NULL;');
+        } catch (_) {}
+        try {
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_videos_profile ON videos (profile_id);');
         } catch (_) {}
       },
     );
@@ -164,6 +245,7 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE videos (
         id TEXT PRIMARY KEY,
+        profile_id TEXT DEFAULT 'kids_all',
         title TEXT NOT NULL,
         duration INTEGER DEFAULT 0,
         duration_formatted TEXT DEFAULT '00:00',
@@ -182,6 +264,17 @@ class DatabaseService {
         youtube_id TEXT
       );
     ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_videos_profile ON videos (profile_id);');
+
+    await db.execute('''
+      CREATE TABLE favorites (
+        profile_id TEXT NOT NULL DEFAULT 'kids_all',
+        video_id TEXT NOT NULL,
+        created_at INTEGER,
+        PRIMARY KEY (profile_id, video_id)
+      );
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_favorites_profile ON favorites (profile_id, video_id);');
 
     await db.execute('''
       CREATE TABLE settings (
@@ -242,7 +335,19 @@ class DatabaseService {
   }
 
   // --- Video CRUD & Batch Operations ---
-  Future<void> batchUpsertCatalog(List<CategoryItem> categories, List<VideoItem> videos) async {
+  static bool isAssignedToProfile(String? videoProfileId, String activeProfileId) {
+    if (videoProfileId == null || videoProfileId.isEmpty) return true;
+    if (videoProfileId == 'kids_all') return true;
+    if (videoProfileId == activeProfileId) return true;
+    final ids = videoProfileId.split(',').map((s) => s.trim()).toSet();
+    return ids.contains(activeProfileId) || ids.contains('kids_all');
+  }
+
+  Future<void> batchUpsertCatalog(
+    List<CategoryItem> categories,
+    List<VideoItem> videos, {
+    String? profileId,
+  }) async {
     try {
       final db = await database;
 
@@ -259,16 +364,17 @@ class DatabaseService {
       try {
         await db.execute('ALTER TABLE videos ADD COLUMN youtube_id TEXT;');
       } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE videos ADD COLUMN profile_id TEXT DEFAULT "kids_all";');
+      } catch (_) {}
 
       await db.transaction((txn) async {
-        // Query existing downloaded items to preserve local file paths
-        final existingDownloaded = await txn.query(
+        // Query existing downloaded items and profile assignments
+        final existingVideos = await txn.query(
           'videos',
-          columns: ['id', 'local_file_path', 'local_thumbnail_path', 'download_status'],
-          where: 'download_status = ? AND local_file_path IS NOT NULL',
-          whereArgs: [DownloadStatus.downloaded.index],
+          columns: ['id', 'profile_id', 'local_file_path', 'local_thumbnail_path', 'download_status'],
         );
-        final downloadedMap = {for (final r in existingDownloaded) r['id'] as String: r};
+        final existingMap = {for (final r in existingVideos) r['id'] as String: r};
 
         final batch = txn.batch();
         for (final cat in categories) {
@@ -277,11 +383,33 @@ class DatabaseService {
 
         for (final vid in videos) {
           final data = vid.toMap();
-          if (downloadedMap.containsKey(vid.id)) {
-            final prev = downloadedMap[vid.id]!;
+          var pId = vid.profileId;
+          if (pId.isEmpty || pId == 'kids_all') {
+            if (profileId != null && profileId.isNotEmpty && profileId != 'all') {
+              pId = profileId;
+            }
+          }
+
+          if (existingMap.containsKey(vid.id)) {
+            final prev = existingMap[vid.id]!;
             data['local_file_path'] = prev['local_file_path'];
             data['local_thumbnail_path'] = prev['local_thumbnail_path'];
             data['download_status'] = prev['download_status'];
+
+            final prevPid = prev['profile_id'] as String?;
+            if (prevPid != null && prevPid.isNotEmpty && prevPid != pId) {
+              if (prevPid == 'kids_all' || pId == 'kids_all') {
+                data['profile_id'] = 'kids_all';
+              } else {
+                final set = prevPid.split(',').map((s) => s.trim()).toSet();
+                set.addAll(pId.split(',').map((s) => s.trim()));
+                data['profile_id'] = set.join(',');
+              }
+            } else {
+              data['profile_id'] = pId;
+            }
+          } else {
+            data['profile_id'] = pId;
           }
           batch.insert('videos', data, conflictAlgorithm: ConflictAlgorithm.replace);
         }
@@ -297,8 +425,11 @@ class DatabaseService {
   /// Prunes any videos from SQLite that no longer exist on the server,
   /// and deletes their cached/downloaded local video and thumbnail files from device disk.
   /// Gated by allowEmpty guard and maxPruneRatio safety cap to protect offline libraries.
+  /// When profileId is specified, only evaluates videos belonging to that profile (or kids_all),
+  /// ensuring other profiles' downloaded offline content is NEVER pruned.
   Future<List<String>> pruneRemovedVideos(
     List<String> validServerVideoIds, {
+    String? profileId,
     bool allowEmpty = false,
     double maxPruneRatio = 0.50,
     bool force = false,
@@ -310,10 +441,23 @@ class DatabaseService {
       // Find all videos currently in SQLite
       final allLocalVideos = await db.query(
         'videos',
-        columns: ['id', 'local_file_path', 'local_thumbnail_path'],
+        columns: ['id', 'profile_id', 'local_file_path', 'local_thumbnail_path'],
       );
 
       if (allLocalVideos.isEmpty) {
+        return [];
+      }
+
+      // If a specific profileId is being synced, only consider videos that belong to this profile
+      // (or kids_all), so that videos belonging to other profiles are never pruned!
+      final relevantLocalVideos = (profileId != null && profileId.isNotEmpty && profileId != 'all')
+          ? allLocalVideos.where((row) {
+              final pId = (row['profile_id'] as String?) ?? 'kids_all';
+              return isAssignedToProfile(pId, profileId);
+            }).toList()
+          : allLocalVideos;
+
+      if (relevantLocalVideos.isEmpty) {
         return [];
       }
 
@@ -324,16 +468,16 @@ class DatabaseService {
         return [];
       }
 
-      final toDelete = allLocalVideos.where((row) => !validIds.contains(row['id'] as String)).toList();
+      final toDelete = relevantLocalVideos.where((row) => !validIds.contains(row['id'] as String)).toList();
       if (toDelete.isEmpty) {
         return [];
       }
 
       // 2. Safety Cap: Never delete more than maxPruneRatio (default 50%) in one sync without explicit force confirmation
-      final pruneRatio = toDelete.length / allLocalVideos.length;
-      if (!force && allLocalVideos.length > 2 && pruneRatio > maxPruneRatio) {
+      final pruneRatio = toDelete.length / relevantLocalVideos.length;
+      if (!force && relevantLocalVideos.length > 2 && pruneRatio > maxPruneRatio) {
         // ignore: avoid_print
-        print('DatabaseService: pruneRemovedVideos safety cap blocked deletion of ${toDelete.length}/${allLocalVideos.length} videos (${(pruneRatio * 100).toStringAsFixed(1)}% > ${(maxPruneRatio * 100).toStringAsFixed(1)}%). Explicit confirmation required.');
+        print('DatabaseService: pruneRemovedVideos safety cap blocked deletion of ${toDelete.length}/${relevantLocalVideos.length} videos (${(pruneRatio * 100).toStringAsFixed(1)}% > ${(maxPruneRatio * 100).toStringAsFixed(1)}%). Explicit confirmation required.');
         return [];
       }
 
@@ -382,12 +526,19 @@ class DatabaseService {
     }
   }
 
-  Future<void> upsertVideo(VideoItem video) async {
+  Future<void> upsertVideo(VideoItem video, {String? profileId}) async {
     try {
       final db = await database;
       final existing = await db.query('videos', where: 'id = ?', whereArgs: [video.id]);
 
       Map<String, dynamic> data = video.toMap();
+      var pId = video.profileId;
+      if (pId.isEmpty || pId == 'kids_all') {
+        if (profileId != null && profileId.isNotEmpty && profileId != 'all') {
+          pId = profileId;
+        }
+      }
+
       if (existing.isNotEmpty) {
         final existingLocal = existing.first['local_file_path'] as String?;
         final existingStatus = existing.first['download_status'] as int? ?? 0;
@@ -396,21 +547,53 @@ class DatabaseService {
           data['local_thumbnail_path'] = existing.first['local_thumbnail_path'];
           data['download_status'] = existingStatus;
         }
+
+        final prevPid = existing.first['profile_id'] as String?;
+        if (prevPid != null && prevPid.isNotEmpty && prevPid != pId) {
+          if (prevPid == 'kids_all' || pId == 'kids_all') {
+            data['profile_id'] = 'kids_all';
+          } else {
+            final set = prevPid.split(',').map((s) => s.trim()).toSet();
+            set.addAll(pId.split(',').map((s) => s.trim()));
+            data['profile_id'] = set.join(',');
+          }
+        } else {
+          data['profile_id'] = pId;
+        }
+      } else {
+        data['profile_id'] = pId;
       }
 
       await db.insert('videos', data, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (_) {}
   }
 
-  Future<List<VideoItem>> getAllVideos() async {
+  Future<List<VideoItem>> getAllVideos({String? profileId}) async {
     try {
       final db = await database;
-      final maps = await db.query('videos');
+      List<Map<String, dynamic>> maps;
+      if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
+        maps = await db.query(
+          'videos',
+          where: "profile_id = 'kids_all' OR profile_id = ? OR profile_id LIKE ?",
+          whereArgs: [profileId, '%$profileId%'],
+        );
+      } else {
+        maps = await db.query('videos');
+      }
       final list = <VideoItem>[];
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) list.add(v);
+          if (v != null) {
+            if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
+              if (isAssignedToProfile(v.profileId, profileId)) {
+                list.add(v);
+              }
+            } else {
+              list.add(v);
+            }
+          }
         } catch (_) {}
       }
       return list;
@@ -419,7 +602,7 @@ class DatabaseService {
     }
   }
 
-  Future<List<VideoItem>> getDownloadedVideos() async {
+  Future<List<VideoItem>> getDownloadedVideos({String? profileId}) async {
     try {
       final db = await database;
       final maps = await db.query(
@@ -431,7 +614,15 @@ class DatabaseService {
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) list.add(v);
+          if (v != null) {
+            if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
+              if (isAssignedToProfile(v.profileId, profileId)) {
+                list.add(v);
+              }
+            } else {
+              list.add(v);
+            }
+          }
         } catch (_) {}
       }
       return list;
@@ -440,7 +631,7 @@ class DatabaseService {
     }
   }
 
-  Future<List<VideoItem>> getVideosByCategory(String categoryId) async {
+  Future<List<VideoItem>> getVideosByCategory(String categoryId, {String? profileId}) async {
     try {
       final db = await database;
       final maps = await db.query(
@@ -452,7 +643,47 @@ class DatabaseService {
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) list.add(v);
+          if (v != null) {
+            if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
+              if (isAssignedToProfile(v.profileId, profileId)) {
+                list.add(v);
+              }
+            } else {
+              list.add(v);
+            }
+          }
+        } catch (_) {}
+      }
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<VideoItem>> searchVideos(String query, {String? profileId}) async {
+    try {
+      final db = await database;
+      final q = query.trim().toLowerCase();
+      if (q.isEmpty) return await getAllVideos(profileId: profileId);
+
+      final maps = await db.query(
+        'videos',
+        where: 'LOWER(title) LIKE ? OR LOWER(channel_name) LIKE ?',
+        whereArgs: ['%$q%', '%$q%'],
+      );
+      final list = <VideoItem>[];
+      for (final m in maps) {
+        try {
+          final v = VideoItem.fromMap(m);
+          if (v != null) {
+            if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
+              if (isAssignedToProfile(v.profileId, profileId)) {
+                list.add(v);
+              }
+            } else {
+              list.add(v);
+            }
+          }
         } catch (_) {}
       }
       return list;
@@ -518,15 +749,45 @@ class DatabaseService {
     } catch (_) {}
   }
 
-  // --- Favorites ---
-  Future<void> toggleFavorite(String videoId) async {
+  Future<bool> getAutoplayEnabled() async {
+    final val = await getSetting('autoplay_enabled');
+    if (val == null) return true; // Default enabled
+    return val == 'true';
+  }
+
+  Future<void> setAutoplayEnabled(bool enabled) async {
+    await setSetting('autoplay_enabled', enabled ? 'true' : 'false');
+  }
+
+  Future<int> getAutoplaySessionLimitMinutes() async {
+    final val = await getSetting('autoplay_session_limit_minutes');
+    if (val == null) return 60; // Default 60 minutes
+    return int.tryParse(val) ?? 60;
+  }
+
+  Future<void> setAutoplaySessionLimitMinutes(int minutes) async {
+    await setSetting('autoplay_session_limit_minutes', minutes.toString());
+  }
+
+  // --- Favorites (Per-Profile) ---
+  Future<void> toggleFavorite(String videoId, {String? profileId}) async {
     try {
       final db = await database;
-      final exists = await db.query('favorites', where: 'video_id = ?', whereArgs: [videoId]);
+      final pId = (profileId != null && profileId.isNotEmpty) ? profileId : 'kids_all';
+      final exists = await db.query(
+        'favorites',
+        where: 'profile_id = ? AND video_id = ?',
+        whereArgs: [pId, videoId],
+      );
       if (exists.isNotEmpty) {
-        await db.delete('favorites', where: 'video_id = ?', whereArgs: [videoId]);
+        await db.delete(
+          'favorites',
+          where: 'profile_id = ? AND video_id = ?',
+          whereArgs: [pId, videoId],
+        );
       } else {
         await db.insert('favorites', {
+          'profile_id': pId,
           'video_id': videoId,
           'created_at': DateTime.now().millisecondsSinceEpoch,
         }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -534,20 +795,30 @@ class DatabaseService {
     } catch (_) {}
   }
 
-  Future<bool> isFavorite(String videoId) async {
+  Future<bool> isFavorite(String videoId, {String? profileId}) async {
     try {
       final db = await database;
-      final res = await db.query('favorites', where: 'video_id = ?', whereArgs: [videoId]);
+      final pId = (profileId != null && profileId.isNotEmpty) ? profileId : 'kids_all';
+      final res = await db.query(
+        'favorites',
+        where: 'profile_id = ? AND video_id = ?',
+        whereArgs: [pId, videoId],
+      );
       return res.isNotEmpty;
     } catch (_) {
       return false;
     }
   }
 
-  Future<Set<String>> getFavoriteIds() async {
+  Future<Set<String>> getFavoriteIds({String? profileId}) async {
     try {
       final db = await database;
-      final res = await db.query('favorites');
+      final pId = (profileId != null && profileId.isNotEmpty) ? profileId : 'kids_all';
+      final res = await db.query(
+        'favorites',
+        where: 'profile_id = ?',
+        whereArgs: [pId],
+      );
       return res.map((r) => r['video_id'] as String).toSet();
     } catch (_) {
       return {};
@@ -575,14 +846,21 @@ class DatabaseService {
           ? (secondsWatched / videoDuration).clamp(0.0, 1.0)
           : 0.0;
 
+      final effectiveProfileId = (profileId != null && profileId.isNotEmpty && profileId != 'all')
+          ? profileId
+          : 'no-profile';
+      final effectiveProfileName = (profileName != null && profileName.isNotEmpty)
+          ? profileName
+          : (effectiveProfileId == 'no-profile' ? 'No Profile' : 'Kid');
+
       await db.insert('local_watch_events', {
         'id': eventId,
         'video_id': videoId,
         'video_title': videoTitle ?? '',
         'category_id': categoryId ?? '',
         'device_id': deviceId ?? 'kids_tablet',
-        'profile_id': profileId ?? 'kids_all',
-        'profile_name': profileName ?? 'Kid',
+        'profile_id': effectiveProfileId,
+        'profile_name': effectiveProfileName,
         'seconds_watched': secondsWatched,
         'video_duration': videoDuration,
         'completion_rate': completionRate,
@@ -608,6 +886,8 @@ class DatabaseService {
       if (profileId != null && profileId.isNotEmpty && profileId != 'all') {
         whereClause = ' WHERE profile_id = ?';
         whereArgs.add(profileId);
+      } else {
+        whereClause = " WHERE profile_id != 'no-profile'";
       }
 
       // Total seconds & total sessions & retention counts
@@ -804,14 +1084,15 @@ class DatabaseService {
 
   /// Fast aggregation query for the recommendation engine
   Future<Map<String, Map<String, dynamic>>> getVideoWatchSummaries({String? profileId}) async {
+    // Prompt F8: Require a concrete profile context; never merge when profile is null, 'all', or 'no-profile'
+    if (profileId == null || profileId.isEmpty || profileId == 'all' || profileId == 'no-profile') {
+      return {};
+    }
+
     try {
       final db = await database;
-      String whereClause = '';
-      List<dynamic> whereArgs = [];
-      if (profileId != null && profileId.isNotEmpty && profileId != 'all') {
-        whereClause = ' WHERE profile_id = ?';
-        whereArgs.add(profileId);
-      }
+      final whereClause = ' WHERE profile_id = ?';
+      final whereArgs = [profileId];
 
       final rows = await db.rawQuery('''
         SELECT 

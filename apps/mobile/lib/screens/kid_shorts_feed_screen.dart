@@ -14,6 +14,7 @@ import '../widgets/kid_embed_player.dart';
 import '../widgets/kid_profile_switcher_sheet.dart';
 import '../widgets/touch_lock_overlay.dart';
 import 'kid_player_screen.dart';
+import 'parent_gate_dialog.dart';
 
 class KidShortsFeedScreen extends StatefulWidget {
   final List<VideoItem> videos;
@@ -39,7 +40,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
   bool _isLocked = false;
   final bool _isMuted = false;
-  final bool _autoAdvance = true;
+  bool _isTimeUp = false;
 
   bool _showPlayPauseIcon = false;
   bool _lastActionWasPlay = true;
@@ -147,6 +148,15 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     }
   }
 
+  AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    _savedOrientationMode = provider.orientationMode;
+  }
+
   @override
   void dispose() {
     WakelockPlus.disable();
@@ -161,11 +171,28 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     _pageController.dispose();
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    switch (_savedOrientationMode) {
+      case AppOrientationMode.portrait:
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+        break;
+      case AppOrientationMode.landscape:
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        break;
+      case AppOrientationMode.auto:
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        break;
+    }
+    try {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      provider.applyCurrentOrientationMode();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -262,7 +289,30 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   void _onVideoFinished(int index) {
     if (index != _currentIndex) return;
 
-    if (_autoAdvance && _currentIndex < _shorts.length - 1) {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+
+    if (!provider.autoplayEnabled) {
+      // Autoplay off: zero automatic advancement (native + embed, shorts + player)
+      _flushWatchSession(isAtVideoEnd: true);
+      final ctrl = _controllers[index];
+      ctrl?.pause();
+      return;
+    }
+
+    if (provider.isAutoplaySessionLimitReached) {
+      // Session limit reached: stop at end of current video, show "Time's up" card
+      _flushWatchSession(isAtVideoEnd: true);
+      provider.markAutoplaySessionLimitFired();
+      final ctrl = _controllers[index];
+      ctrl?.pause();
+      setState(() {
+        _isLocked = false;
+        _isTimeUp = true;
+      });
+      return;
+    }
+
+    if (_currentIndex < _shorts.length - 1) {
       _flushWatchSession(isAtVideoEnd: true);
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
@@ -285,6 +335,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
     setState(() {
       _currentIndex = newIndex;
+      _isTimeUp = false;
     });
 
     _initControllersForWindow(newIndex);
@@ -426,7 +477,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
             PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
-              physics: _isLocked ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+              physics: (_isLocked || _isTimeUp) ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
               itemCount: _shorts.length,
               onPageChanged: _onPageChanged,
               itemBuilder: (context, index) {
@@ -471,10 +522,128 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                 right: 0,
                 child: _buildTopBar(context),
               ),
+
+            // 5. Time's Up Overlay (Session Limit)
+            if (_isTimeUp)
+              Positioned.fill(
+                child: _buildTimeUpOverlay(),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildTimeUpOverlay() {
+    return Container(
+      color: const Color(0xF20D1A33),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 420),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: KidColors.cardDark,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: KidColors.yellow.withValues(alpha: 0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: KidColors.yellow.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: KidColors.yellow.withValues(alpha: 0.6), width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.timer_off_rounded,
+                      color: KidColors.yellow,
+                      size: 44,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Time's up",
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "You've reached your watch limit for this session. A grown-up can enter their PIN or solve the challenge to continue.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      color: Colors.white70,
+                      fontSize: 13.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: KidColors.borderDark),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Back', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 14),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: KidColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: _handleContinueFromTimeUp,
+                        icon: const Icon(Icons.lock_open_rounded, size: 18),
+                        label: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleContinueFromTimeUp() async {
+    final passed = await ParentGateDialog.showChallenge(context);
+    if (!passed || !mounted) return;
+
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    provider.extendOrResetAutoplaySession();
+
+    setState(() {
+      _isTimeUp = false;
+    });
+
+    _goToNextShort();
   }
 
   Widget _buildVideoPage(int index) {
@@ -526,6 +695,17 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                           topShieldHeight: 68.0,
                           bottomShieldHeight: 74.0,
                           shieldColor: const Color(0xFF0D1A33),
+                          onEnded: () => _onVideoFinished(index),
+                          onVideoChanged: (newId) {
+                            if (newId != video.effectiveYoutubeId) {
+                              _onVideoFinished(index);
+                            }
+                          },
+                          onUnknownVideoDetected: (newId) {
+                            if (newId != video.effectiveYoutubeId) {
+                              _onVideoFinished(index);
+                            }
+                          },
                         ),
                       )
                     : (_failedIndices.contains(index)

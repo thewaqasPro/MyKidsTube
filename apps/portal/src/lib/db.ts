@@ -25,7 +25,7 @@ export async function getDatabase(context?: unknown): Promise<D1Database | null>
   return null;
 }
 
-export async function getDbData(context?: unknown): Promise<{
+export async function getDbData(context?: unknown, profileId?: string): Promise<{
   source: string;
   videos: Video[];
   categories: Category[];
@@ -36,7 +36,7 @@ export async function getDbData(context?: unknown): Promise<{
   if (drizzleDb) {
     try {
       const [videos, categories, profileRows] = await Promise.all([
-        CatalogRepository.getAllVideos(drizzleDb),
+        CatalogRepository.getVideosByProfile(drizzleDb, profileId),
         CatalogRepository.getAllCategories(drizzleDb),
         drizzleDb.select().from(schema.childProfiles),
       ]);
@@ -64,8 +64,9 @@ export async function getDbData(context?: unknown): Promise<{
 
   // Fallback to VPS backend API if local D1 is unpopulated
   try {
+    const catalogUrl = `${API_BASE}/api/v1/catalog${profileId ? `?profile_id=${encodeURIComponent(profileId)}` : ''}`;
     const [catRes, profRes] = await Promise.all([
-      fetch(`${API_BASE}/api/v1/catalog`),
+      fetch(catalogUrl),
       fetch(`${API_BASE}/api/v1/profiles`).catch(() => null),
     ]);
 

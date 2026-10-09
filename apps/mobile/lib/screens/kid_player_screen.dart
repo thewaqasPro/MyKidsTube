@@ -14,6 +14,7 @@ import '../widgets/video_card.dart';
 import '../widgets/kid_embed_player.dart';
 import '../widgets/orientation_mode_switch.dart';
 import 'kid_shorts_feed_screen.dart';
+import 'parent_gate_dialog.dart';
 
 /// Authentic YouTube / YouTube Kids Player Screen
 class KidPlayerScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   bool _showControls = true;
   bool _hasError = false;
   String _errorMessage = '';
+  bool _isTimeUp = false;
   Timer? _hideControlsTimer;
   Timer? _watchTrackerTimer;
   int _accumulatedSessionSeconds = 0;
@@ -48,9 +50,11 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   AppOrientationMode? _orientationModeBeforeFullscreen;
   bool _didInitOrientation = false;
   AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
-  late final GlobalKey _embedPlayerKey = GlobalKey(debugLabel: 'kid_embed_player');
+  Key _embedPlayerKey = UniqueKey();
   late final GlobalKey _nativePlayerKey = GlobalKey(debugLabel: 'kid_native_player');
   String? _selectedRelatedCategory;
+  int _controllerGeneration = 0;
+  VideoPlayerController? _inFlightController;
 
   @override
   void initState() {
@@ -129,9 +133,15 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   bool _isAutoAdvancing = false;
 
   Future<void> _initControllerForVideo(VideoItem video, {bool forceEmbed = false}) async {
+    final gen = ++_controllerGeneration;
+
     _flushWatchSession();
     _hideControlsTimer?.cancel();
     _isAutoAdvancing = false;
+
+    _inFlightController?.dispose();
+    _inFlightController = null;
+
     _controller?.removeListener(_playerListener);
     _controller?.dispose();
     _controller = null;
@@ -147,6 +157,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       _hasError = false;
       _errorMessage = '';
       _showControls = true;
+      _isTimeUp = false;
+      _embedPlayerKey = UniqueKey();
     });
 
     if (shouldEmbed) {
@@ -154,33 +166,63 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       return;
     }
 
+    VideoPlayerController? ctrl;
     try {
-      final ctrl = hasLocal
+      ctrl = hasLocal
           ? VideoPlayerController.file(File(video.localFilePath!))
           : VideoPlayerController.networkUrl(Uri.parse(video.streamUrl));
 
-      _controller = ctrl;
+      _inFlightController = ctrl;
+
       await ctrl.initialize();
+
+      // Bail out after await if stale — dispose the local controller, never call
+      // setState/addListener/play on a controller it doesn't own
+      if (!mounted || _controllerGeneration != gen) {
+        if (_inFlightController == ctrl) {
+          _inFlightController = null;
+        }
+        ctrl.dispose();
+        return;
+      }
+
+      if (_inFlightController == ctrl) {
+        _inFlightController = null;
+      }
+      _controller = ctrl;
       ctrl.addListener(_playerListener);
       ctrl.setVolume(_isMuted ? 0.0 : 1.0);
       ctrl.play();
 
-      if (mounted) {
+      if (mounted && _controllerGeneration == gen) {
         setState(() {
           _isInitialized = true;
         });
         _resetControlsTimer();
       }
     } catch (e) {
+      try {
+        ctrl?.dispose();
+      } catch (_) {}
+
+      if (_inFlightController == ctrl) {
+        _inFlightController = null;
+      }
+
+      // Bail out if stale — never flip _useEmbed for a superseded call, never show error card
+      if (!mounted || _controllerGeneration != gen) {
+        return;
+      }
+
       if (video.effectiveYoutubeId.isNotEmpty && !_useEmbed) {
-        if (mounted) {
+        if (mounted && _controllerGeneration == gen) {
           setState(() {
             _useEmbed = true;
             _hasError = false;
           });
         }
       } else {
-        if (mounted) {
+        if (mounted && _controllerGeneration == gen) {
           setState(() {
             _hasError = true;
             _errorMessage = 'Playback error: $e';
@@ -199,9 +241,30 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         !_isAutoAdvancing &&
         val.position >= (val.duration - const Duration(milliseconds: 600)) &&
         val.duration > const Duration(seconds: 3)) {
+      final provider = context.read<AppProvider>();
+      if (!provider.autoplayEnabled) {
+        _isAutoAdvancing = true;
+        _flushWatchSession(isAtVideoEnd: true);
+        return;
+      }
+      if (provider.isAutoplaySessionLimitReached) {
+        _isAutoAdvancing = true;
+        _flushWatchSession(isAtVideoEnd: true);
+        provider.markAutoplaySessionLimitFired();
+        _controller?.pause();
+        setState(() {
+          _isLocked = false;
+          _isTimeUp = true;
+        });
+        return;
+      }
       _isAutoAdvancing = true;
       _flushWatchSession(isAtVideoEnd: true);
-      _playNextVideo();
+      if (_currentVideo.isShort) {
+        _advanceToNextShort(isAutomatic: true);
+      } else {
+        _playNextVideo(isAutomatic: true);
+      }
       return;
     }
     // Throttle progress updates to ~4Hz (250ms) to prevent per-tick UI jank
@@ -222,8 +285,21 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     _resetControlsTimer();
   }
 
-  void _playNextVideo() {
+  void _playNextVideo({bool isAutomatic = false}) {
     final provider = context.read<AppProvider>();
+    if (isAutomatic) {
+      if (!provider.autoplayEnabled) return;
+      if (provider.isAutoplaySessionLimitReached) {
+        _flushWatchSession(isAtVideoEnd: true);
+        provider.markAutoplaySessionLimitFired();
+        _controller?.pause();
+        setState(() {
+          _isLocked = false;
+          _isTimeUp = true;
+        });
+        return;
+      }
+    }
     final list = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
         .where((v) => !v.isShort)
         .toList();
@@ -233,6 +309,71 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     } else if (list.isNotEmpty && list.first.id != _currentVideo.id) {
       _initControllerForVideo(list.first);
     }
+  }
+
+  void _advanceToNextShort({bool isAutomatic = false}) {
+    final provider = context.read<AppProvider>();
+    if (isAutomatic) {
+      if (!provider.autoplayEnabled) return;
+      if (provider.isAutoplaySessionLimitReached) {
+        _flushWatchSession(isAtVideoEnd: true);
+        provider.markAutoplaySessionLimitFired();
+        _controller?.pause();
+        setState(() {
+          _isLocked = false;
+          _isTimeUp = true;
+        });
+        return;
+      }
+    }
+    final shorts = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
+        .where((v) => v.isShort)
+        .toList();
+    final currentIndex = shorts.indexWhere((v) => v.id == _currentVideo.id);
+    if (currentIndex != -1 && currentIndex < shorts.length - 1) {
+      _initControllerForVideo(shorts[currentIndex + 1]);
+    } else if (shorts.isNotEmpty && shorts.first.id != _currentVideo.id) {
+      _initControllerForVideo(shorts.first);
+    }
+  }
+
+  void _handleEmbedEnded() {
+    if (!mounted || _isAutoAdvancing) return;
+    final provider = context.read<AppProvider>();
+    if (!provider.autoplayEnabled) {
+      _isAutoAdvancing = true;
+      _flushWatchSession(isAtVideoEnd: true);
+      return;
+    }
+    if (provider.isAutoplaySessionLimitReached) {
+      _isAutoAdvancing = true;
+      _flushWatchSession(isAtVideoEnd: true);
+      provider.markAutoplaySessionLimitFired();
+      setState(() {
+        _isLocked = false;
+        _isTimeUp = true;
+      });
+      return;
+    }
+    _isAutoAdvancing = true;
+    _flushWatchSession(isAtVideoEnd: true);
+    if (_currentVideo.isShort) {
+      _advanceToNextShort(isAutomatic: true);
+    } else {
+      _playNextVideo(isAutomatic: true);
+    }
+  }
+
+  void _handleEmbedVideoChanged(String unknownId) {
+    if (!mounted) return;
+    if (unknownId.isEmpty || unknownId == _currentVideo.effectiveYoutubeId) return;
+
+    // Safety guard: uncurated YouTube content attempted playback from end-screen.
+    // Never allow uncurated content to play silently: pause & show the error card.
+    setState(() {
+      _hasError = true;
+      _errorMessage = 'Uncurated video blocked for child safety.';
+    });
   }
 
   void _playPreviousVideo() {
@@ -299,16 +440,11 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
   void _exitFullscreen() {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    if (_wasLandscapeBeforeFullscreen || provider.orientationMode == AppOrientationMode.landscape) {
-      // User was already in landscape before entering fullscreen: retain landscape split view!
-      if (_orientationModeBeforeFullscreen != null && provider.orientationMode != _orientationModeBeforeFullscreen) {
-        provider.setOrientationMode(_orientationModeBeforeFullscreen!);
-      }
+    if (_orientationModeBeforeFullscreen != null) {
+      provider.setOrientationMode(_orientationModeBeforeFullscreen!);
+      _orientationModeBeforeFullscreen = null;
     } else {
-      // User was initially in portrait mode: restore initial portrait view
-      if (_orientationModeBeforeFullscreen != null) {
-        provider.setOrientationMode(_orientationModeBeforeFullscreen!);
-      } else {
+      if (!_wasLandscapeBeforeFullscreen) {
         _toggleOrientation(toLandscape: false);
       }
     }
@@ -331,12 +467,16 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
   @override
   void dispose() {
+    _controllerGeneration++;
+    _inFlightController?.dispose();
+    _inFlightController = null;
     WakelockPlus.disable();
     _hideControlsTimer?.cancel();
     _watchTrackerTimer?.cancel();
     _flushWatchSession();
     _controller?.removeListener(_playerListener);
     _controller?.dispose();
+    _controller = null;
 
     // Restore orientation based on the active preference
     switch (_savedOrientationMode) {
@@ -473,7 +613,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 height: playerHeight,
                 child: Stack(
                   children: [
-                    if (_showControls && !_isLocked)
+                    if (_showControls && !_isLocked && !_isTimeUp)
                       (_isImmersiveLandscape
                           ? _buildLandscapeControls(context)
                           : (isLandscape
@@ -560,10 +700,140 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 _showControls = true;
               }),
             ),
+
+            // ==========================================
+            // LAYER 6: TIME'S UP OVERLAY (SESSION LIMIT)
+            // ==========================================
+            if (_isTimeUp)
+              Positioned.fill(
+                child: _buildTimeUpOverlay(),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildTimeUpOverlay() {
+    return Container(
+      color: const Color(0xF20D1A33),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 420),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: KidColors.cardDark,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: KidColors.yellow.withValues(alpha: 0.5), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: KidColors.yellow.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: KidColors.yellow.withValues(alpha: 0.6), width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.timer_off_rounded,
+                      color: KidColors.yellow,
+                      size: 44,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Time's up",
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "You've reached your watch limit for this session. A grown-up can enter their PIN or solve the challenge to continue.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      color: Colors.white70,
+                      fontSize: 13.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: KidColors.borderDark),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: () {
+                          if (_isImmersiveLandscape) {
+                            _exitFullscreen();
+                          }
+                          Navigator.of(context).pop();
+                        },
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                        label: const Text('Back', style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(width: 14),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: KidColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: _handleContinueFromTimeUp,
+                        icon: const Icon(Icons.lock_open_rounded, size: 18),
+                        label: const Text('Continue', style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleContinueFromTimeUp() async {
+    final passed = await ParentGateDialog.showChallenge(context);
+    if (!passed || !mounted) return;
+
+    final provider = context.read<AppProvider>();
+    provider.extendOrResetAutoplaySession();
+
+    setState(() {
+      _isTimeUp = false;
+      _isAutoAdvancing = false;
+    });
+
+    if (_currentVideo.isShort) {
+      _advanceToNextShort();
+    } else {
+      _playNextVideo();
+    }
   }
 
   Widget _buildPlayerSurface() {
@@ -574,12 +844,17 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         children: [
           Center(
             child: _useEmbed
-                ? KidEmbedPlayer(
-                    key: _embedPlayerKey,
-                    youtubeId: _currentVideo.effectiveYoutubeId,
-                    autoPlay: true,
-                    scale: 1.14,
-                  )
+                ? (_hasError
+                    ? _buildPendingOrErrorState()
+                    : KidEmbedPlayer(
+                        key: _embedPlayerKey,
+                        youtubeId: _currentVideo.effectiveYoutubeId,
+                        autoPlay: true,
+                        scale: 1.14,
+                        onEnded: _handleEmbedEnded,
+                        onVideoChanged: _handleEmbedVideoChanged,
+                        onUnknownVideoDetected: _handleEmbedVideoChanged,
+                      ))
                 : (_isInitialized
                     ? AspectRatio(
                         aspectRatio: _controller!.value.aspectRatio,
@@ -594,7 +869,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
           ),
 
           // Tap detector (direct MP4 mode only)
-          if (!_isLocked && !_useEmbed)
+          if (!_isLocked && !_useEmbed && !_hasError)
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -730,6 +1005,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               visualDensity: VisualDensity.compact,
               icon: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 24),
               onPressed: () {
+                final provider = Provider.of<AppProvider>(context, listen: false);
+                _orientationModeBeforeFullscreen = provider.orientationMode;
+                _wasLandscapeBeforeFullscreen = false;
                 _toggleOrientation(toLandscape: true);
                 setState(() => _isImmersiveLandscape = true);
               },
@@ -1269,12 +1547,16 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                     color: KidColors.primary.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.cloud_sync_rounded, color: KidColors.primary, size: 32),
+                  child: Icon(
+                    _errorMessage.isNotEmpty ? Icons.security_rounded : Icons.cloud_sync_rounded,
+                    color: KidColors.primary,
+                    size: 32,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
-                  'Video Queued for Sync',
-                  style: TextStyle(
+                Text(
+                  _errorMessage.isNotEmpty ? 'Playback Blocked' : 'Video Queued for Sync',
+                  style: const TextStyle(
                     fontFamily: 'Roboto',
                     color: Colors.white,
                     fontSize: 15,
@@ -1291,6 +1573,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                     fontSize: 11,
                   ),
                 ),
+                const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1302,8 +1585,11 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       ),
                       onPressed: () => _initControllerForVideo(_currentVideo, forceEmbed: true),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label: const Text('Play via Embed', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(
+                        _errorMessage.isNotEmpty ? 'Reload Video' : 'Play via Embed',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
@@ -1313,7 +1599,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
-                      onPressed: _playNextVideo,
+                      onPressed: _currentVideo.isShort ? _advanceToNextShort : _playNextVideo,
                       icon: const Icon(Icons.skip_next_rounded, size: 18),
                       label: const Text('Next Video', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                     ),

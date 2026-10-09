@@ -11,7 +11,9 @@ export const GET: APIRoute = async (context) => {
   const corsHeaders = getCorsHeaders(context.request, { methods: ['GET', 'OPTIONS'], isStateChanging: false });
 
   try {
-    const data = await getDbData(context);
+    const url = new URL(context.request.url);
+    const profileId = url.searchParams.get('profile_id') || undefined;
+    const data = await getDbData(context, profileId);
     const { videos = [], categories = [], profiles = [] } = data;
 
     const formattedVideos = videos.map((v: any) => {
@@ -21,6 +23,7 @@ export const GET: APIRoute = async (context) => {
 
       return {
         id: v.id,
+        profile_id: v.profile_id || (profileId || 'kids_all'),
         title: v.title,
         duration: v.duration || 0,
         duration_formatted: v.duration_formatted || '00:00',

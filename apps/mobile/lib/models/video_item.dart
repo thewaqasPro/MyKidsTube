@@ -24,6 +24,7 @@ class VideoItem {
   final double downloadProgress;
   final String status;
   final String? youtubeId;
+  final String profileId;
 
   VideoItem({
     required this.id,
@@ -44,6 +45,7 @@ class VideoItem {
     this.downloadProgress = 0.0,
     this.status = 'pending_download',
     this.youtubeId,
+    this.profileId = 'kids_all',
   });
 
   bool get isOfflineReady =>
@@ -123,6 +125,7 @@ class VideoItem {
     double? downloadProgress,
     String? status,
     String? youtubeId,
+    String? profileId,
   }) {
     return VideoItem(
       id: id ?? this.id,
@@ -143,6 +146,7 @@ class VideoItem {
       downloadProgress: downloadProgress ?? this.downloadProgress,
       status: status ?? this.status,
       youtubeId: youtubeId ?? this.youtubeId,
+      profileId: profileId ?? this.profileId,
     );
   }
 
@@ -165,6 +169,7 @@ class VideoItem {
       'download_status': downloadStatus.index,
       'status': status,
       'youtube_id': youtubeId ?? effectiveYoutubeId,
+      'profile_id': profileId,
     };
   }
 
@@ -196,10 +201,17 @@ class VideoItem {
       downloadStatus: downloadStatus,
       status: (map['status'] ?? 'pending_download').toString(),
       youtubeId: map['youtube_id']?.toString(),
+      profileId: (map['profile_id'] ?? 'kids_all').toString(),
     );
   }
 
-  static VideoItem? fromApi(Map<String, dynamic> json, {String? localPath, String? localThumb, DownloadStatus? status}) {
+  static VideoItem? fromApi(
+    Map<String, dynamic> json, {
+    String? localPath,
+    String? localThumb,
+    DownloadStatus? status,
+    String? profileId,
+  }) {
     final id = json['id'];
     if (id == null || id.toString().trim().isEmpty) return null;
 
@@ -228,6 +240,7 @@ class VideoItem {
       downloadStatus: status ?? DownloadStatus.notDownloaded,
       status: (json['status'] ?? 'pending_download').toString(),
       youtubeId: json['youtube_id']?.toString(),
+      profileId: (json['profile_id'] ?? profileId ?? 'kids_all').toString(),
     );
   }
 }

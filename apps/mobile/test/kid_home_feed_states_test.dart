@@ -21,16 +21,16 @@ class TestFakeDatabaseService extends Fake implements DatabaseService {
   });
 
   @override
-  Future<List<VideoItem>> getAllVideos() async => videos;
+  Future<List<VideoItem>> getAllVideos({String? profileId}) async => videos;
 
   @override
-  Future<List<VideoItem>> getDownloadedVideos() async => [];
+  Future<List<VideoItem>> getDownloadedVideos({String? profileId}) async => [];
 
   @override
   Future<List<CategoryItem>> getAllCategories() async => categories;
 
   @override
-  Future<Set<String>> getFavoriteIds() async => {};
+  Future<Set<String>> getFavoriteIds({String? profileId}) async => {};
 
   @override
   Future<String?> getSetting(String key) async => null;

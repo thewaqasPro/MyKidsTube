@@ -25,17 +25,17 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   }
 
   @override
-  Future<List<VideoItem>> getAllVideos() async => List.from(localVideos);
+  Future<List<VideoItem>> getAllVideos({String? profileId}) async => List.from(localVideos);
 
   @override
-  Future<List<VideoItem>> getDownloadedVideos() async =>
+  Future<List<VideoItem>> getDownloadedVideos({String? profileId}) async =>
       localVideos.where((v) => v.downloadStatus == DownloadStatus.downloaded).toList();
 
   @override
   Future<List<CategoryItem>> getAllCategories() async => List.from(localCategories);
 
   @override
-  Future<Set<String>> getFavoriteIds() async => {};
+  Future<Set<String>> getFavoriteIds({String? profileId}) async => {};
 
   @override
   Future<List<ChildProfile>> getAllLocalProfiles() async => [];
@@ -44,7 +44,7 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   Future<Map<String, dynamic>> getWatchAnalytics({String? profileId}) async => {'today_seconds': 0};
 
   @override
-  Future<void> batchUpsertCatalog(List<CategoryItem> categories, List<VideoItem> videos) async {
+  Future<void> batchUpsertCatalog(List<CategoryItem> categories, List<VideoItem> videos, {String? profileId}) async {
     for (final v in videos) {
       localVideos.removeWhere((item) => item.id == v.id);
       localVideos.add(v);
@@ -58,6 +58,7 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   @override
   Future<List<String>> pruneRemovedVideos(
     List<String> validServerVideoIds, {
+    String? profileId,
     bool allowEmpty = false,
     double maxPruneRatio = 0.50,
     bool force = false,

@@ -1,4 +1,4 @@
-import { eq, inArray, desc, asc, sql } from 'drizzle-orm';
+import { eq, inArray, desc, asc, sql, or } from 'drizzle-orm';
 import type { DrizzleDb } from '@/db';
 import * as schema from '@/db/schema';
 import type { Video, Category } from '@/types/video';
@@ -40,6 +40,52 @@ export class CatalogRepository {
       .from(schema.videos)
       .orderBy(desc(schema.videos.createdAt));
     return rows.map(mapVideoRowToVideo);
+  }
+
+  static async getVideosByProfile(db: DrizzleDb, profileId?: string): Promise<Video[]> {
+    if (!profileId || profileId === 'kids_all') {
+      const allVideos = await this.getAllVideos(db);
+      const allAssigned = await db
+        .select({
+          videoId: schema.profileVideoAssignments.videoId,
+          profileId: schema.profileVideoAssignments.profileId,
+        })
+        .from(schema.profileVideoAssignments);
+
+      const allAssignedVideoIds = new Set(allAssigned.map((r) => r.videoId));
+      const kidsAllVideoIds = new Set(
+        allAssigned.filter((r) => r.profileId === 'kids_all').map((r) => r.videoId)
+      );
+
+      return allVideos
+        .filter((v) => kidsAllVideoIds.has(v.id) || !allAssignedVideoIds.has(v.id))
+        .map((v) => ({ ...v, profile_id: 'kids_all' }));
+    }
+
+    const assigned = await db
+      .select({
+        videoId: schema.profileVideoAssignments.videoId,
+        profileId: schema.profileVideoAssignments.profileId,
+      })
+      .from(schema.profileVideoAssignments)
+      .where(
+        or(
+          eq(schema.profileVideoAssignments.profileId, profileId),
+          eq(schema.profileVideoAssignments.profileId, 'kids_all')
+        )
+      );
+
+    const eligibleIds = new Set(assigned.map((r) => r.videoId));
+
+    const allAssigned = await db
+      .select({ videoId: schema.profileVideoAssignments.videoId })
+      .from(schema.profileVideoAssignments);
+    const anyAssignedIds = new Set(allAssigned.map((r) => r.videoId));
+
+    const allVideos = await this.getAllVideos(db);
+    return allVideos
+      .filter((v) => eligibleIds.has(v.id) || !anyAssignedIds.has(v.id))
+      .map((v) => ({ ...v, profile_id: profileId }));
   }
 
   static async getAllCategories(db: DrizzleDb): Promise<Category[]> {

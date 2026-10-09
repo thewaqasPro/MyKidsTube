@@ -311,6 +311,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
                 const SizedBox(height: 20),
 
+                const Text(
+                  'Autoplay & Viewing Limits',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                _buildAutoplaySettingsCard(context, provider),
+
+                const SizedBox(height: 20),
+
                 // Safety Cap Pending Mass Prune Confirmation Alert
                 if (provider.hasPendingMassPrune) ...[
                   Container(
@@ -563,4 +578,110 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       ),
     );
   }
+
+  Widget _buildAutoplaySettingsCard(BuildContext context, AppProvider provider) {
+    return Material(
+      color: KidColors.cardDark,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: KidColors.borderDark),
+        ),
+        child: Column(
+          children: [
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            secondary: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: KidColors.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.playlist_play_rounded, color: KidColors.primary, size: 22),
+            ),
+            title: const Text(
+              'Autoplay Next Video',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: const Text(
+              'Automatically play the next video when playback ends',
+              style: TextStyle(color: KidColors.textMuted, fontSize: 11.5),
+            ),
+            value: provider.autoplayEnabled,
+            activeThumbColor: KidColors.primary,
+            onChanged: (val) async {
+              await provider.setAutoplayEnabled(val);
+            },
+          ),
+          const Divider(color: KidColors.borderDark, height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: KidColors.accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.timer_outlined, color: KidColors.accent, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Session Watch Limit',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Stop playback when session limit is reached',
+                        style: TextStyle(color: KidColors.textMuted, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                DropdownButton<int>(
+                  value: provider.autoplaySessionLimitMinutes,
+                  dropdownColor: KidColors.cardDark,
+                  borderRadius: BorderRadius.circular(12),
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white70),
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Unlimited')),
+                    DropdownMenuItem(value: 15, child: Text('15 min')),
+                    DropdownMenuItem(value: 30, child: Text('30 min')),
+                    DropdownMenuItem(value: 45, child: Text('45 min')),
+                    DropdownMenuItem(value: 60, child: Text('60 min (Default)')),
+                    DropdownMenuItem(value: 90, child: Text('90 min')),
+                    DropdownMenuItem(value: 120, child: Text('120 min')),
+                  ],
+                  onChanged: (val) async {
+                    if (val != null) {
+                      await provider.setAutoplaySessionLimitMinutes(val);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 }

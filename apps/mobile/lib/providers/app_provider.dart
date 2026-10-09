@@ -58,6 +58,12 @@ class AppProvider extends ChangeNotifier {
   int _todayWatchSeconds = 0;
   AppOrientationMode _orientationMode = AppOrientationMode.auto;
 
+  // Autoplay & Session Limit State
+  bool _autoplayEnabled = true;
+  int _autoplaySessionLimitMinutes = 60;
+  DateTime _sessionStartTime = DateTime.now();
+  bool _limitFiredThisSession = false;
+
   // Recommendation Engine State
   Map<String, VideoWatchMetric> _watchMetrics = {};
   int _sessionSeed = DateTime.now().millisecondsSinceEpoch;
@@ -79,6 +85,19 @@ class AppProvider extends ChangeNotifier {
   String? get pairingCode => _pairingCode;
   bool get isDevicePaired => _isDevicePaired;
   AppOrientationMode get orientationMode => _orientationMode;
+
+  bool get autoplayEnabled => _autoplayEnabled;
+  int get autoplaySessionLimitMinutes => _autoplaySessionLimitMinutes;
+  DateTime get sessionStartTime => _sessionStartTime;
+  bool get limitFiredThisSession => _limitFiredThisSession;
+
+  bool get isAutoplaySessionLimitReached {
+    if (!_autoplayEnabled) return false;
+    if (_autoplaySessionLimitMinutes <= 0) return false;
+    if (_limitFiredThisSession) return false;
+    final elapsedMinutes = DateTime.now().difference(_sessionStartTime).inMinutes;
+    return elapsedMinutes >= _autoplaySessionLimitMinutes;
+  }
 
   List<CategoryItem> get categories => _categories;
   List<VideoItem> get allVideos => _isOfflineOnly ? _downloadedVideos : _allVideos;
@@ -208,6 +227,39 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     await _applyOrientationMode(mode);
     await _db.setSetting('orientation_mode', mode.name);
+  }
+
+  Future<void> setAutoplayEnabled(bool enabled) async {
+    _autoplayEnabled = enabled;
+    notifyListeners();
+    try {
+      await _db.setAutoplayEnabled(enabled);
+    } catch (_) {}
+  }
+
+  Future<void> setAutoplaySessionLimitMinutes(int minutes) async {
+    _autoplaySessionLimitMinutes = minutes;
+    notifyListeners();
+    try {
+      await _db.setAutoplaySessionLimitMinutes(minutes);
+    } catch (_) {}
+  }
+
+  void markAutoplaySessionLimitFired() {
+    _limitFiredThisSession = true;
+    notifyListeners();
+  }
+
+  void extendOrResetAutoplaySession() {
+    _sessionStartTime = DateTime.now();
+    _limitFiredThisSession = false;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setSessionStartTimeForTesting(DateTime time) {
+    _sessionStartTime = time;
+    notifyListeners();
   }
 
   Future<void> applyCurrentOrientationMode() async {
@@ -360,6 +412,12 @@ class AppProvider extends ChangeNotifier {
           await _applyOrientationMode(_orientationMode);
         }
       } catch (_) {}
+
+      // 4c. Restore saved autoplay settings
+      try {
+        _autoplayEnabled = await _db.getAutoplayEnabled();
+        _autoplaySessionLimitMinutes = await _db.getAutoplaySessionLimitMinutes();
+      } catch (_) {}
     } catch (_) {
       // Graceful error recovery: avoid black screen
     } finally {
@@ -382,10 +440,11 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> _loadFromLocalDb() async {
     try {
+      final currentProfileId = _activeProfile?.id;
       _categories = await _db.getAllCategories();
-      _allVideos = await _db.getAllVideos();
-      _downloadedVideos = await _db.getDownloadedVideos();
-      _favoriteVideoIds = await _db.getFavoriteIds();
+      _allVideos = await _db.getAllVideos(profileId: currentProfileId);
+      _downloadedVideos = await _db.getDownloadedVideos(profileId: currentProfileId);
+      _favoriteVideoIds = await _db.getFavoriteIds(profileId: currentProfileId);
       _cachedBytes = await _downloader.getTotalCachedBytes();
       _availableProfiles = await _db.getAllLocalProfiles();
       if (_activeProfile == null && _availableProfiles.isNotEmpty) {
@@ -393,6 +452,9 @@ class AppProvider extends ChangeNotifier {
         await _db.setSetting('current_profile_id', _activeProfile!.id);
         await _db.setSetting('current_profile_name', _activeProfile!.name);
         await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+        _allVideos = await _db.getAllVideos(profileId: _activeProfile!.id);
+        _downloadedVideos = await _db.getDownloadedVideos(profileId: _activeProfile!.id);
+        _favoriteVideoIds = await _db.getFavoriteIds(profileId: _activeProfile!.id);
       }
       try {
         final analytics = await _db.getWatchAnalytics(profileId: _activeProfile?.id);
@@ -421,7 +483,8 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final catalogData = await _api.fetchCatalog(_vpsUrl, profileId: _activeProfile?.id);
+      final activePId = _activeProfile?.id;
+      final catalogData = await _api.fetchCatalog(_vpsUrl, profileId: activePId);
       if (catalogData != null && catalogData['sections'] is List) {
         _isServerOnline = true;
         final sections = catalogData['sections'] as List;
@@ -444,7 +507,7 @@ class AppProvider extends ChangeNotifier {
           final videosJson = sec['videos'] as List? ?? [];
           for (final vJson in videosJson) {
             if (vJson is Map<String, dynamic>) {
-              final video = VideoItem.fromApi(vJson);
+              final video = VideoItem.fromApi(vJson, profileId: activePId);
               if (video != null && !seenVideoIds.contains(video.id)) {
                 seenVideoIds.add(video.id);
                 videosToSync.add(video);
@@ -457,7 +520,7 @@ class AppProvider extends ChangeNotifier {
         if (catalogData['all_videos'] is List) {
           for (final vJson in (catalogData['all_videos'] as List)) {
             if (vJson is Map<String, dynamic>) {
-              final video = VideoItem.fromApi(vJson);
+              final video = VideoItem.fromApi(vJson, profileId: activePId);
               if (video != null && !seenVideoIds.contains(video.id)) {
                 seenVideoIds.add(video.id);
                 videosToSync.add(video);
@@ -480,7 +543,7 @@ class AppProvider extends ChangeNotifier {
           print('syncCatalog: Ambiguous empty catalog response detected. Keeping local library intact.');
         } else if (videosToSync.isEmpty && isCatalogClearedExplicitly) {
           // Explicit server signal that catalog was intentionally cleared
-          final localVideos = await _db.getAllVideos();
+          final localVideos = await _db.getAllVideos(profileId: activePId);
           if (localVideos.isNotEmpty && !allowMassPrune) {
             // Safety cap: require explicit parent confirmation in dashboard
             _pendingPruneVideoIds = localVideos.map((v) => v.id).toList();
@@ -490,7 +553,7 @@ class AppProvider extends ChangeNotifier {
           } else {
             _allVideos = [];
             _categories = [];
-            await _db.pruneRemovedVideos([], allowEmpty: true, force: true);
+            await _db.pruneRemovedVideos([], profileId: activePId, allowEmpty: true, force: true);
             _pendingPruneVideoIds = [];
             _pendingPruneCount = 0;
             _hasRefreshFailedNotice = false;
@@ -505,10 +568,10 @@ class AppProvider extends ChangeNotifier {
           }
 
           // Atomic transaction batch upsert to persist to local SQLite
-          await _db.batchUpsertCatalog(categoriesToSync, videosToSync);
+          await _db.batchUpsertCatalog(categoriesToSync, videosToSync, profileId: activePId);
 
-          // Check removals against local SQLite videos
-          final localVideos = await _db.getAllVideos();
+          // Check removals against local SQLite videos for this profile
+          final localVideos = await _db.getAllVideos(profileId: activePId);
           final validIds = videosToSync.map((v) => v.id).toSet();
           final toDelete = localVideos.where((v) => !validIds.contains(v.id)).toList();
 
@@ -524,7 +587,7 @@ class AppProvider extends ChangeNotifier {
               print('syncCatalog: Safety cap held ${toDelete.length}/${localVideos.length} video deletions.');
             } else {
               // Genuine removal (<= 50% or allowMassPrune confirmed)
-              await _db.pruneRemovedVideos(validIds.toList(), force: allowMassPrune);
+              await _db.pruneRemovedVideos(validIds.toList(), profileId: activePId, force: allowMassPrune);
               _pendingPruneVideoIds = [];
               _pendingPruneCount = 0;
               _hasRefreshFailedNotice = false;
@@ -616,6 +679,8 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> switchProfile(ChildProfile profile) async {
     _activeProfile = profile;
+    _sessionStartTime = DateTime.now();
+    _limitFiredThisSession = false;
     await _db.setSetting('current_profile_id', profile.id);
     await _db.setSetting('current_profile_name', profile.name);
     await _db.setSetting('current_profile_avatar', profile.avatarIcon);
@@ -623,6 +688,9 @@ class AppProvider extends ChangeNotifier {
       final analytics = await _db.getWatchAnalytics(profileId: profile.id);
       _todayWatchSeconds = (analytics['today_seconds'] as num?)?.toInt() ?? 0;
     } catch (_) {}
+    _allVideos = await _db.getAllVideos(profileId: profile.id);
+    _downloadedVideos = await _db.getDownloadedVideos(profileId: profile.id);
+    _favoriteVideoIds = await _db.getFavoriteIds(profileId: profile.id);
     await _loadWatchMetrics();
     reseedRecommendations();
     notifyListeners();
@@ -639,14 +707,23 @@ class AppProvider extends ChangeNotifier {
     await _db.deleteLocalProfile(profileId);
     _availableProfiles = await _db.getAllLocalProfiles();
     if (_activeProfile?.id == profileId) {
-      _activeProfile = _availableProfiles.isNotEmpty ? _availableProfiles.first : null;
-      if (_activeProfile != null) {
-        await _db.setSetting('current_profile_id', _activeProfile!.id);
-        await _db.setSetting('current_profile_name', _activeProfile!.name);
-        await _db.setSetting('current_profile_avatar', _activeProfile!.avatarIcon);
+      final nextProfile = _availableProfiles.isNotEmpty ? _availableProfiles.first : null;
+      if (nextProfile != null) {
+        await switchProfile(nextProfile);
+      } else {
+        _activeProfile = null;
+        await _db.setSetting('current_profile_id', '');
+        await _db.setSetting('current_profile_name', '');
+        await _db.setSetting('current_profile_avatar', '');
+        _allVideos = [];
+        _downloadedVideos = [];
+        _favoriteVideoIds = {};
+        _watchMetrics = {};
+        notifyListeners();
       }
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   List<VideoItem> getVideosForCategory(String categoryId) {
@@ -742,7 +819,7 @@ class AppProvider extends ChangeNotifier {
       _favoriteVideoIds.add(videoId);
     }
     notifyListeners();
-    await _db.toggleFavorite(videoId);
+    await _db.toggleFavorite(videoId, profileId: _activeProfile?.id);
   }
 
   void toggleOfflineOnly() {
@@ -768,8 +845,8 @@ class AppProvider extends ChangeNotifier {
       videoId: videoId,
       videoTitle: videoTitle,
       categoryId: categoryId,
-      profileId: _activeProfile?.id ?? 'kid_1',
-      profileName: _activeProfile?.name ?? 'Kid 1',
+      profileId: _activeProfile?.id,
+      profileName: _activeProfile?.name,
       deviceId: _deviceName,
       secondsWatched: secondsWatched,
       videoDuration: videoDuration,
@@ -789,8 +866,37 @@ class AppProvider extends ChangeNotifier {
       return {'success': true, 'synced_count': 0};
     }
 
+    // Prompt F11 — PII Sanitization & Schema Documentation:
+    // Drop profile_name and replace raw device_id with the pairing token.
+    //
+    // Exact outgoing payload schema per event in the 'events' JSON array:
+    // {
+    //   "id": String,               // Local event UUID (e.g. "ev_1728500000000_12345")
+    //   "video_id": String,         // Video ID (e.g. "vid_abc")
+    //   "video_title": String,      // Video title string
+    //   "category_id": String,      // Category identifier
+    //   "device_id": String,        // Pairing token (device auth token or pairing code, NEVER raw hardware/device name)
+    //   "profile_id": String,       // Profile bucket ID (e.g. "kid_1" or "no-profile", NEVER kid personal name)
+    //   "seconds_watched": int,     // Playback duration in seconds
+    //   "video_duration": int,      // Total video duration in seconds
+    //   "completion_rate": double,  // Completion percentage [0.0, 1.0]
+    //   "is_completed": int,        // 1 if completed >= 75%, 0 otherwise
+    //   "is_skipped": int,          // 1 if skipped (< 10s), 0 otherwise
+    //   "watched_at": int           // Timestamp in milliseconds epoch
+    // }
+    //
+    // Note: profile_name is explicitly STRIPPED to safeguard child PII.
+    final pairingToken = await _secureStorage.read(key: 'device_auth_token') ?? _pairingCode ?? 'unpaired';
+    final sanitizedEvents = unsynced.map((event) {
+      final sanitized = Map<String, dynamic>.from(event);
+      sanitized.remove('profile_name');
+      sanitized.remove('is_synced');
+      sanitized['device_id'] = pairingToken;
+      return sanitized;
+    }).toList();
+
     try {
-      final res = await _api.syncWatchEvents(_vpsUrl, unsynced);
+      final res = await _api.syncWatchEvents(_vpsUrl, sanitizedEvents);
       if (res != null && res['success'] == true) {
         final syncedIds = (res['synced_ids'] as List?)?.map((e) => e.toString()).toList() ??
             unsynced.map((e) => e['id'] as String).toList();

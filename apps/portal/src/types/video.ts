@@ -18,6 +18,7 @@ export interface Video {
   youtube_id?: string;
   status?: 'pending_download' | 'downloading' | 'processing' | 'ready' | 'error';
   created_at?: string;
+  profile_id?: string;
 }
 
 export interface Category {

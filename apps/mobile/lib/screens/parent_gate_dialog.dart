@@ -7,7 +7,12 @@ import 'parent_dashboard_screen.dart';
 import 'parent_security_screen.dart';
 
 class ParentGateDialog extends StatefulWidget {
-  const ParentGateDialog({super.key});
+  final bool isVerificationOnly;
+
+  const ParentGateDialog({
+    super.key,
+    this.isVerificationOnly = false,
+  });
 
   static Future<void> show(BuildContext context) {
     return showDialog(
@@ -15,6 +20,15 @@ class ParentGateDialog extends StatefulWidget {
       barrierDismissible: true,
       builder: (context) => const ParentGateDialog(),
     );
+  }
+
+  static Future<bool> showChallenge(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => const ParentGateDialog(isVerificationOnly: true),
+    );
+    return result ?? false;
   }
 
   @override
@@ -53,9 +67,13 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
     if (!mounted) return;
 
     if (entered == _expectedAnswer || isPinValid) {
+      final nav = Navigator.of(context);
+      if (widget.isVerificationOnly) {
+        nav.pop(true);
+        return;
+      }
       final isDefaultPin = await provider.isUsingDefaultPin();
       if (!mounted) return;
-      final nav = Navigator.of(context);
       nav.pop();
       if (isDefaultPin) {
         // Fresh install / default PIN active: block parent dashboard access until PIN is changed
@@ -161,7 +179,7 @@ class _ParentGateDialogState extends State<ParentGateDialog> {
               children: [
                 Expanded(
                   child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).pop(false),
                     child: const Text('Cancel', style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted)),
                   ),
                 ),
