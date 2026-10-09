@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
+import '../utils/format_utils.dart';
+import '../utils/app_feedback.dart';
+import '../widgets/kid_stat_card.dart';
 import 'kid_player_screen.dart';
 
 class ParentStorageScreen extends StatefulWidget {
@@ -177,13 +180,7 @@ class _ParentStorageScreenState extends State<ParentStorageScreen> {
     if (confirmed == true) {
       await provider.clearMobileCache();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cache reset & fresh catalog synced!'),
-            backgroundColor: KidColors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppFeedback.showSuccess(context, 'Cache reset & fresh catalog synced!');
       }
     }
   }
@@ -457,37 +454,12 @@ class _ParentStorageScreenState extends State<ParentStorageScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: KidColors.bgDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KidColors.borderDark),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 14),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(color: KidColors.textMuted, fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+    return KidStatCard(
+      title: label,
+      value: value,
+      icon: icon,
+      color: color,
+      isCompact: true,
     );
   }
 
@@ -498,7 +470,7 @@ class _ParentStorageScreenState extends State<ParentStorageScreen> {
         final f = File(video.localFilePath!);
         if (f.existsSync()) {
           final bytes = f.lengthSync();
-          fileSizeStr = '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+          fileSizeStr = FormatUtils.formatBytes(bytes);
         }
       } catch (_) {}
     }
@@ -592,13 +564,7 @@ class _ParentStorageScreenState extends State<ParentStorageScreen> {
             onPressed: () async {
               await provider.deleteDownloaded(video);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Removed file from offline storage.'),
-                    backgroundColor: KidColors.green,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppFeedback.showSuccess(context, 'Removed file from offline storage.');
               }
             },
           ),

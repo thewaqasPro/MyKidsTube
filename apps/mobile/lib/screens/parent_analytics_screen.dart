@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
+import '../utils/format_utils.dart';
+import '../utils/app_feedback.dart';
 import '../widgets/child_avatar.dart';
 
 class ParentAnalyticsScreen extends StatefulWidget {
@@ -45,39 +47,20 @@ class _ParentAnalyticsScreenState extends State<ParentAnalyticsScreen> {
       setState(() => _isSyncingCloud = false);
       if (res['success'] == true) {
         final count = res['synced_count'] ?? 0;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(count > 0 ? 'Synced $count watch sessions to Cloudflare server!' : 'Everything is already synced!'),
-            backgroundColor: KidColors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppFeedback.showSuccess(
+          context,
+          count > 0 ? 'Synced $count watch sessions to Cloudflare server!' : 'Everything is already synced!',
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sync failed: ${res['error'] ?? 'Server unreachable'}'),
-            backgroundColor: KidColors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppFeedback.showError(
+          context,
+          'Sync failed: ${res['error'] ?? 'Server unreachable'}',
         );
       }
     }
   }
 
-  String _formatSeconds(int seconds) {
-    if (seconds <= 0) return '0m';
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final remainingSecs = seconds % 60;
-
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    } else if (minutes > 0) {
-      return '${minutes}m ${remainingSecs}s';
-    } else {
-      return '${remainingSecs}s';
-    }
-  }
+  String _formatSeconds(int seconds) => FormatUtils.formatAnalyticsDuration(seconds);
 
   @override
   Widget build(BuildContext context) {

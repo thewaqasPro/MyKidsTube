@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/video_item.dart';
 import '../utils/constants.dart';
+import '../utils/format_utils.dart';
 
 /// Authentic YouTube / YouTube Kids Video Card
 class VideoCard extends StatelessWidget {
@@ -21,22 +22,9 @@ class VideoCard extends StatelessWidget {
     this.isHorizontalCompact = false,
   });
 
-  String get _channelName {
-    if (video.channelName != null && video.channelName!.isNotEmpty) {
-      return video.channelName!;
-    }
-    if (video.title.contains('•')) {
-      return video.title.split('•').first.trim();
-    }
-    return 'KidsTube';
-  }
+  String get _channelName => FormatUtils.extractChannelName(video.channelName, video.title);
 
-  String get _cleanTitle {
-    if (video.title.contains('•')) {
-      return video.title.split('•').last.trim();
-    }
-    return video.title;
-  }
+  String get _cleanTitle => FormatUtils.cleanVideoTitle(video.title);
 
   Color get _avatarColor {
     final colors = [

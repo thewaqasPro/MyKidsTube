@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/video_item.dart';
+import '../utils/format_utils.dart';
 import 'database_service.dart';
 
 typedef DownloadProgressCallback = void Function(String videoId, double progress);
@@ -65,15 +66,7 @@ class DownloadService {
     return null;
   }
 
-  static String formatBytes(int bytes) {
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    } else if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    } else {
-      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-    }
-  }
+  static String formatBytes(int bytes) => FormatUtils.formatBytes(bytes);
 
   bool isDownloading(String videoId) {
     return _activeDownloads.containsKey(videoId) || _downloadQueue.any((v) => v.id == videoId);

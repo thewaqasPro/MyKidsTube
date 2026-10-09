@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
+import '../utils/format_utils.dart';
+import '../widgets/kid_stat_card.dart';
 import 'parent_security_screen.dart';
 import 'parent_server_screen.dart';
 import 'parent_storage_screen.dart';
@@ -40,13 +42,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     if (mounted) setState(() => _isUsingDefaultPin = isDefault);
   }
 
-  String _formatWatchTime(int seconds) {
-    if (seconds <= 0) return '0m';
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    if (hours > 0) return '${hours}h ${minutes}m';
-    return '${minutes}m';
-  }
+  String _formatWatchTime(int seconds) => FormatUtils.formatWatchTime(seconds);
 
   @override
   Widget build(BuildContext context) {
@@ -454,39 +450,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: KidColors.cardDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KidColors.borderDark, width: 0.8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(title, style: const TextStyle(color: KidColors.textMuted, fontSize: 11.5, fontWeight: FontWeight.w500)),
-              Icon(icon, color: color, size: 16),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(color: color.withValues(alpha: 0.85), fontSize: 10.5, fontWeight: FontWeight.w600),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+    return KidStatCard(
+      title: title,
+      value: value,
+      subtitle: subtitle,
+      icon: icon,
+      color: color,
     );
   }
 

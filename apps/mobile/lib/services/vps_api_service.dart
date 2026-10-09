@@ -2,10 +2,14 @@ import 'package:dio/dio.dart';
 import '../models/child_profile.dart';
 
 class VpsApiService {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  final Dio _dio;
+
+  VpsApiService({Dio? dio})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 10),
+              receiveTimeout: const Duration(seconds: 15),
+            ));
 
   String? _authToken;
 

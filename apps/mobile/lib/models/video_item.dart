@@ -80,6 +80,16 @@ class VideoItem {
     if (id.startsWith('short_')) {
       return id.replaceFirst('short_', '');
     }
+    if (sourceUrl.contains('/shorts/')) {
+      final segments = Uri.tryParse(sourceUrl)?.pathSegments;
+      if (segments != null && segments.isNotEmpty) {
+        final shortsIdx = segments.indexOf('shorts');
+        if (shortsIdx >= 0 && shortsIdx + 1 < segments.length) {
+          final sId = segments[shortsIdx + 1];
+          if (sId.isNotEmpty) return sId;
+        }
+      }
+    }
     if (sourceUrl.contains('v=')) {
       final uri = Uri.tryParse(sourceUrl);
       final v = uri?.queryParameters['v'];
