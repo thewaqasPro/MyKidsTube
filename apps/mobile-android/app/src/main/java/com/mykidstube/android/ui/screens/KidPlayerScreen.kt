@@ -5,10 +5,13 @@ import android.net.Uri
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.annotation.OptIn
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -227,13 +230,15 @@ fun KidPlayerScreen(
                         onClick = onNavigateBack,
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .padding(12.dp)
+                            .size(44.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -265,109 +270,103 @@ fun KidPlayerScreen(
                             fontSize = 13.sp
                         )
 
-                        // Action Buttons Bar
+                        // Action Buttons Bar (Horizontally scrollable YouTube-style pill bar)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
                                 .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceAround,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Favorite Button
-                            IconButton(
-                                onClick = { scope.launch { repository.toggleFavorite(currentVideo.id) } },
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(KidColors.cardDark)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            PlayerPillButton(
+                                onClick = { scope.launch { repository.toggleFavorite(currentVideo.id) } }
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                                    contentDescription = "Favorite",
+                                    tint = if (isFavorite) KidColors.accent else Color.White,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                                Text(
+                                    text = if (isFavorite) "Favorited" else "Favorite",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            // Download Button
+                            PlayerPillButton(
+                                onClick = {
+                                    if (!currentVideo.isOfflineReady) {
+                                        scope.launch { downloadManager.enqueueDownload(currentVideo) }
+                                    }
+                                }
+                            ) {
+                                if (currentVideo.isOfflineReady) {
                                     Icon(
-                                        imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                                        contentDescription = "Favorite",
-                                        tint = if (isFavorite) KidColors.accent else Color.White,
-                                        modifier = Modifier.size(18.dp)
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = "Downloaded",
+                                        tint = KidColors.mint,
+                                        modifier = Modifier.size(19.dp)
                                     )
                                     Text(
-                                        if (isFavorite) "Favorited" else "Favorite",
+                                        text = "Saved",
+                                        color = KidColors.mint,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else if (downloadProgress?.status == DownloadStatus.DOWNLOADING) {
+                                    CircularProgressIndicator(
+                                        progress = { downloadProgress.progress },
+                                        color = KidColors.sky,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "${(downloadProgress.progress * 100).toInt()}%",
                                         color = Color.White,
-                                        fontSize = 12.sp,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Download,
+                                        contentDescription = "Download",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                    Text(
+                                        text = "Download",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
 
-                            // Download Button
-                            IconButton(
-                                onClick = {
-                                    if (!currentVideo.isOfflineReady) {
-                                        scope.launch { downloadManager.enqueueDownload(currentVideo) }
-                                    }
-                                },
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(KidColors.cardDark)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    if (currentVideo.isOfflineReady) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.CheckCircle,
-                                            contentDescription = "Downloaded",
-                                            tint = KidColors.mint,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Text("Saved", color = KidColors.mint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    } else if (downloadProgress?.status == DownloadStatus.DOWNLOADING) {
-                                        CircularProgressIndicator(
-                                            progress = { downloadProgress.progress },
-                                            color = KidColors.sky,
-                                            strokeWidth = 2.dp,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Text("${(downloadProgress.progress * 100).toInt()}%", color = Color.White, fontSize = 12.sp)
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Download,
-                                            contentDescription = "Download",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Text("Download", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-
                             // Toddler Lock Button
-                            IconButton(
-                                onClick = { isLocked = true },
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(KidColors.cardDark)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            PlayerPillButton(
+                                onClick = { isLocked = true }
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Lock,
-                                        contentDescription = "Lock Screen",
-                                        tint = KidColors.accent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text("Lock", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.Lock,
+                                    contentDescription = "Lock Screen",
+                                    tint = KidColors.accent,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                                Text(
+                                    text = "Lock",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
 
-                        Divider(color = KidColors.borderDark, thickness = 1.dp)
+                        HorizontalDivider(color = KidColors.borderDark, thickness = 1.dp)
                     }
                 }
 
@@ -401,6 +400,30 @@ fun KidPlayerScreen(
             onLock = { isLocked = true },
             onUnlock = { isLocked = false },
             showLockButton = false
+        )
+    }
+}
+
+@Composable
+private fun PlayerPillButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(20.dp),
+        color = KidColors.cardDark,
+        border = BorderStroke(1.dp, KidColors.borderDark),
+        modifier = modifier.heightIn(min = 40.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            content = content
         )
     }
 }
