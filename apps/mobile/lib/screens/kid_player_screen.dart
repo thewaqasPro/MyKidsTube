@@ -391,20 +391,18 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   // ==========================================
   Widget _buildFixedTopBar(
     BuildContext context, {
-    required bool isFavorite,
+    bool isFavorite = false,
     required bool isLandscape,
   }) {
-    final provider = context.watch<AppProvider>();
-
     return Container(
-      height: 48,
+      height: 40,
       decoration: const BoxDecoration(
         color: KidColors.canvasDark,
         border: Border(
           bottom: BorderSide(color: KidColors.borderDark, width: 0.8),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
           // Back / Close Button
@@ -415,7 +413,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   ? Icons.arrow_back_ios_new_rounded
                   : Icons.keyboard_arrow_down_rounded,
               color: Colors.white,
-              size: isLandscape ? 19 : 26,
+              size: isLandscape ? 18 : 22,
             ),
             tooltip: isLandscape ? 'Back' : 'Close Player',
             onPressed: () => Navigator.of(context).pop(),
@@ -438,51 +436,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
           ),
           const SizedBox(width: 4),
 
-          // Stream Mode Switcher (Embed vs Direct Stream)
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              _useEmbed ? Icons.bolt_rounded : Icons.public_rounded,
-              color: _useEmbed ? KidColors.yellow : Colors.white,
-              size: 20,
-            ),
-            tooltip: _useEmbed ? 'Switch to MP4' : 'Switch to Embed',
-            onPressed: () {
-              _initControllerForVideo(_currentVideo, forceEmbed: !_useEmbed);
-            },
-          ),
-
-          // Star / Favorite Button
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: isFavorite ? KidColors.yellow : Colors.white,
-              size: 20,
-            ),
-            tooltip: isFavorite ? 'Starred' : 'Star',
-            onPressed: () => provider.toggleFavorite(_currentVideo.id),
-          ),
-
-          // Sound Mute / Unmute Button
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-              color: _isMuted ? KidColors.primary : Colors.white,
-              size: 20,
-            ),
-            tooltip: _isMuted ? 'Muted' : 'Sound',
-            onPressed: _toggleMute,
-          ),
-
           // Lock Screen (Toddler Lock)
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(
               Icons.lock_outline_rounded,
               color: Colors.white,
-              size: 19,
+              size: 18,
             ),
             tooltip: 'Lock Screen',
             onPressed: () => setState(() {
@@ -497,7 +457,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             icon: const Icon(
               Icons.fullscreen_rounded,
               color: Colors.white,
-              size: 22,
+              size: 20,
             ),
             tooltip: isLandscape ? 'Full Bleed Video' : 'Landscape Fullscreen',
             onPressed: () {
@@ -505,7 +465,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 setState(() => _isImmersiveLandscape = true);
               } else {
                 _toggleOrientation(toLandscape: true);
-                setState(() => _isImmersiveLandscape = false);
+                setState(() => _isImmersiveLandscape = true);
               }
             },
           ),
@@ -574,7 +534,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                                           ? KidEmbedPlayer(
                                               youtubeId: _currentVideo.effectiveYoutubeId,
                                               autoPlay: true,
-                                              scale: 1.14,
+                                              // scale: 1.14,
                                             )
                                           : (_isInitialized
                                               ? AspectRatio(
@@ -814,7 +774,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   ? KidEmbedPlayer(
                       youtubeId: _currentVideo.effectiveYoutubeId,
                       autoPlay: true,
-                      scale: 1.14,
+                      // scale: 1.14,
                     )
                   : (_isInitialized
                       ? AspectRatio(
@@ -835,73 +795,26 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 ),
               ),
 
-            // In embed mode: absolute floating top bar covering YouTube embed title
-            if (_useEmbed && !_isLocked)
+            // Floating back/exit button in fullscreen mode
+            if (!_isLocked)
               Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 50,
+                top: 14,
+                left: 14,
                 child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
+                  onTap: () {
+                    _toggleOrientation(toLandscape: false);
+                    setState(() => _isImmersiveLandscape = false);
+                  },
                   child: Container(
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black,
-                          Colors.black,
-                          Colors.black.withValues(alpha: 0.75),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.75, 0.90, 1.0],
-                      ),
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                          tooltip: 'Exit Full Bleed',
-                          onPressed: () => setState(() => _isImmersiveLandscape = false),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            _cleanTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 19),
-                          tooltip: 'Lock Screen',
-                          onPressed: () => setState(() {
-                            _isLocked = true;
-                            _showControls = false;
-                          }),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 24),
-                          tooltip: 'Exit Fullscreen',
-                          onPressed: () => setState(() => _isImmersiveLandscape = false),
-                        ),
-                        const SizedBox(width: 2),
-                        const OrientationModeSwitch(),
-                      ],
+                    child: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 18,
                     ),
                   ),
                 ),
@@ -1095,7 +1008,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                                 ? KidEmbedPlayer(
                                     youtubeId: _currentVideo.effectiveYoutubeId,
                                     autoPlay: true,
-                                    scale: 1.14,
+                                    // scale: 1.14,
                                   )
                                 : (_isInitialized
                                     ? AspectRatio(

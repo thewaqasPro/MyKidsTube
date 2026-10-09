@@ -4,7 +4,7 @@ import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 
 /// Top Bar / Toolbar Orientation Mode Switcher
-/// Compact icon-only button with a sleek popup menu for Landscape, Portrait, and Auto
+/// Direct 3-way toggle button cycling between Portrait -> Landscape -> Auto Rotate (no dropdown)
 class OrientationModeSwitch extends StatelessWidget {
   final bool compact;
   final Color? backgroundColor;
@@ -14,6 +14,17 @@ class OrientationModeSwitch extends StatelessWidget {
     this.compact = true,
     this.backgroundColor,
   });
+
+  AppOrientationMode _nextMode(AppOrientationMode current) {
+    switch (current) {
+      case AppOrientationMode.portrait:
+        return AppOrientationMode.landscape;
+      case AppOrientationMode.landscape:
+        return AppOrientationMode.auto;
+      case AppOrientationMode.auto:
+        return AppOrientationMode.portrait;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,110 +53,40 @@ class OrientationModeSwitch extends StatelessWidget {
         break;
     }
 
-    return PopupMenuButton<AppOrientationMode>(
-      tooltip: label,
-      initialValue: mode,
-      onSelected: (newMode) => provider.setOrientationMode(newMode),
-      color: KidColors.cardDark,
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: KidColors.borderDark),
-      ),
-      child: Container(
-        width: 36,
-        height: 36,
-        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-        decoration: BoxDecoration(
-          color: backgroundColor ?? KidColors.surfaceDark,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: accentColor.withValues(alpha: 0.6),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: accentColor.withValues(alpha: 0.15),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+    final size = compact ? 30.0 : 36.0;
+
+    return Tooltip(
+      message: 'Orientation: $label (Tap to toggle)',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          final next = _nextMode(mode);
+          provider.setOrientationMode(next);
+        },
+        child: Container(
+          width: size,
+          height: size,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: backgroundColor ?? KidColors.surfaceDark,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.6),
+              width: 1.2,
             ),
-          ],
-        ),
-        child: Center(
-          child: Icon(icon, size: 18, color: accentColor),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.15),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(icon, size: compact ? 16 : 18, color: accentColor),
+          ),
         ),
       ),
-      itemBuilder: (ctx) => [
-        PopupMenuItem(
-          value: AppOrientationMode.landscape,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.stay_current_landscape_rounded,
-                color: mode == AppOrientationMode.landscape ? KidColors.accent : Colors.white70,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Landscape',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  color: mode == AppOrientationMode.landscape ? KidColors.accent : Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: AppOrientationMode.portrait,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.stay_current_portrait_rounded,
-                color: mode == AppOrientationMode.portrait ? KidColors.sky : Colors.white70,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Portrait',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  color: mode == AppOrientationMode.portrait ? KidColors.sky : Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: AppOrientationMode.auto,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.screen_rotation_rounded,
-                color: mode == AppOrientationMode.auto ? KidColors.mint : Colors.white70,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'Auto Rotate',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  color: mode == AppOrientationMode.auto ? KidColors.mint : Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

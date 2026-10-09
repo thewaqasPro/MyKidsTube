@@ -64,9 +64,10 @@ class CorruptThrowingDatabaseService extends Fake implements DatabaseService {
 
 void main() {
   group('R8 — Player Honesty & Sandbox Shield Tests', () {
-    test('KidEmbedPlayer defaults to scale 1.14 overscan', () {
+    test('KidEmbedPlayer defaults to scale 1.0 and zoom 1.0', () {
       const player = KidEmbedPlayer(youtubeId: 'abc12345678');
-      expect(player.scale, equals(1.14));
+      expect(player.scale, equals(1.0));
+      expect(player.zoom, equals(1.0));
     });
 
     test('KidEmbedPlayer embed source and postMessage strings contain controls=0 and scoped origin', () {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -13,13 +14,21 @@ class KidEmbedPlayer extends StatefulWidget {
   final bool autoPlay;
   final double? aspectRatio;
   final double scale;
+  final double zoom;
+  final Color shieldColor;
+  final double? topShieldHeight;
+  final double? bottomShieldHeight;
 
   const KidEmbedPlayer({
     super.key,
     required this.youtubeId,
     this.autoPlay = true,
     this.aspectRatio,
-    this.scale = 1.14,
+    this.scale = 1.0,
+    this.zoom = 1.0,
+    this.shieldColor = KidColors.canvasDark,
+    this.topShieldHeight,
+    this.bottomShieldHeight,
   });
 
   @override
@@ -30,6 +39,8 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
+  bool _showShields = true;
+  Timer? _shieldDismissTimer;
   Timer? _playRetryTimer1;
   Timer? _playRetryTimer2;
 
@@ -37,12 +48,14 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   void initState() {
     super.initState();
     _initController();
+    _scheduleShieldDismiss();
   }
 
   @override
   void dispose() {
     _playRetryTimer1?.cancel();
     _playRetryTimer2?.cancel();
+    _shieldDismissTimer?.cancel();
     super.dispose();
   }
 
@@ -51,9 +64,27 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.youtubeId != widget.youtubeId ||
         oldWidget.autoPlay != widget.autoPlay ||
-        oldWidget.scale != widget.scale) {
+        oldWidget.scale != widget.scale ||
+        oldWidget.zoom != widget.zoom) {
       _loadVideo(widget.youtubeId);
     }
+  }
+
+  void _onUserInteraction() {
+    if (!mounted) return;
+    if (!_showShields) {
+      setState(() => _showShields = true);
+    }
+    _scheduleShieldDismiss();
+  }
+
+  void _scheduleShieldDismiss() {
+    _shieldDismissTimer?.cancel();
+    _shieldDismissTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted && _showShields) {
+        setState(() => _showShields = false);
+      }
+    });
   }
 
   void _initController() {
@@ -85,6 +116,7 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
           onPageFinished: (_) {
             if (mounted) {
               setState(() => _isLoading = false);
+              _onUserInteraction();
               if (widget.autoPlay) {
                 _sendPlayCommands();
               }
@@ -153,11 +185,16 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
   void _loadVideo(String id) {
     _playRetryTimer1?.cancel();
     _playRetryTimer2?.cancel();
+    _shieldDismissTimer?.cancel();
 
-    setState(() {
-      _hasError = false;
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _hasError = false;
+        _isLoading = true;
+        _showShields = true;
+      });
+    }
+    _scheduleShieldDismiss();
 
     final autoPlayFlag = widget.autoPlay ? 1 : 0;
     final html = '''
@@ -177,9 +214,10 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
       justify-content: center;
     }
     iframe {
-      width: 100%;
-      height: 100%;
+      width: ${widget.zoom != 1.0 ? '${(100 / widget.zoom).toStringAsFixed(1)}%' : '100%'};
+      height: ${widget.zoom != 1.0 ? '${(100 / widget.zoom).toStringAsFixed(1)}%' : '100%'};
       border: 0;
+      ${widget.zoom != 1.0 ? 'zoom: ${widget.zoom};' : ''}
       ${widget.scale != 1.0 ? 'transform: scale(${widget.scale}); transform-origin: center center;' : ''}
     }
   </style>
@@ -237,85 +275,173 @@ class _KidEmbedPlayerState extends State<KidEmbedPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Stack(
-      fit: StackFit.expand,
-      children: [
-        // 1. Sandboxed Web Player
-        WebViewWidget(controller: _controller),
+    Widget content = LayoutBuilder(
+      builder: (context, constraints) {
+        // True for compact players (like standard 16:9 portrait player where height is ~200-240px)
+        final isCompact = constraints.maxHeight < 280;
+        final topHeight = widget.topShieldHeight ?? (isCompact ? 50.0 : 55.0);
+        final bottomHeight = widget.bottomShieldHeight ?? (isCompact ? 50.0 : 60.0);
+        final blurSigma = isCompact ? 14.0 : 20.0;
+        final logoWidth = isCompact ? 75.0 : 90.0;
 
-        // 2. Loading Spinner
-        if (_isLoading && !_hasError)
-          Container(
-            color: Colors.black,
-            child: const Center(
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: KidColors.primary,
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _onUserInteraction(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Sandboxed Web Player
+              WebViewWidget(controller: _controller),
+
+          // 2. Loading Spinner
+          if (_isLoading && !_hasError)
+            Container(
+              color: Colors.black,
+              child: const Center(
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: KidColors.primary,
+                  ),
                 ),
               ),
             ),
-          ),
 
-        // 3. Error UI with Retry
-        if (_hasError)
-          Container(
-            color: Colors.black,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.wifi_off_rounded, color: KidColors.red, size: 36),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Unable to stream embed.',
-                    style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: KidColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          // 3. Error UI with Retry
+          if (_hasError)
+            Container(
+              color: Colors.black,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.wifi_off_rounded, color: KidColors.red, size: 36),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Unable to stream embed.',
+                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                     ),
-                    onPressed: () => _loadVideo(widget.youtubeId),
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Retry', style: TextStyle(fontSize: 12)),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: KidColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      onPressed: () => _loadVideo(widget.youtubeId),
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('Retry', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+              // 4. SHIELD 1: Dynamic Top Frosted Glass & Gradient Shield
+              if (!_hasError)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: topHeight,
+                  child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: AnimatedOpacity(
+                      opacity: _showShields ? 1.0 : 0.0,
+                      duration: _showShields
+                          ? const Duration(milliseconds: 30)
+                          : const Duration(milliseconds: 250),
+                      curve: _showShields ? Curves.linear : Curves.easeOut,
+                      child: ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  widget.shieldColor.withValues(alpha: 0.95),
+                                  widget.shieldColor.withValues(alpha: 0.70),
+                                  widget.shieldColor.withValues(alpha: 0.0),
+                                ],
+                                stops: const [0.0, 0.65, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _onUserInteraction,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
 
-        // 4. SHIELD 1: Top External Link Shield
-        if (!_hasError)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 48,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {},
-            ),
+              // 5. SHIELD 2: Dynamic Bottom Frosted Glass & Gradient Shield
+              if (!_hasError)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: bottomHeight,
+                  child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: AnimatedOpacity(
+                      opacity: _showShields ? 1.0 : 0.0,
+                      duration: _showShields
+                          ? const Duration(milliseconds: 30)
+                          : const Duration(milliseconds: 250),
+                      curve: _showShields ? Curves.linear : Curves.easeOut,
+                      child: ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  widget.shieldColor.withValues(alpha: 0.95),
+                                  widget.shieldColor.withValues(alpha: 0.70),
+                                  widget.shieldColor.withValues(alpha: 0.0),
+                                ],
+                                stops: const [0.0, 0.65, 1.0],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                      // Bottom-right watermark tap blocker (YouTube logo)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        width: logoWidth,
+                        height: bottomHeight,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _onUserInteraction,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
-
-        // 5. SHIELD 2: Bottom-Right YouTube Logo Shield
-        if (!_hasError)
-          Positioned(
-            bottom: 0,
-            right: 0,
-            width: 80,
-            height: 46,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {},
-            ),
-          ),
-      ],
+        );
+      },
     );
 
     if (widget.aspectRatio != null) {

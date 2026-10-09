@@ -20,3 +20,6 @@ Welcome to the technical documentation for KidsTube.
 
 5. **[1 GB RAM / 1 Core VPS Optimization Guide](vps-optimization-1gb.md)**
    - OS configuration (2GB swap, swappiness, Docker log rotation), zero-CPU stream remuxing, single-thread queues, and memory constraints.
+
+6. **[Media Ingestion, Video ID Resolution & VPS Sync Guide](media-sync-and-renaming.md)**
+   - Automatic YouTube ID matching, bulk video renamer, HandBrake pipeline, and synchronization to self-hosted VPS storage.

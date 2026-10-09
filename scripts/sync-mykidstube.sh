@@ -3,10 +3,12 @@
 # MyKidsTube — Residential Batch Downloader & HandBrake Sync Script for macOS
 # ==============================================================================
 # Usage:
-#   ./scripts/sync-mykidstube.sh export     - Download pending links.txt
-#   ./scripts/sync-mykidstube.sh download   - Download videos via local residential IP
-#   ./scripts/sync-mykidstube.sh upload     - Upload HandBrake-encoded MP4s to VPS storage
-#   ./scripts/sync-mykidstube.sh status     - Show current library and pending status
+#   ./scripts/sync-mykidstube.sh export                - Download pending links.txt
+#   ./scripts/sync-mykidstube.sh download [URL]        - Download videos via local IP (or direct playlist URL)
+#   ./scripts/sync-mykidstube.sh rename [PLAYLIST_URL] - Auto-rename video titles to YouTube IDs
+#   ./scripts/sync-mykidstube.sh upload [PLAYLIST_URL] - Upload HandBrake MP4s to VPS (auto-renames & auto-syncs D1)
+#   ./scripts/sync-mykidstube.sh sync-d1 [PLAYLIST_URL] - Sync local/VPS videos into Cloudflare D1 Catalog
+#   ./scripts/sync-mykidstube.sh status                - Show current library and pending status
 # ==============================================================================
 
 set -e
@@ -63,11 +65,7 @@ command_export() {
 }
 
 command_download() {
-    command_export
-    if [ ! -s "$RAW_DIR/links.txt" ]; then
-        echo "Nothing to download."
-        exit 0
-    fi
+    TARGET_URL="$1"
 
     if ! command -v yt-dlp &> /dev/null; then
         echo "⚠️ yt-dlp CLI not found on this Mac."
@@ -75,15 +73,32 @@ command_download() {
         exit 1
     fi
 
-    echo ""
-    echo "🚀 Downloading videos on your local residential Mac connection..."
-    yt-dlp \
-        -a "$RAW_DIR/links.txt" \
-        -o "$RAW_DIR/%(id)s.%(ext)s" \
-        -f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" \
-        --merge-output-format mp4 \
-        --no-playlist \
-        --continue
+    if [ -n "$TARGET_URL" ]; then
+        echo "🚀 Downloading from YouTube URL/Playlist directly using video IDs as filenames..."
+        yt-dlp \
+            -o "$RAW_DIR/%(id)s.%(ext)s" \
+            -f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" \
+            --merge-output-format mp4 \
+            --yes-playlist \
+            --continue \
+            "$TARGET_URL"
+    else
+        command_export
+        if [ ! -s "$RAW_DIR/links.txt" ]; then
+            echo "Nothing to download."
+            exit 0
+        fi
+
+        echo ""
+        echo "🚀 Downloading videos from queue on your local residential Mac connection..."
+        yt-dlp \
+            -a "$RAW_DIR/links.txt" \
+            -o "$RAW_DIR/%(id)s.%(ext)s" \
+            -f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" \
+            --merge-output-format mp4 \
+            --no-playlist \
+            --continue
+    fi
 
     if command -v ffmpeg &> /dev/null; then
         echo "🎬 Ensuring +faststart on downloaded MP4 files..."
@@ -101,7 +116,28 @@ command_download() {
     echo "✅ Download complete in: $RAW_DIR"
 }
 
+command_rename() {
+    PLAYLIST_OR_URL="$1"
+    RENAME_SCRIPT="$SCRIPT_DIR/rename_videos.py"
+
+    if [ ! -f "$RENAME_SCRIPT" ]; then
+        echo "❌ Renaming script not found at: $RENAME_SCRIPT"
+        exit 1
+    fi
+
+    echo "🏷️ Running YouTube ID resolver for files in: $OPTIMIZED_DIR"
+    if [ -n "$PLAYLIST_OR_URL" ]; then
+        python3 "$RENAME_SCRIPT" "$OPTIMIZED_DIR" --playlist "$PLAYLIST_OR_URL"
+    elif [ -f "$RAW_DIR/links.txt" ]; then
+        python3 "$RENAME_SCRIPT" "$OPTIMIZED_DIR" --links "$RAW_DIR/links.txt"
+    else
+        echo "🔍 No playlist provided. Searching YouTube automatically..."
+        python3 "$RENAME_SCRIPT" "$OPTIMIZED_DIR" --search
+    fi
+}
+
 command_upload() {
+    OPTIONAL_PLAYLIST="$1"
     echo "📤 Scanning for HandBrake-encoded MP4 files in: $OPTIMIZED_DIR"
     FILE_COUNT=$(find "$OPTIMIZED_DIR" -maxdepth 1 -name "*.mp4" 2>/dev/null | wc -l | tr -d ' ')
 
@@ -109,6 +145,14 @@ command_upload() {
         echo "⚠️ No .mp4 files found in $OPTIMIZED_DIR."
         echo "   Please place your HandBrake-encoded files there before running upload."
         exit 1
+    fi
+
+    # Check if any files have human titles instead of pure 11-char YouTube IDs
+    NON_ID_FILES=$(find "$OPTIMIZED_DIR" -maxdepth 1 -name "*.mp4" | grep -vE '/[a-zA-Z0-9_-]{11}\.mp4$' || true)
+    if [ -n "$NON_ID_FILES" ]; then
+        echo "⚠️ Detected files with human song titles instead of YouTube IDs."
+        echo "🤖 Auto-resolving and renaming to YouTube IDs..."
+        command_rename "$OPTIONAL_PLAYLIST"
     fi
 
     STAGING_DIR="/var/www/media/staging"
@@ -128,10 +172,26 @@ command_upload() {
         # Atomically move files from staging into videos target directory
         ssh -i "$SSH_KEY" "$VPS_USER@$VPS_HOST" "mv -f $STAGING_DIR/*.mp4 $TARGET_DIR/ 2>/dev/null || true"
         echo "✅ Files successfully staged and moved to target VPS storage ($TARGET_DIR)!"
+
+        # Synchronize catalog with Cloudflare D1
+        command_sync_d1 "$OPTIONAL_PLAYLIST"
     else
         echo "⚠️ SSH key not found at: $SSH_KEY"
         echo "   Set SSH_KEY environment variable pointing to your private key."
         exit 1
+    fi
+}
+
+command_sync_d1() {
+    OPTIONAL_PLAYLIST="$1"
+    SYNC_SCRIPT="$SCRIPT_DIR/sync_to_d1.py"
+    if [ -f "$SYNC_SCRIPT" ]; then
+        echo "⚡ Synchronizing Cloudflare D1 Catalog so videos appear in Studio & App..."
+        if [ -n "$OPTIONAL_PLAYLIST" ]; then
+            python3 "$SYNC_SCRIPT" "$OPTIMIZED_DIR" --playlist "$OPTIONAL_PLAYLIST"
+        else
+            python3 "$SYNC_SCRIPT" "$OPTIMIZED_DIR"
+        fi
     fi
 }
 
@@ -204,10 +264,16 @@ case "$1" in
         command_export
         ;;
     download)
-        command_download
+        command_download "$2"
+        ;;
+    rename)
+        command_rename "$2"
         ;;
     upload)
-        command_upload
+        command_upload "$2"
+        ;;
+    sync-d1)
+        command_sync_d1 "$2"
         ;;
     prune)
         command_prune
@@ -217,7 +283,7 @@ case "$1" in
         ;;
     *)
         echo "MyKidsTube Sync Helper"
-        echo "Usage: $0 {export|download|upload|prune|status}"
+        echo "Usage: $0 {export|download [URL]|rename [PLAYLIST_URL]|upload [PLAYLIST_URL]|sync-d1 [PLAYLIST_URL]|prune|status}"
         exit 1
         ;;
 esac

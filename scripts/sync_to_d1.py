@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""
+MyKidsTube — Sync Uploaded Media to Cloudflare D1 Catalog
+=========================================================
+Reads all `<youtube_id>.mp4` videos from the local optimized folder (or VPS),
+retrieves their metadata from YouTube/playlist, and inserts or updates them in
+the Cloudflare D1 database with status = 'ready' and assigns them to child profiles.
+
+Usage:
+  python3 scripts/sync_to_d1.py --playlist "https://www.youtube.com/playlist?list=..."
+"""
+
+import os
+import sys
+import json
+import re
+import argparse
+import subprocess
+from datetime import datetime
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PORTAL_DIR = os.path.join(REPO_ROOT, "apps", "portal")
+DEFAULT_OPTIMIZED_DIR = os.path.expanduser("~/Downloads/MyKidsTube_Optimized")
+YOUTUBE_ID_REGEX = re.compile(r'^[a-zA-Z0-9_-]{11}$')
+
+def escape_sql(val: str) -> str:
+    """Escapes single quotes for SQLite string literals."""
+    if val is None:
+        return "''"
+    return val.replace("'", "''")
+
+def format_duration(seconds: int) -> str:
+    """Formats duration seconds to MM:SS."""
+    if not seconds or seconds <= 0:
+        return "--:--"
+    m = int(seconds) // 60
+    s = int(seconds) % 60
+    return f"{m:02d}:{s:02d}"
+
+def fetch_playlist_metadata(playlist_url: str):
+    """Fetches all video metadata from the YouTube playlist."""
+    print(f"📥 Fetching metadata from YouTube playlist: {playlist_url} ...")
+    cmd = ["yt-dlp", "--no-update", "--flat-playlist", "-J", playlist_url]
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if proc.returncode != 0:
+        print(f"⚠️ Warning: yt-dlp error fetching playlist: {proc.stderr}")
+        return {}
+
+    data = json.loads(proc.stdout)
+    lookup = {}
+    for entry in data.get("entries", []):
+        vid = entry.get("id")
+        if vid:
+            lookup[vid] = {
+                "title": entry.get("title") or "",
+                "duration": int(entry.get("duration") or 0),
+                "uploader": entry.get("uploader") or entry.get("channel") or "Disney",
+            }
+    return lookup
+
+def fetch_single_video_metadata(youtube_id: str):
+    """Fallback fetch metadata for an individual video via oEmbed."""
+    try:
+        import urllib.request
+        url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={youtube_id}&format=json"
+        req = urllib.request.Request(url, headers={"User-Agent": "MyKidsTube/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return {
+                "title": data.get("title", ""),
+                "duration": 0,
+                "uploader": data.get("author_name", "YouTube"),
+            }
+    except Exception:
+        return {"title": f"Video {youtube_id}", "duration": 0, "uploader": "YouTube"}
+
+def main():
+    parser = argparse.ArgumentParser(description="Sync uploaded videos to Cloudflare D1 Catalog.")
+    parser.add_argument("folder", nargs="?", default=DEFAULT_OPTIMIZED_DIR,
+                        help="Folder containing <id>.mp4 files")
+    parser.add_argument("--playlist", "-p",
+                        default="https://www.youtube.com/playlist?list=PLOba6OKTJnLbDvwBBEwO1EaVsiICn8Svw",
+                        help="YouTube Playlist URL for fast metadata matching")
+    parser.add_argument("--category", "-c", default="music",
+                        help="Category ID for videos (default: music)")
+    parser.add_argument("--dry-run", "-n", action="store_true",
+                        help="Generate SQL without executing on Cloudflare D1")
+    args = parser.parse_args()
+
+    target_dir = os.path.abspath(args.folder)
+    if not os.path.isdir(target_dir):
+        print(f"❌ Target directory not found: {target_dir}")
+        sys.exit(1)
+
+    # Find all <id>.mp4 files
+    mp4_files = [f for f in os.listdir(target_dir) if f.endswith(".mp4") and not f.startswith(".")]
+    valid_id_files = [f for f in mp4_files if YOUTUBE_ID_REGEX.match(os.path.splitext(f)[0])]
+
+    print(f"📁 Target folder: {target_dir}")
+    print(f"🎥 Found {len(valid_id_files)} valid <id>.mp4 files")
+
+    if not valid_id_files:
+        print("⚠️ No valid <id>.mp4 files found to sync.")
+        sys.exit(0)
+
+    # Fetch playlist metadata in batch
+    playlist_meta = fetch_playlist_metadata(args.playlist) if args.playlist else {}
+
+    # Read rename_map.json if available for cached titles
+    rename_map_path = os.path.join(target_dir, "rename_map.json")
+    rename_map_lookup = {}
+    if os.path.isfile(rename_map_path):
+        try:
+            with open(rename_map_path, "r") as f:
+                records = json.load(f)
+                for r in records:
+                    rename_map_lookup[r.get("youtube_id")] = r.get("title")
+        except Exception:
+            pass
+
+    sql_statements = []
+    sql_statements.append("-- Generated by sync_to_d1.py")
+    sql_statements.append("PRAGMA foreign_keys = OFF;")
+
+    for fname in sorted(valid_id_files):
+        yt_id = os.path.splitext(fname)[0]
+        file_path = os.path.join(target_dir, fname)
+        file_size_bytes = os.path.getsize(file_path) if os.path.isfile(file_path) else 0
+
+        # Retrieve metadata
+        meta = playlist_meta.get(yt_id)
+        if not meta:
+            if yt_id in rename_map_lookup:
+                meta = {"title": rename_map_lookup[yt_id], "duration": 0, "uploader": "Disney"}
+            else:
+                meta = fetch_single_video_metadata(yt_id)
+
+        title = meta.get("title") or f"Disney Song {yt_id}"
+        duration = meta.get("duration") or 0
+        duration_fmt = format_duration(duration)
+        channel = meta.get("uploader") or "Disney"
+        category = args.category
+        now_ts = datetime.utcnow().isoformat() + "Z"
+
+        # SQL for videos table
+        insert_video = f"""
+INSERT INTO videos (
+    id, title, duration, duration_formatted, category_id,
+    source_url, video_file, thumbnail_file, file_size_bytes,
+    quality, created_at, channel_name, channel_icon, status,
+    views, watch_seconds, file_verified, youtube_id
+) VALUES (
+    '{yt_id}',
+    '{escape_sql(title)}',
+    {duration},
+    '{duration_fmt}',
+    '{category}',
+    'https://www.youtube.com/watch?v={yt_id}',
+    '{yt_id}.mp4',
+    '{yt_id}.webp',
+    {file_size_bytes},
+    '720p',
+    '{now_ts}',
+    '{escape_sql(channel)}',
+    'https://i.ytimg.com/vi/{yt_id}/hqdefault.jpg',
+    'ready',
+    0,
+    0,
+    1,
+    '{yt_id}'
+)
+ON CONFLICT(id) DO UPDATE SET
+    status = 'ready',
+    file_verified = 1,
+    category_id = '{category}',
+    title = '{escape_sql(title)}',
+    duration = {duration},
+    duration_formatted = '{duration_fmt}',
+    file_size_bytes = {file_size_bytes},
+    channel_name = '{escape_sql(channel)}',
+    channel_icon = 'https://i.ytimg.com/vi/{yt_id}/hqdefault.jpg';
+""".strip()
+        sql_statements.append(insert_video)
+
+        # SQL for profile assignments (kids_all and kids_toddler)
+        for profile_id in ["kids_all", "kids_toddler"]:
+            assign_sql = f"""
+INSERT OR IGNORE INTO profile_video_assignments (profile_id, video_id, category_id, created_at)
+VALUES ('{profile_id}', '{yt_id}', '{category}', '{now_ts}');
+""".strip()
+            sql_statements.append(assign_sql)
+
+    temp_sql_file = os.path.join(REPO_ROOT, "scripts", "temp_catalog_sync.sql")
+    with open(temp_sql_file, "w") as f:
+        f.write("\n".join(sql_statements) + "\n")
+
+    print(f"📝 Generated SQL ({len(valid_id_files)} videos + profile assignments): {temp_sql_file}")
+
+    if args.dry_run:
+        print("🔍 DRY-RUN complete. SQL not executed.")
+        return
+
+    # Execute on remote Cloudflare D1
+    print("🚀 Executing sync on Cloudflare D1 (remote database)...")
+    cmd = [
+        "npx", "wrangler", "d1", "execute", "mykidstube",
+        "--remote", f"--file={temp_sql_file}"
+    ]
+    proc = subprocess.run(cmd, cwd=PORTAL_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+    if proc.returncode != 0:
+        print(f"❌ Wrangler D1 execution failed:\n{proc.stderr}")
+        sys.exit(1)
+
+    print("✅ Successfully executed SQL on Cloudflare D1!")
+    print(proc.stdout)
+
+    # Clean up temp file
+    if os.path.isfile(temp_sql_file):
+        os.remove(temp_sql_file)
+
+    # Verify count
+    verify_cmd = [
+        "npx", "wrangler", "d1", "execute", "mykidstube",
+        "--remote", "--command", "SELECT count(*) AS total_videos, sum(CASE WHEN status='ready' THEN 1 ELSE 0 END) AS ready_videos FROM videos;"
+    ]
+    verify_proc = subprocess.run(verify_cmd, cwd=PORTAL_DIR, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if verify_proc.returncode == 0:
+        print(verify_proc.stdout)
+
+if __name__ == "__main__":
+    main()

@@ -102,6 +102,7 @@ For in-depth guides, visit the **[docs/](docs/)** folder:
 - **[REST API Reference](docs/api-reference.md)**
 - **[Multi-User & 5-Kids Pairing Guide](docs/multi-user-pairing.md)**
 - **[Monorepo Architecture Plan](docs/monorepo-structure-plan.md)**
+- **[Media Ingestion & Video ID Renaming Guide](docs/media-sync-and-renaming.md)**
 
 ---
 

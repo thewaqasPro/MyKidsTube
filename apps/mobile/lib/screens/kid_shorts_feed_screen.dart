@@ -460,7 +460,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                           youtubeId: video.effectiveYoutubeId,
                           autoPlay: isCurrent,
                           aspectRatio: 9 / 16,
-                          scale: 1.14,
+                          // scale: 1.14,
                         ),
                       )
                     : (_failedIndices.contains(index)
