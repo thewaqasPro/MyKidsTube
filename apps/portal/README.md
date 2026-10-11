@@ -59,9 +59,9 @@ npx wrangler d1 migrations apply kidstube-db --local
 npx wrangler d1 migrations apply kidstube-db --remote
 ```
 
-**Initialize fresh database from schema:**
+**Initialize fresh database from schema & seeds:**
 ```sh
-npx wrangler d1 execute kidstube-db --local --file=../../d1_ready.sql
+npx wrangler d1 execute kidstube-db --local --file=seeds/d1_ready.sql
 ```
 
 ## 👀 Want to learn more?

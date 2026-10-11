@@ -5,7 +5,15 @@
       "path": "apps/mobile"
     },
     {
-      "name": "🖥️ Media Server (Docker / Python)",
+      "name": "🤖 Mobile App (Android Compose)",
+      "path": "apps/mobile-android"
+    },
+    {
+      "name": "🌐 Web Portal & API (Astro / Cloudflare)",
+      "path": "apps/portal"
+    },
+    {
+      "name": "🖥️ Media Server (Docker / Nginx)",
       "path": "apps/server"
     },
     {

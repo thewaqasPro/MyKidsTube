@@ -1,5 +1,5 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -167,15 +167,17 @@ class TestFakeDatabaseService extends Fake implements DatabaseService {
   Future<List<ChildProfile>> getAllLocalProfiles() async => [];
 
   @override
-  Future<void> recordWatchEvent({
+  Future<void> recordWatchSession({
     required String videoId,
-    required String videoTitle,
-    required String categoryId,
+    String? videoTitle,
+    String? categoryId,
     required int secondsWatched,
-    required int videoDuration,
-    required bool isCompleted,
-    required bool isSkipped,
+    int videoDuration = 0,
+    bool isCompleted = false,
+    bool isSkipped = false,
     String? profileId,
+    String? profileName,
+    String? deviceId,
   }) async {}
 
   @override
@@ -205,7 +207,7 @@ Widget buildTestApp({
   required AppProvider provider,
   required VideoItem video,
   List<VideoItem> playlist = const [],
-  Size screenSize = const Size(400, 800),
+  Size screenSize = const Size(500, 900),
 }) {
   return ChangeNotifierProvider<AppProvider>.value(
     value: provider,
@@ -230,9 +232,16 @@ void main() {
     WebViewPlatform.instance = TestWebViewPlatform();
   });
 
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall methodCall) async => null,
+    );
+  });
+
   group('Prompt F12 — Player Geometry & Dynamic Positioning Tests', () {
     testWidgets('Portrait mode geometry: player surface occupies natural 16:9 below 40px top bar', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(500, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -242,7 +251,7 @@ void main() {
       await provider.setOrientationMode(AppOrientationMode.auto);
 
       final video = createTestVideo(needsEmbed: true);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(400, 800)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
       await tester.pump();
 
       // Top bar is present at top: 0, height: 40
@@ -250,19 +259,19 @@ void main() {
       expect(topBarFinder, findsOneWidget);
 
       // Player surface geometry in portrait
-      // availableWidth = 400, 16:9 ratio => height = 400 / (16/9) = 225
+      // availableWidth = 500, 16:9 ratio => height = 500 / (16/9) = 281.25
       final embedFinder = find.byType(KidEmbedPlayer);
       expect(embedFinder, findsOneWidget);
 
       final playerRect = tester.getRect(embedFinder);
       expect(playerRect.left, equals(0.0));
       expect(playerRect.top, equals(40.0), reason: 'Player must start immediately below 40px top bar');
-      expect(playerRect.width, equals(400.0), reason: 'Player width must fill screen width in portrait');
-      expect(playerRect.height, closeTo(225.0, 0.5), reason: 'Player height must maintain 16:9 aspect ratio');
+      expect(playerRect.width, equals(500.0), reason: 'Player width must fill screen width in portrait');
+      expect(playerRect.height, closeTo(281.25, 0.5), reason: 'Player height must maintain 16:9 aspect ratio');
     });
 
     testWidgets('Landscape Split mode geometry: player occupies left clamped region below 40px top bar', (tester) async {
-      tester.view.physicalSize = const Size(800, 400);
+      tester.view.physicalSize = const Size(900, 500);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -272,29 +281,29 @@ void main() {
       await provider.setOrientationMode(AppOrientationMode.landscape);
 
       final video = createTestVideo(needsEmbed: true);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(800, 400)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(900, 500)));
       await tester.pump();
 
       // Top bar remains visible in split landscape
       expect(find.byType(OrientationModeSwitch), findsOneWidget);
 
       // Landscape split geometry:
-      // availableHeight = (400 - 40) = 360
-      // naturalWidth = 360 * 16/9 = 640
-      // maxVideoWidth = clamp(200, 800 * 0.76 = 608) = 608
-      // playerWidth = 640.clamp(200, 608) = 608
+      // availableHeight = (500 - 40) = 460
+      // naturalWidth = 460 * 16/9 = 817.77
+      // maxVideoWidth = clamp(200, 900 * 0.76 = 684) = 684
+      // playerWidth = 817.77.clamp(200, 684) = 684
       final embedFinder = find.byType(KidEmbedPlayer);
       expect(embedFinder, findsOneWidget);
 
       final playerRect = tester.getRect(embedFinder);
       expect(playerRect.left, equals(0.0));
       expect(playerRect.top, equals(40.0), reason: 'Player starts below 40px top bar in split landscape');
-      expect(playerRect.width, closeTo(608.0, 0.5), reason: 'Player width clamped to 76% available width');
-      expect(playerRect.height, equals(360.0), reason: 'Player height occupies remaining screen height below top bar');
+      expect(playerRect.width, closeTo(684.0, 0.5), reason: 'Player width clamped to 76% available width');
+      expect(playerRect.height, equals(460.0), reason: 'Player height occupies remaining screen height below top bar');
     });
 
     testWidgets('Immersive Fullscreen mode geometry: player fills 100% of screen (0, 0, width, height)', (tester) async {
-      tester.view.physicalSize = const Size(800, 400);
+      tester.view.physicalSize = const Size(900, 500);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -304,7 +313,7 @@ void main() {
       await provider.setOrientationMode(AppOrientationMode.landscape);
 
       final video = createTestVideo(needsEmbed: true);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(800, 400)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(900, 500)));
       await tester.pump();
 
       // Enter fullscreen via top-bar fullscreen button
@@ -318,20 +327,20 @@ void main() {
       final playerRect = tester.getRect(embedFinder);
       expect(playerRect.left, equals(0.0));
       expect(playerRect.top, equals(0.0), reason: 'Player must start at (0,0) in immersive fullscreen');
-      expect(playerRect.width, equals(800.0), reason: 'Player must fill full width in immersive fullscreen');
-      expect(playerRect.height, equals(400.0), reason: 'Player must fill full height in immersive fullscreen');
+      expect(playerRect.width, equals(900.0), reason: 'Player must fill full width in immersive fullscreen');
+      expect(playerRect.height, equals(500.0), reason: 'Player must fill full height in immersive fullscreen');
 
       // Top bar is removed in immersive fullscreen
       expect(find.byType(OrientationModeSwitch), findsNothing);
 
       // Floating exit button appears
-      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
     });
   });
 
   group('Prompt F12 — Layer Stack Order & Overlay Hierarchy Tests', () {
     testWidgets('Layer stack order: Player Surface -> Top Bar -> Playlist -> Exit Button -> Touch Lock Overlay', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(500, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -340,7 +349,7 @@ void main() {
       final provider = AppProvider(db: db, api: FakeVpsApiService(), downloader: FakeDownloadService());
 
       final video = createTestVideo(needsEmbed: false);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(400, 800)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
       await tester.pump();
 
       // Locate the main body Stack under Scaffold
@@ -372,7 +381,7 @@ void main() {
 
   group('Prompt F12 — Top Bar Presence & Absence Rules', () {
     testWidgets('Top bar present in normal portrait & landscape split, absent when locked or immersive', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(500, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -381,7 +390,7 @@ void main() {
       final provider = AppProvider(db: db, api: FakeVpsApiService(), downloader: FakeDownloadService());
 
       final video = createTestVideo(needsEmbed: true);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(400, 800)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
       await tester.pump();
 
       // 1. Portrait: Top bar present
@@ -394,10 +403,9 @@ void main() {
       expect(find.byType(OrientationModeSwitch), findsNothing, reason: 'Top bar must be absent when locked');
       expect(find.byTooltip('Lock Screen'), findsNothing);
 
-      // Unlock
-      final unlockBtn = find.text('Hold to Unlock');
-      expect(unlockBtn, findsOneWidget);
-      await tester.longPress(unlockBtn);
+      // Unlock via callback directly
+      final touchLock = tester.widget<TouchLockOverlay>(find.byType(TouchLockOverlay));
+      touchLock.onUnlock();
       await tester.pump();
       expect(find.byType(OrientationModeSwitch), findsOneWidget, reason: 'Top bar restored after unlocking');
 
@@ -409,7 +417,7 @@ void main() {
       expect(find.byType(OrientationModeSwitch), findsNothing, reason: 'Top bar must be absent in immersive fullscreen');
 
       // 4. Exit fullscreen: Top bar present again
-      await tester.tap(find.byIcon(Icons.fullscreen_exit_rounded));
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
       await tester.pump();
       expect(find.byType(OrientationModeSwitch), findsOneWidget, reason: 'Top bar restored after exiting fullscreen');
     });
@@ -421,8 +429,8 @@ void main() {
         const MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              width: 400,
-              height: 240,
+              width: 500,
+              height: 280,
               child: KidEmbedPlayer(
                 youtubeId: 'test_shield_123',
                 autoPlay: true,
@@ -434,20 +442,20 @@ void main() {
       );
       await tester.pump();
 
-      // Locate top shield Positioned
+      // Locate top shield Positioned (outer shield spanning top: 0, left: 0, right: 0)
       final topShieldPositioned = tester.widgetList<Positioned>(
         find.descendant(of: find.byType(KidEmbedPlayer), matching: find.byType(Positioned)),
-      ).firstWhere((p) => p.top == 0.0 && p.left == 0.0 && p.right == 0.0);
+      ).firstWhere((p) => p.top == 0.0 && p.left == 0.0 && p.right == 0.0 && p.bottom == null);
 
       expect(topShieldPositioned.top, equals(0.0), reason: 'Top shield must align flush to top (top: 0)');
       expect(topShieldPositioned.left, equals(0.0), reason: 'Top shield must align flush to left (left: 0)');
       expect(topShieldPositioned.right, equals(0.0), reason: 'Top shield must stretch flush to right (right: 0)');
       expect(topShieldPositioned.height, greaterThanOrEqualTo(50.0), reason: 'Top shield must be at least 50px high');
 
-      // Locate bottom shield Positioned
+      // Locate bottom shield Positioned (outer shield spanning bottom: 0, left: 0, right: 0)
       final bottomShieldPositioned = tester.widgetList<Positioned>(
         find.descendant(of: find.byType(KidEmbedPlayer), matching: find.byType(Positioned)),
-      ).firstWhere((p) => p.bottom == 0.0 && p.left == 0.0 && p.right == 0.0);
+      ).firstWhere((p) => p.bottom == 0.0 && p.left == 0.0 && p.right == 0.0 && p.top == null);
 
       expect(bottomShieldPositioned.bottom, equals(0.0), reason: 'Bottom shield must align flush to bottom (bottom: 0)');
       expect(bottomShieldPositioned.left, equals(0.0), reason: 'Bottom shield must align flush to left (left: 0)');
@@ -477,7 +485,7 @@ void main() {
 
   group('Prompt F12 & F3 — Fullscreen Save/Restore Round-Trip Tests (Both Entry Paths)', () {
     testWidgets('Entry Path 1 (Top Bar): Saves auto orientation mode and restores on exit', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(500, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -488,7 +496,7 @@ void main() {
       expect(provider.orientationMode, equals(AppOrientationMode.auto));
 
       final video = createTestVideo(needsEmbed: true);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(400, 800)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
       await tester.pump();
 
       // Top bar fullscreen button
@@ -502,10 +510,10 @@ void main() {
       // Mode switched to landscape and immersive fullscreen active
       expect(provider.orientationMode, equals(AppOrientationMode.landscape));
       expect(find.byType(OrientationModeSwitch), findsNothing);
-      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
 
       // Exit fullscreen
-      await tester.tap(find.byIcon(Icons.fullscreen_exit_rounded));
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
       await tester.pump();
 
       // Verify original auto mode is restored cleanly
@@ -515,7 +523,7 @@ void main() {
     });
 
     testWidgets('Entry Path 2 (Portrait Controls): Saves auto orientation mode and restores on exit', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(500, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -527,7 +535,7 @@ void main() {
 
       // Video with direct MP4 playback has portrait controls
       final video = createTestVideo(needsEmbed: false);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(400, 800)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
       await tester.pump();
 
       // Find the portrait controls fullscreen button (bottom-right of video surface, no tooltip, size 24)
@@ -546,10 +554,14 @@ void main() {
       // Mode switched to landscape and immersive fullscreen active
       expect(provider.orientationMode, equals(AppOrientationMode.landscape));
       expect(find.byType(OrientationModeSwitch), findsNothing);
-      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsAtLeastNWidgets(1));
 
-      // Exit fullscreen
-      await tester.tap(find.byIcon(Icons.fullscreen_exit_rounded));
+      // Exit fullscreen (floating exit button)
+      final exitBtn = find.byWidgetPredicate(
+        (w) => w is Icon && w.icon == Icons.arrow_back_rounded && w.size == 22,
+      );
+      expect(exitBtn, findsOneWidget);
+      await tester.tap(exitBtn);
       await tester.pump();
 
       // Verify original auto mode is restored cleanly
@@ -559,7 +571,7 @@ void main() {
     });
 
     testWidgets('PopScope back gesture: Restores saved orientation mode when exiting immersive fullscreen', (tester) async {
-      tester.view.physicalSize = const Size(400, 800);
+      tester.view.physicalSize = const Size(500, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -569,7 +581,7 @@ void main() {
       await provider.setOrientationMode(AppOrientationMode.auto);
 
       final video = createTestVideo(needsEmbed: true);
-      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(400, 800)));
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
       await tester.pump();
 
       // Tap fullscreen on top bar

@@ -56,3 +56,7 @@ vps/
 *.pub
 apps/server/.env
 apps/server/nginx/ssl/
+
+# Cloudflare & Wrangler
+.wrangler/
+**/.wrangler/

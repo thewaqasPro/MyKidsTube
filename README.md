@@ -9,24 +9,23 @@
 ```
 MyKidsTube/
 ├── apps/
-│   ├── mobile/                # Native Flutter Application (Android & iOS)
+│   ├── mobile/                # Cross-platform Mobile App (Flutter for iOS & Android)
 │   │   ├── android/           # Native Android runner & Gradle
 │   │   ├── ios/               # Native iOS runner & Xcode project
 │   │   ├── lib/               # Dart source code (screens, services, models)
 │   │   └── pubspec.yaml       # Flutter dependencies & metadata
-│   └── server/                # Self-Hosted VPS Media Server
-│       ├── backend/           # FastAPI service (yt-dlp + ffmpeg ingestion)
+│   ├── mobile-android/        # Native Android App (Kotlin + Jetpack Compose)
+│   ├── portal/                # Parent Web Portal & API (Astro SSR + Cloudflare Workers)
+│   │   ├── migrations/        # D1 SQL schema migrations (Drizzle ORM)
+│   │   ├── seeds/             # D1 database setup & seed SQL (d1_ready.sql, d1_clean.sql)
+│   │   ├── src/               # React components, Astro pages, and API routes
+│   │   └── wrangler.json      # Cloudflare D1 and R2 configuration
+│   └── server/                # Self-Hosted VPS Media Streamer
 │       ├── nginx/             # Nginx reverse proxy (HTTP 206 byte-range streaming)
+│       ├── cleanup_service.py # Storage management and disk maintenance service
 │       └── docker-compose.yml # Server container stack definition
-├── docs/                      # Comprehensive technical documentation
-│   ├── architecture.md        # System design & Mermaid diagrams
-│   ├── api-reference.md       # REST API endpoint specification
-│   ├── multi-user-pairing.md  # Multi-device onboarding guide
-│   └── monorepo-structure-plan.md
-├── scripts/                   # Development helper scripts
-│   ├── dev-server.sh          # Quick-launch Docker media server
-│   ├── run-mobile.sh          # Run Flutter app
-│   └── build-apk.sh           # Generate release APK
+├── docs/                      # Comprehensive technical documentation & architecture
+├── scripts/                   # Operations & automation scripts (VPS sync, APK builds, D1 tools)
 ├── Makefile                   # Unified developer command palette
 ├── docker-compose.yml         # Root Docker orchestrator
 ├── kidstube.code-workspace    # VS Code multi-root workspace file
@@ -40,14 +39,14 @@ MyKidsTube/
 We provide a root `Makefile` so you don't need to manually `cd` into subfolders:
 
 ```bash
-# 1. Start the Docker media server (Nginx + FastAPI + Ingestion Engine)
+# 1. Start the Parent Web Portal locally (Astro SSR)
+make portal
+
+# 2. Start the Docker media streamer (Nginx + Cleanup Service)
 make server
 
-# 2. View live server logs
+# 3. View live server logs
 make server-logs
-
-# 3. Stop the media server
-make server-down
 
 # 4. Run the mobile Flutter app (auto-detects connected phone or emulator)
 make mobile
