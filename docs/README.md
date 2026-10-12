@@ -23,3 +23,6 @@ Welcome to the technical documentation for KidsTube.
 
 6. **[Media Ingestion, Video ID Resolution & VPS Sync Guide](media-sync-and-renaming.md)**
    - Automatic YouTube ID matching, bulk video renamer, HandBrake pipeline, and synchronization to self-hosted VPS storage.
+
+7. **[Project-Aware AI Prompt Generator Guide](ai-prompt-generator.md)**
+   - How to use `ai-prompt-generator.html`, update `AI_PROJECT_CONTEXT.md`, and integrate Mode B LLM proxies or automation webhooks.

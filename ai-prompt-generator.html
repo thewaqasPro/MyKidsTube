@@ -1,0 +1,2416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- MANDATORY per modern-web-guidance: Declare support for both light and dark themes to prevent FOUC -->
+  <meta name="color-scheme" content="light dark" />
+  <title>MyKidsTube — Project-Aware AI Prompt Generator</title>
+  <style>
+    /* ==========================================================================
+       DESIGN.md Visual Design Tokens + Modern Web Guidance color-scheme support
+       No generic AI gradients, neon borders, or glassmorphism backdrop blurs.
+       ========================================================================== */
+    :root {
+      color-scheme: light dark;
+      accent-color: #FF0000;
+
+      /* Light / Dark raw tokens from DESIGN.md */
+      --brand-red: #FF0000;
+      --brand-red-hover: #CC0000;
+      --brand-red-subtle: light-dark(#FFF0F0, #2A1212);
+
+      --bg-canvas: light-dark(#FFFFFF, #0F0F0F);
+      --bg-surface: light-dark(#F2F2F2, #222222);
+      --bg-elevated: light-dark(#FAFAFA, #181818);
+      --bg-hover: light-dark(#E5E5E5, #272727);
+      --bg-input: light-dark(#FFFFFF, #141414);
+
+      --border-color: light-dark(#E5E5E5, #303030);
+      --border-strong: light-dark(#CCCCCC, #444444);
+
+      --text-primary: light-dark(#0F0F0F, #F1F1F1);
+      --text-secondary: light-dark(#606060, #AAAAAA);
+      --text-inverse: light-dark(#FFFFFF, #0F0F0F);
+      --pill-selected-bg: light-dark(#0F0F0F, #F1F1F1);
+      --pill-selected-text: light-dark(#FFFFFF, #0F0F0F);
+
+      --status-ok-bg: light-dark(#E8F5E9, #132A18);
+      --status-ok-text: light-dark(#1B5E20, #81C784);
+      --status-ok-border: light-dark(#A5D6A7, #2E7D32);
+
+      --status-warn-bg: light-dark(#FFF8E1, #2C220E);
+      --status-warn-text: light-dark(#E65100, #FFB74D);
+      --status-warn-border: light-dark(#FFE082, #8D6E63);
+
+      --status-err-bg: light-dark(#FFEBEE, #2D1215);
+      --status-err-text: light-dark(#B71C1C, #EF9A9A);
+      --status-err-border: light-dark(#EF9A9A, #C62828);
+
+      --status-info-bg: light-dark(#E3F2FD, #0F2137);
+      --status-info-text: light-dark(#0D47A1, #90CAF9);
+      --status-info-border: light-dark(#90CAF9, #1E88E5);
+
+      --font-sans: Roboto, "YouTube Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+      --radius-card: 12px;
+      --radius-sm: 6px;
+      --radius-pill: 9999px;
+    }
+
+    html[data-theme="light"] {
+      color-scheme: light;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.5;
+      font-size: 14px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ==========================================================================
+       3.1 App Header / Top Navigation (56px height per DESIGN.md)
+       ========================================================================== */
+    .app-header {
+      height: 56px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-canvas);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-slot {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 22px;
+      background-color: var(--brand-red);
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-icon svg {
+      width: 12px;
+      height: 12px;
+      fill: #FFFFFF;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      background-color: var(--bg-surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mode-indicator-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #2E7D32;
+      display: inline-block;
+    }
+
+    .mode-dot.ai-mode {
+      background-color: var(--brand-red);
+    }
+
+    /* ==========================================================================
+       Main Workspace Grid Layout
+       ========================================================================== */
+    .workspace-container {
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+
+    @media (max-width: 1024px) {
+      .workspace-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      min-width: 0;
+    }
+
+    /* ==========================================================================
+       Cards & Section Containers
+       ========================================================================== */
+    .card {
+      background-color: var(--bg-elevated);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background-color: var(--pill-selected-bg);
+      color: var(--pill-selected-text);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .helper-text {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* ==========================================================================
+       Form Controls, Labels, Inputs, Textareas
+       ========================================================================== */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-group.full-width {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .label-hint {
+      font-size: 11.5px;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    input[type="text"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      color: var(--text-primary);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      transition: border-color 0.15s ease;
+    }
+
+    textarea {
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    textarea.mono,
+    .output-viewer {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible,
+    .pill-btn:focus-visible {
+      outline: 2px solid var(--brand-red);
+      outline-offset: 1px;
+      border-color: var(--brand-red);
+    }
+
+    /* ==========================================================================
+       Buttons & DESIGN.md Stadium Filter Pills
+       ========================================================================== */
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button,
+    .file-label-btn {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color 0.12s ease, border-color 0.12s ease;
+      text-decoration: none;
+      user-select: none;
+    }
+
+    button:hover,
+    .file-label-btn:hover {
+      background-color: var(--bg-hover);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background-color: var(--brand-red);
+      color: #FFFFFF;
+      border-color: var(--brand-red);
+      font-weight: 600;
+      padding: 10px 20px;
+      font-size: 14px;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--brand-red-hover);
+      border-color: var(--brand-red-hover);
+    }
+
+    .btn-active-pill {
+      background-color: var(--pill-selected-bg);
+      color: var(--pill-selected-text);
+      border-color: var(--pill-selected-bg);
+      font-weight: 600;
+    }
+
+    .btn-active-pill:hover {
+      background-color: var(--pill-selected-bg);
+      opacity: 0.9;
+    }
+
+    .btn-sm {
+      padding: 5px 11px;
+      font-size: 12px;
+    }
+
+    .btn-danger {
+      color: var(--status-err-text);
+      border-color: var(--status-err-border);
+    }
+
+    /* ==========================================================================
+       Status, Warning & Alert Banners
+       ========================================================================== */
+    .banner {
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      border: 1px solid transparent;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .banner.hidden {
+      display: none !important;
+    }
+
+    .banner-warn {
+      background-color: var(--status-warn-bg);
+      color: var(--status-warn-text);
+      border-color: var(--status-warn-border);
+    }
+
+    .banner-err {
+      background-color: var(--status-err-bg);
+      color: var(--status-err-text);
+      border-color: var(--status-err-border);
+    }
+
+    .banner-ok {
+      background-color: var(--status-ok-bg);
+      color: var(--status-ok-text);
+      border-color: var(--status-ok-border);
+    }
+
+    .banner-info {
+      background-color: var(--status-info-bg);
+      color: var(--status-info-text);
+      border-color: var(--status-info-border);
+    }
+
+    /* ==========================================================================
+       Detected Metadata Chips & Subsystems
+       ========================================================================== */
+    .detected-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      padding: 8px 10px;
+      background-color: var(--bg-surface);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: var(--radius-pill);
+      background-color: var(--bg-canvas);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+
+    .chip-accent {
+      border-color: var(--brand-red);
+      background-color: var(--brand-red-subtle);
+    }
+
+    /* ==========================================================================
+       Prompt Output Area & Context Preview Drawer
+       ========================================================================== */
+    .output-viewer {
+      width: 100%;
+      min-height: 540px;
+      max-height: 760px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      color: var(--text-primary);
+    }
+
+    .output-editor {
+      min-height: 540px;
+    }
+
+    .collapsible-panel {
+      border-top: 1px solid var(--border-color);
+      padding-top: 12px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .collapsible-panel.hidden {
+      display: none !important;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      margin-top: 3px;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 14px 20px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================================
+       TOP HEADER (56px height per DESIGN.md)
+       ======================================================================== -->
+  <header class="app-header">
+    <div class="brand-slot">
+      <span class="brand-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </span>
+      <span class="brand-title">MyKidsTube</span>
+      <span class="brand-subtitle">AI Prompt Generator</span>
+    </div>
+
+    <div class="header-actions">
+      <span id="operatingModeBadge" class="mode-indicator-pill" aria-live="polite">
+        <span id="operatingModeDot" class="mode-dot"></span>
+        <span id="operatingModeText">Mode A: Offline Deterministic</span>
+      </span>
+      <button type="button" id="btnThemeToggle" class="btn-sm" title="Switch Light / Dark / System color scheme">
+        Theme: System
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       MAIN WORKSPACE
+       ======================================================================== -->
+  <main class="workspace-container">
+
+    <!-- LEFT COLUMN: Context & Task Input -->
+    <div class="column">
+
+      <!-- Global Feedback / Validation Banner -->
+      <div id="feedbackBanner" class="banner banner-info hidden" role="status" aria-live="polite">
+        <span id="feedbackMessage"></span>
+        <button type="button" id="btnDismissFeedback" class="btn-sm" aria-label="Dismiss notification">Dismiss</button>
+      </div>
+
+      <!-- Incomplete Context Warning Banner -->
+      <div id="contextWarningBanner" class="banner banner-warn hidden" role="alert">
+        <div>
+          <strong>Incomplete Project Context:</strong> One or more project context fields are empty or abbreviated. Prompts generated without full project context may omit critical MyKidsTube constraints (such as <code>all_videos</code> catalog keys, Shorts aspect-ratio guards, or 1 GB VPS limits).
+        </div>
+        <button type="button" id="btnRestoreContextFromWarn" class="btn-sm">Restore Default Context</button>
+      </div>
+
+      <!-- SECTION 1: TASK INPUT & CONFIGURATION -->
+      <section class="card" aria-labelledby="heading-task-input">
+        <div class="card-header">
+          <h2 id="heading-task-input" class="section-title">
+            <span class="section-step-badge">1</span>
+            Task Input &amp; Target Configuration
+          </h2>
+          <div class="btn-row">
+            <span class="label-hint">Quick Test Presets:</span>
+            <button type="button" class="btn-sm preset-btn" data-preset="feature">Ex A: Feature</button>
+            <button type="button" class="btn-sm preset-btn" data-preset="bugfix">Ex B: Bug Fix</button>
+            <button type="button" class="btn-sm preset-btn" data-preset="refactor">Ex C: Refactor</button>
+            <button type="button" class="btn-sm preset-btn" data-preset="research">Ex D: Research</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="taskInput">
+            <span>Raw Task Description or Voice Transcript</span>
+            <span id="taskInputCounter" class="label-hint">0 chars · 0 words</span>
+          </label>
+          <textarea
+            id="taskInput"
+            rows="6"
+            placeholder="Paste your voice transcript or describe what you want to accomplish in simple words..."
+          ></textarea>
+          <p class="helper-text">
+            Accepts speech-to-text transcripts, informal task descriptions, bug reports, refactoring ideas, or code review requests. Technical identifiers, file paths, URLs, and constraints are preserved verbatim.
+          </p>
+        </div>
+
+        <!-- Live Entity & Subsystem Detection Bar -->
+        <div id="detectedAnalysisBar" class="detected-bar" aria-live="polite">
+          <strong>Detected Scope:</strong>
+          <span id="detectedTaskBadge" class="chip chip-accent">Task: General task (auto)</span>
+          <span id="detectedSubsystemsBadge" class="chip">Subsystems: All / Cross-cutting</span>
+          <span id="detectedEntitiesBadge" class="chip">Mentions: None yet</span>
+        </div>
+
+        <!-- Selectors Grid: Task Type & Target AI Agent -->
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="taskTypeSelect">
+              <span>Task Type</span>
+              <span class="label-hint">Auto or manual</span>
+            </label>
+            <select id="taskTypeSelect">
+              <option value="auto" selected>Automatic detection (Default)</option>
+              <option value="New feature">New feature</option>
+              <option value="Bug fix">Bug fix</option>
+              <option value="Refactoring">Refactoring</option>
+              <option value="Code review">Code review</option>
+              <option value="Research and investigation">Research and investigation</option>
+              <option value="Performance optimization">Performance optimization</option>
+              <option value="Security audit">Security audit</option>
+              <option value="Documentation">Documentation</option>
+              <option value="General task">General task</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="targetAgentSelect">
+              <span>Target AI Agent</span>
+              <span class="label-hint">Adapts formatting</span>
+            </label>
+            <select id="targetAgentSelect">
+              <option value="Generic AI agent" selected>Generic AI agent</option>
+              <option value="ChatGPT">ChatGPT</option>
+              <option value="Claude / Claude Code">Claude / Claude Code</option>
+              <option value="Cursor">Cursor</option>
+              <option value="Windsurf">Windsurf</option>
+              <option value="GitHub Copilot">GitHub Copilot</option>
+              <option value="Custom agent">Custom agent</option>
+            </select>
+          </div>
+
+          <!-- Custom Agent Name (shown when Custom agent is selected) -->
+          <div id="customAgentGroup" class="field-group full-width hidden">
+            <label for="customAgentInput">
+              <span>Custom Agent Name &amp; Environment Notes</span>
+            </label>
+            <input
+              type="text"
+              id="customAgentInput"
+              placeholder="e.g., Internal Code Review Bot / Autonomous CI Agent (no repo access)"
+            />
+          </div>
+
+          <!-- Repository Access Checkbox -->
+          <div class="field-group full-width">
+            <label class="checkbox-row" for="repoAccessCheckbox">
+              <input type="checkbox" id="repoAccessCheckbox" />
+              <span>
+                <strong>Target agent has direct access to this repository's files</strong>
+                <span class="label-hint" style="display:block;">
+                  When unchecked (default for ChatGPT / Generic), all essential architecture, stack, and constraints are embedded inline so the prompt is 100% self-contained. When checked (default for Cursor / Claude Code / Windsurf / Copilot), inline context is paired with exact file inspection directives.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Primary Action Bar -->
+        <div class="btn-row">
+          <button type="button" id="btnGenerate" class="btn-primary">
+            Generate Prompt
+          </button>
+          <button type="button" id="btnRegenerate" title="Regenerate prompt using current context and task settings">
+            Regenerate Prompt
+          </button>
+          <button type="button" id="btnClearTask" title="Clear the task input text area">
+            Clear Task Input
+          </button>
+        </div>
+      </section>
+
+      <!-- SECTION 2: OPERATING MODE (MODE A OFFLINE vs MODE B AI-ENHANCED) -->
+      <section class="card" aria-labelledby="heading-mode">
+        <div class="card-header">
+          <h2 id="heading-mode" class="section-title">
+            <span class="section-step-badge">2</span>
+            Operating Mode (Offline vs. AI-Enhanced)
+          </h2>
+          <div class="btn-row" role="group" aria-label="Operating mode selection">
+            <button type="button" id="btnModeOffline" class="btn-sm btn-active-pill">
+              Mode A: Offline Template (Active)
+            </button>
+            <button type="button" id="btnModeAi" class="btn-sm">
+              Mode B: AI-Enhanced (Backend / Webhook)
+            </button>
+          </div>
+        </div>
+
+        <p id="modeExplanationText" class="helper-text">
+          <strong>Mode A (Offline Prompt Generation):</strong> Works 100% offline in your browser with zero external network calls or API keys. Uses deterministic rules, subsystem detection, and MyKidsTube architecture templates. Generic recommendations are explicitly labeled as suggestions rather than verified requirements.
+        </p>
+
+        <!-- Mode B Configuration Panel (Hidden in Mode A) -->
+        <div id="modeBConfigPanel" class="collapsible-panel hidden">
+          <div class="banner banner-info">
+            <div>
+              <strong>Security &amp; Privacy Notice:</strong> API keys must <em>never</em> be placed in browser HTML or client-side JavaScript. Mode B connects to a backend proxy endpoint or webhook that holds credentials in server-side environment variables.
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-group full-width">
+              <label for="aiEndpointInput">
+                <span>Backend Proxy / Serverless Endpoint or Webhook URL</span>
+                <span class="label-hint">POST JSON</span>
+              </label>
+              <input
+                type="url"
+                id="aiEndpointInput"
+                placeholder="http://localhost:4321/api/ai/prompt-enhance or https://your-webhook.example.com/hook"
+              />
+            </div>
+
+            <div class="field-group">
+              <label for="aiProviderSelect"><span>Provider / Model Profile</span></label>
+              <select id="aiProviderSelect">
+                <option value="gemini">Google Gemini (via Backend Proxy)</option>
+                <option value="anthropic">Anthropic Claude (via Backend Proxy)</option>
+                <option value="openai">OpenAI GPT (via Backend Proxy)</option>
+                <option value="webhook">Automation Webhook (Integrately / n8n / Custom)</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label for="aiTimeoutInput"><span>Request Timeout (ms)</span></label>
+              <input type="text" id="aiTimeoutInput" value="20000" />
+            </div>
+
+            <div class="field-group full-width">
+              <label class="checkbox-row" for="aiConsentCheckbox">
+                <input type="checkbox" id="aiConsentCheckbox" />
+                <span>
+                  <strong>Explicit Consent:</strong> I authorize transmitting the current task input and selected project context to the configured endpoint above. (No data is sent unless this box is checked and you click Generate).
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button type="button" id="btnPreviewWebhookPayload" class="btn-sm">
+              Preview Outbound JSON Payload (Integrately / Webhook)
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: PROJECT CONTEXT & EDITOR -->
+      <section class="card" aria-labelledby="heading-context">
+        <div class="card-header">
+          <h2 id="heading-context" class="section-title">
+            <span class="section-step-badge">3</span>
+            Project Context (<code>AI_PROJECT_CONTEXT.md</code>)
+          </h2>
+          <div class="btn-row">
+            <label for="fileImportContext" class="file-label-btn btn-sm" title="Import AI_PROJECT_CONTEXT.md or another .md/.txt file from disk">
+              Import Context File...
+            </label>
+            <input type="file" id="fileImportContext" class="sr-only" accept=".md,.txt,.json" />
+
+            <label for="fileAppendDoc" class="file-label-btn btn-sm" title="Append an additional project document (e.g. DESIGN.md or api-reference.md) into context">
+              + Append Supplemental Doc...
+            </label>
+            <input type="file" id="fileAppendDoc" class="sr-only" accept=".md,.txt,.json" />
+
+            <button type="button" id="btnFetchLocalContext" class="btn-sm" title="Attempt to reload ./AI_PROJECT_CONTEXT.md when served over HTTP/localhost">
+              Reload via HTTP
+            </button>
+            <button type="button" id="btnResetContext" class="btn-sm" title="Restore verified built-in MyKidsTube repository context">
+              Reset Default
+            </button>
+          </div>
+        </div>
+
+        <p class="helper-text">
+          Pre-loaded with verified facts from the <strong>MyKidsTube</strong> monorepo. Because standalone HTML pages opened via <code>file://</code> cannot silently read local files, the verified <code>AI_PROJECT_CONTEXT.md</code> snapshot is embedded by default and can be updated via the file picker, edited inline, or exported below.
+        </p>
+
+        <div class="form-grid">
+          <div class="field-group">
+            <label for="ctxProjectName"><span>Project Name</span></label>
+            <input type="text" id="ctxProjectName" />
+          </div>
+
+          <div class="field-group">
+            <label for="ctxLastReviewed"><span>Context Reviewed Date</span></label>
+            <input type="text" id="ctxLastReviewed" />
+          </div>
+
+          <div class="field-group full-width">
+            <label for="ctxSummary"><span>Project Summary</span></label>
+            <textarea id="ctxSummary" rows="2"></textarea>
+          </div>
+
+          <div class="field-group full-width">
+            <label for="ctxTechStack"><span>Technology Stack Summary</span></label>
+            <textarea id="ctxTechStack" rows="3"></textarea>
+          </div>
+
+          <div class="field-group full-width">
+            <label for="ctxInstructions">
+              <span>Project-Specific Instructions &amp; Non-Negotiable Constraints</span>
+            </label>
+            <textarea id="ctxInstructions" rows="4"></textarea>
+          </div>
+
+          <div class="field-group full-width">
+            <label for="ctxFullMarkdown">
+              <span>Full Structured Context Document (<code>AI_PROJECT_CONTEXT.md</code>)</span>
+              <span id="ctxCharCount" class="label-hint"></span>
+            </label>
+            <textarea id="ctxFullMarkdown" class="mono" rows="10"></textarea>
+          </div>
+        </div>
+
+        <div class="btn-row" style="justify-content: space-between;">
+          <div class="btn-row">
+            <button type="button" id="btnExportContextMd" class="btn-sm">
+              Export Updated <code>AI_PROJECT_CONTEXT.md</code>
+            </button>
+            <button type="button" id="btnCopyContext" class="btn-sm">
+              Copy Project Context
+            </button>
+          </div>
+
+          <div class="btn-row">
+            <label class="checkbox-row" for="saveLocalToggle" title="Opt-in to save context edits in browser localStorage">
+              <input type="checkbox" id="saveLocalToggle" />
+              <span>Remember edits in browser storage</span>
+            </label>
+            <button type="button" id="btnEraseLocalStorage" class="btn-sm btn-danger" title="Clear all saved data from browser localStorage">
+              Erase Saved Browser Data
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Generated Prompt Output & Controls -->
+    <div class="column">
+
+      <section class="card" aria-labelledby="heading-output" style="flex: 1;">
+        <div class="card-header">
+          <h2 id="heading-output" class="section-title">
+            <span class="section-step-badge">4</span>
+            Generated AI Agent Prompt
+          </h2>
+          <div class="btn-row">
+            <button type="button" id="btnCopyPrompt" class="btn-primary btn-sm">
+              Copy Prompt
+            </button>
+            <button type="button" id="btnToggleEditPrompt" class="btn-sm">
+              Edit Generated Prompt
+            </button>
+            <button type="button" id="btnExportMd" class="btn-sm">
+              Export .md
+            </button>
+            <button type="button" id="btnExportTxt" class="btn-sm">
+              Export .txt
+            </button>
+            <button type="button" id="btnToggleContextPreview" class="btn-sm">
+              Show Included Context
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-bar">
+          <span id="outputMetaStatus">Ready — Enter a task or pick an example preset to generate a structured 12-section prompt.</span>
+          <span id="outputSizeStats">0 chars · 0 lines</span>
+        </div>
+
+        <!-- Included Project Context Preview Drawer (Toggled by Show/Hide Included Project Context) -->
+        <div id="includedContextPreviewPanel" class="collapsible-panel hidden">
+          <div class="card-header">
+            <strong>Preview of Project Context Included in Prompt</strong>
+            <span class="label-hint">Automatically scoped to task &amp; target agent</span>
+          </div>
+          <pre id="includedContextPreviewText" class="output-viewer" style="min-height: 160px; max-height: 260px;"></pre>
+        </div>
+
+        <!-- Read-only Output View -->
+        <pre id="promptOutputViewer" class="output-viewer" tabindex="0" aria-label="Generated prompt output"></pre>
+
+        <!-- Editable Output Textarea (Toggled by Edit Generated Prompt) -->
+        <textarea
+          id="promptOutputEditor"
+          class="output-editor mono hidden"
+          aria-label="Editable generated prompt"
+        ></textarea>
+      </section>
+
+    </div>
+
+  </main>
+
+  <footer>
+    <div>
+      <strong>MyKidsTube AI Prompt Generator</strong> · Standalone HTML Tool (No build step or external dependencies required)
+    </div>
+    <div>
+      Context Source: <code>AI_PROJECT_CONTEXT.md</code> · Design System: <code>DESIGN.md</code>
+    </div>
+  </footer>
+
+  <!-- ========================================================================
+       CORE JAVASCRIPT ENGINE
+       ======================================================================== -->
+  <script>
+    (function () {
+      "use strict";
+
+      /* ----------------------------------------------------------------------
+         1. DEFAULT VERIFIED PROJECT CONTEXT (Synced with AI_PROJECT_CONTEXT.md)
+         ---------------------------------------------------------------------- */
+      const DEFAULT_PROJECT_DATA = {
+        projectName: "MyKidsTube (KidsTube Monorepo)",
+        lastReviewed: "2026-10-13",
+        summary:
+          "A distraction-free, childproof, offline-first kids video player and parent-curated streaming platform backed by a Cloudflare Workers + Astro SSR + D1 Edge Portal (apps/portal), a 1 GB RAM Dockerized Nginx HTTP 206 media streamer (apps/server), and mobile clients in Flutter (apps/mobile) and Native Android Kotlin/Compose (apps/mobile-android).",
+        techStack: [
+          "- Web Portal & Edge API (`apps/portal`): Astro ^7.3.5 (SSR on Cloudflare Workers `@astrojs/cloudflare` ^14.3.3), React ^19.3.0, TypeScript ^7.0.2, Tailwind CSS ^4.3.3, Drizzle ORM ^0.45.3 (Cloudflare D1 SQLite `mykidstube` + R2 `kidstube-assets`), Better Auth ^1.7.7 (Master Accounts + WebAuthn Passkeys + Salted PINs), Video.js 10 (`@videojs/react` 10.0.1), Lucide React ^1.52.0.",
+          "- Cross-Platform Mobile (`apps/mobile`): Flutter / Dart ^3.6.1 (`safe_tube`), `provider` ^6.1.2 (`AppProvider`), `dio` ^5.7.0, `sqflite` ^2.4.1 (`kidstube_v2.db`), `video_player` ^2.9.2, `webview_flutter` ^4.14.1, `flutter_secure_storage` ^9.2.4, `crypto` ^3.0.6, `wakelock_plus` ^1.2.8.",
+          "- Native Android (`apps/mobile-android`): Kotlin 2.0 (JVM 17, compileSdk 35, minSdk 26), Jetpack Compose BOM 2024.10.01 (Material3), Media3 ExoPlayer 1.4.1, Room 2.6.1, WorkManager 2.10.0, Dagger Hilt 2.52, Retrofit 2.11.0 + OkHttp 4.12.0, Security Crypto 1.1.0-alpha06.",
+          "- VPS Media Server (`apps/server` & `scripts/`): `nginx:alpine` (`safekids_nginx`, 64MB cap, HTTP 206 byte-range `sendfile`), `python:3.11-alpine` (`cleanup_service.py` on 127.0.0.1:8081), CLI ingestion via `scripts/sync-mykidstube.sh` & `scripts/rename_videos.py` (`yt-dlp`, `ffmpeg`/HandBrake, `rsync`)."
+        ].join("\n"),
+        instructions: [
+          "1. Catalog API Key Non-Negotiable: `GET /api/v1/catalog` returns the flat video list under `all_videos` (and categorized `sections`), NEVER `videos`.",
+          "2. Strict Shorts vs. Landscape Isolation: Any video with `sourceUrl.contains('watch?v=')` or `duration > 70` seconds is ALWAYS a 16:9 landscape video (`isShort = false`) and must route to `KidPlayerScreen` / `WatchPage`. Only authentic `/shorts/` URLs or `short_` IDs (or `categoryId == 'shorts'` with `0 < duration <= 70` and no `watch?v=`) route to `KidShortsFeedScreen` / `ShortsPage`.",
+          "3. DESIGN.md Anti-Patterns Prohibited: No generic AI gradient text, no neon borders, no glassmorphism backdrop blurs, no comments, no dislike counters, no share-to-social popups, no uncurated recommendation rabbit holes, and no 3-dot overflow menus in child views.",
+          "4. Guarded Catalog Pruning: Never prune or delete local SQLite / downloaded MP4s when `/api/v1/catalog` fails or returns an empty list; pruning >50% requires explicit confirmation.",
+          "5. Security & Auth Standards: Mobile PINs must use salted SHA-256 (16-byte random salt in secure storage, force change when default `1234` is active). No skip-pairing backdoor on fresh installs. WebView embeds must lock navigation strictly to `youtube-nocookie.com` and `about:blank`.",
+          "6. Quota & Resource Conservation: Buffer watch events locally in SQLite (`local_watch_events`) during playback and sync to Cloudflare D1 only in batches (`/api/metrics/watch`). Keep VPS services within 1 GB RAM / 1 vCPU budget.",
+          "7. Code Organization: In `apps/portal`, use `@/*` path aliases, keep Astro API routes (`src/pages/api/**`) thin (<70 lines), and place business logic in `src/features/<domain>/*.service.ts` and Drizzle queries in `*.repository.ts`."
+        ].join("\n"),
+        fullMarkdown: `# AI_PROJECT_CONTEXT.md — MyKidsTube (KidsTube Monorepo)
+Last Reviewed: 2026-10-13
+
+## 1. Overview & Architecture
+- **Monorepo Apps**:
+  - \`apps/portal/\`: Parent Studio, Kids Web Portal & Cloudflare Workers API (Astro 7 SSR, React 19, Tailwind v4, Drizzle ORM, Cloudflare D1 \`mykidstube\`, R2 \`kidstube-assets\`, Better Auth Master Accounts + Passkeys + PIN).
+  - \`apps/mobile/\`: Cross-platform Flutter client (\`lib/main.dart\`, \`lib/providers/app_provider.dart\`, \`lib/services/database_service.dart\`, \`lib/services/download_service.dart\`, \`lib/services/vps_api_service.dart\`).
+  - \`apps/mobile-android/\`: Native Android client in Kotlin 2.0 + Jetpack Compose + Media3 ExoPlayer + Room + WorkManager + Hilt.
+  - \`apps/server/\`: Dockerized VPS streamer (\`nginx/nginx.conf\` zero-copy HTTP 206 Partial Content for \`/media/videos/<youtube_id>.mp4\` and \`/media/thumbs/<youtube_id>.webp\`, plus \`cleanup_service.py\`).
+  - \`scripts/\`: \`sync-mykidstube.sh\`, \`rename_videos.py\`, \`sync_to_d1.py\`, \`build-apk.sh\`.
+
+## 2. Key Files & Entry Points
+- **Portal UI (\`apps/portal/src/components/\`)**:
+  - \`KidsPortal.tsx\`, \`VideoGrid.tsx\`, \`VideoCard.tsx\`, \`CategoryPills.tsx\`, \`ShortsShelf.tsx\`, \`KidsSidebar.tsx\`
+  - \`WatchPage.tsx\` (\`watch/WatchPlayer.tsx\`, \`watch/WatchDetails.tsx\`, \`watch/WatchUpNextSidebar.tsx\`)
+  - \`ShortsPage.tsx\` (\`shorts/ShortsReel.tsx\`, \`shorts/ShortsActionPills.tsx\`)
+  - \`StudioDashboard.tsx\` (\`studio/StudioOverviewTab.tsx\`, \`studio/StudioVideosTab.tsx\`, \`studio/StudioDevicesTab.tsx\`, \`studio/StudioSecurityTab.tsx\`)
+  - \`StudioAnalyticsView.tsx\` (\`analytics/AnalyticsKpiGrid.tsx\`, \`analytics/AnalyticsTrendChart.tsx\`, \`analytics/AnalyticsRetentionFunnel.tsx\`, \`analytics/AnalyticsLeaderboardTables.tsx\`)
+  - \`UploadPage.tsx\` (\`upload/UploadPlaylistCard.tsx\`, \`upload/UploadBulkUrlsCard.tsx\`, \`upload/UploadBatchHelperCard.tsx\`)
+  - \`LoginPage.tsx\` (\`auth/MasterAccountAuthCard.tsx\`, \`auth/QuickPinKeypadCard.tsx\`)
+- **Portal Data & API (\`apps/portal/src/\`)**:
+  - Schemas: \`db/schema/catalog.ts\`, \`db/schema/profiles.ts\`, \`db/schema/devices.ts\`, \`db/schema/analytics.ts\`, \`db/schema/auth.ts\`
+  - Features: \`features/catalog/catalog.repository.ts\`, \`features/catalog/catalog.service.ts\`, \`features/devices/devices.repository.ts\`, \`features/analytics/analytics.service.ts\`
+  - Libs & Shared: \`bindings/env.ts\` (\`getAppEnv\`), \`lib/db.ts\`, \`lib/auth.ts\`, \`lib/parentAuth.ts\` (\`requireParent\`), \`lib/cors.ts\`, \`lib/constants.ts\` (\`isVideoShort\`), \`shared/response/jsonResponse.ts\`, \`shared/errors/index.ts\`
+- **Flutter Mobile (\`apps/mobile/lib/\`)**:
+  - Models: \`models/video_item.dart\`, \`models/child_profile.dart\`, \`models/category_item.dart\`
+  - Screens: \`screens/kid_home_screen.dart\`, \`screens/kid_player_screen.dart\`, \`screens/kid_shorts_feed_screen.dart\`, \`screens/device_pairing_screen.dart\`, \`screens/parent_gate_dialog.dart\`, \`screens/parent_dashboard_screen.dart\`, \`screens/parent_media_library_screen.dart\`, \`screens/parent_storage_screen.dart\`, \`screens/parent_server_screen.dart\`, \`screens/parent_security_screen.dart\`, \`screens/parent_analytics_screen.dart\`
+  - Widgets: \`widgets/video_card.dart\`, \`widgets/video_tile.dart\`, \`widgets/kid_embed_player.dart\`, \`widgets/touch_lock_overlay.dart\`, \`widgets/shorts_action_rail.dart\`, \`widgets/kid_profile_switcher_sheet.dart\`, \`widgets/child_avatar.dart\`
+
+## 3. Design System Tokens (\`DESIGN.md\`)
+- Brand Red: \`#FF0000\` | Canvas: \`#FFFFFF\` (Light) / \`#0F0F0F\` (Dark) | Surface: \`#F2F2F2\` / \`#222222\` | Hover: \`#E5E5E5\` / \`#272727\` | Border: \`#E5E5E5\` / \`#303030\` | Text Primary: \`#0F0F0F\` / \`#F1F1F1\` | Text Secondary: \`#606060\` / \`#AAAAAA\`.
+- Category Filter Pills: Stadium shape (\`9999px\` / \`BorderRadius.circular(20)\`), Selected fill \`#0F0F0F\` (Light) / \`#F1F1F1\` (Dark).
+- Video Titles: 14-15px, weight 500, strictly clamped to 2 lines with ellipsis (\`...\`).
+
+## 4. Verification Commands
+- Portal Typecheck & Build: \`cd apps/portal && pnpm typecheck && pnpm build\`
+- Flutter Analyze & Tests: \`cd apps/mobile && flutter analyze && flutter test\`
+- Native Android Unit Tests: \`cd apps/mobile-android && ./gradlew testDebugUnitTest\`
+- Server Cleanup Auth Tests: \`python3 apps/server/test_cleanup_auth.py\`
+
+## 5. Known Facts vs. Unknowns / Needs Verification
+- Confirmed: API & SQLite moved from legacy VPS FastAPI to Cloudflare Workers + D1 (\`apps/portal\`). VPS runs only \`nginx:alpine\` and \`cleanup_service.py\`.
+- Confirmed: \`apps/mobile-rn/\` mentioned in Android parity notes does not exist in \`apps/\`.
+- Unknown / Needs Verification: Automated CI/CD workflows (\`.github/workflows/\` not present), automated browser E2E test runner (Playwright/Cypress not configured in \`apps/portal/package.json\`), and external production secret values.`
+      };
+
+      /* ----------------------------------------------------------------------
+         2. EXAMPLE PRESETS FOR VALIDATION (Section 12)
+         ---------------------------------------------------------------------- */
+      const VALIDATION_PRESETS = {
+        feature: "Add a new filter to the product catalog and keep the existing design.",
+        bugfix: "The filter stops working when I change the category. Find and fix the issue.",
+        refactor: "Clean up the component without changing how it looks or behaves.",
+        research: "Investigate why the production build behaves differently from development."
+      };
+
+      /* ----------------------------------------------------------------------
+         3. DOM ELEMENT REFERENCES
+         ---------------------------------------------------------------------- */
+      const els = {
+        operatingModeBadge: document.getElementById("operatingModeBadge"),
+        operatingModeDot: document.getElementById("operatingModeDot"),
+        operatingModeText: document.getElementById("operatingModeText"),
+        btnThemeToggle: document.getElementById("btnThemeToggle"),
+
+        feedbackBanner: document.getElementById("feedbackBanner"),
+        feedbackMessage: document.getElementById("feedbackMessage"),
+        btnDismissFeedback: document.getElementById("btnDismissFeedback"),
+
+        contextWarningBanner: document.getElementById("contextWarningBanner"),
+        btnRestoreContextFromWarn: document.getElementById("btnRestoreContextFromWarn"),
+
+        taskInput: document.getElementById("taskInput"),
+        taskInputCounter: document.getElementById("taskInputCounter"),
+        detectedTaskBadge: document.getElementById("detectedTaskBadge"),
+        detectedSubsystemsBadge: document.getElementById("detectedSubsystemsBadge"),
+        detectedEntitiesBadge: document.getElementById("detectedEntitiesBadge"),
+
+        taskTypeSelect: document.getElementById("taskTypeSelect"),
+        targetAgentSelect: document.getElementById("targetAgentSelect"),
+        customAgentGroup: document.getElementById("customAgentGroup"),
+        customAgentInput: document.getElementById("customAgentInput"),
+        repoAccessCheckbox: document.getElementById("repoAccessCheckbox"),
+
+        btnGenerate: document.getElementById("btnGenerate"),
+        btnRegenerate: document.getElementById("btnRegenerate"),
+        btnClearTask: document.getElementById("btnClearTask"),
+
+        btnModeOffline: document.getElementById("btnModeOffline"),
+        btnModeAi: document.getElementById("btnModeAi"),
+        modeExplanationText: document.getElementById("modeExplanationText"),
+        modeBConfigPanel: document.getElementById("modeBConfigPanel"),
+        aiEndpointInput: document.getElementById("aiEndpointInput"),
+        aiProviderSelect: document.getElementById("aiProviderSelect"),
+        aiTimeoutInput: document.getElementById("aiTimeoutInput"),
+        aiConsentCheckbox: document.getElementById("aiConsentCheckbox"),
+        btnPreviewWebhookPayload: document.getElementById("btnPreviewWebhookPayload"),
+
+        fileImportContext: document.getElementById("fileImportContext"),
+        fileAppendDoc: document.getElementById("fileAppendDoc"),
+        btnFetchLocalContext: document.getElementById("btnFetchLocalContext"),
+        btnResetContext: document.getElementById("btnResetContext"),
+
+        ctxProjectName: document.getElementById("ctxProjectName"),
+        ctxLastReviewed: document.getElementById("ctxLastReviewed"),
+        ctxSummary: document.getElementById("ctxSummary"),
+        ctxTechStack: document.getElementById("ctxTechStack"),
+        ctxInstructions: document.getElementById("ctxInstructions"),
+        ctxFullMarkdown: document.getElementById("ctxFullMarkdown"),
+        ctxCharCount: document.getElementById("ctxCharCount"),
+
+        btnExportContextMd: document.getElementById("btnExportContextMd"),
+        btnCopyContext: document.getElementById("btnCopyContext"),
+        saveLocalToggle: document.getElementById("saveLocalToggle"),
+        btnEraseLocalStorage: document.getElementById("btnEraseLocalStorage"),
+
+        btnCopyPrompt: document.getElementById("btnCopyPrompt"),
+        btnToggleEditPrompt: document.getElementById("btnToggleEditPrompt"),
+        btnExportMd: document.getElementById("btnExportMd"),
+        btnExportTxt: document.getElementById("btnExportTxt"),
+        btnToggleContextPreview: document.getElementById("btnToggleContextPreview"),
+
+        outputMetaStatus: document.getElementById("outputMetaStatus"),
+        outputSizeStats: document.getElementById("outputSizeStats"),
+        includedContextPreviewPanel: document.getElementById("includedContextPreviewPanel"),
+        includedContextPreviewText: document.getElementById("includedContextPreviewText"),
+        promptOutputViewer: document.getElementById("promptOutputViewer"),
+        promptOutputEditor: document.getElementById("promptOutputEditor")
+      };
+
+      const STORAGE_KEY = "mykidstube_prompt_gen_context_v1";
+      let currentMode = "offline"; // "offline" | "ai"
+      let isEditingOutput = false;
+      let currentTheme = "system"; // "system" | "light" | "dark"
+
+      /* ----------------------------------------------------------------------
+         4. UI HELPERS & NOTIFICATIONS (Safe Text Rendering Only)
+         ---------------------------------------------------------------------- */
+      function showFeedback(message, level) {
+        els.feedbackBanner.className = "banner";
+        if (level === "warn") {
+          els.feedbackBanner.classList.add("banner-warn");
+        } else if (level === "err") {
+          els.feedbackBanner.classList.add("banner-err");
+        } else if (level === "ok") {
+          els.feedbackBanner.classList.add("banner-ok");
+        } else {
+          els.feedbackBanner.classList.add("banner-info");
+        }
+        els.feedbackMessage.textContent = message;
+        els.feedbackBanner.classList.remove("hidden");
+      }
+
+      function hideFeedback() {
+        els.feedbackBanner.classList.add("hidden");
+      }
+
+      /* ----------------------------------------------------------------------
+         5. SECRET / CREDENTIAL SANITIZATION GUARD (Section 9 Security)
+         ---------------------------------------------------------------------- */
+      function redactSensitivePatterns(text) {
+        if (!text) return { sanitized: "", redactedCount: 0 };
+        let count = 0;
+        const patterns = [
+          /\b(sk-[a-zA-Z0-9_-]{20,})\b/g,
+          /\b(AIza[0-9A-Za-z_-]{30,})\b/g,
+          /\b(ghp_[0-9A-Za-z]{30,})\b/g,
+          /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+          /\b(Bearer\s+[a-zA-Z0-9._~+/=-]{24,})\b/gi
+        ];
+        let result = String(text);
+        patterns.forEach((regex) => {
+          result = result.replace(regex, () => {
+            count += 1;
+            return "[REDACTED_SENSITIVE_CREDENTIAL]";
+          });
+        });
+        return { sanitized: result, redactedCount: count };
+      }
+
+      /* ----------------------------------------------------------------------
+         6. TASK CLASSIFICATION & ENTITY EXTRACTION ENGINE
+         ---------------------------------------------------------------------- */
+      function detectTaskTypeFromText(rawText) {
+        const text = (rawText || "").toLowerCase();
+        if (!text.trim()) return "General task";
+
+        const rules = [
+          {
+            type: "Bug fix",
+            keywords: [
+              /\bbug\b/, /\bfix\b/, /\bbroken\b/, /\bstops?\s+working\b/, /\bnot\s+working\b/,
+              /\berror\b/, /\bcrash(es|ed|ing)?\b/, /\bfails?\b/, /\bissue\b/, /\bregression\b/,
+              /\bexception\b/, /\bwrong\b/, /\bdoesn'?t\s+work\b/
+            ]
+          },
+          {
+            type: "Refactoring",
+            keywords: [
+              /\brefactor(ing)?\b/, /\bclean\s*up\b/, /\brestructure\b/, /\bdecompose\b/,
+              /\bsplit\b/, /\bsimplify\b/, /\bwithout\s+changing\s+how\s+it\s+(looks|behaves)\b/,
+              /\bmaintainability\b/, /\bmodularize\b/, /\bextract\b/
+            ]
+          },
+          {
+            type: "Research and investigation",
+            keywords: [
+              /\binvestigate\b/, /\bresearch\b/, /\bwhy\s+does\b/, /\bwhy\s+the\b/,
+              /\banalyze\b/, /\broot\s+cause\b/, /\bdiagnose\b/, /\bbehaves?\s+differently\b/,
+              /\bcompare\b/, /\bexplore\b/, /\btrace\b/
+            ]
+          },
+          {
+            type: "Performance optimization",
+            keywords: [
+              /\bperformance\b/, /\boptimize\b/, /\bslow\b/, /\blatency\b/, /\bmemory\b/,
+              /\bfps\b/, /\bjank\b/, /\bbundle\s+size\b/, /\blcp\b/, /\bcaching\b/, /\booms?\b/
+            ]
+          },
+          {
+            type: "Security audit",
+            keywords: [
+              /\bsecurity\b/, /\baudit\b/, /\bvulnerability\b/, /\bxss\b/, /\bcsrf\b/,
+              /\bauth(entication|orization)?\s+bypass\b/, /\bpin\s+hash\b/, /\bpasskey\b/,
+              /\bpermissions?\b/, /\bsandbox\b/
+            ]
+          },
+          {
+            type: "Code review",
+            keywords: [
+              /\bcode\s+review\b/, /\breview\s+(the|this|my)\b/, /\bpr\s+review\b/,
+              /\bpull\s+request\b/, /\blint\b/
+            ]
+          },
+          {
+            type: "Documentation",
+            keywords: [
+              /\bdocument(ation)?\b/, /\breadme\b/, /\bdocstring\b/, /\bapi\s+docs?\b/,
+              /\barchitecture\s+diagram\b/, /\bchangelog\b/
+            ]
+          },
+          {
+            type: "New feature",
+            keywords: [
+              /\badd\s+a?\s*new\b/, /\badd\b/, /\bcreate\b/, /\bimplement\b/, /\bbuild\b/,
+              /\bintroduce\b/, /\bfeature\b/, /\bsupport\s+for\b/, /\bnew\s+filter\b/, /\bnew\s+screen\b/
+            ]
+          }
+        ];
+
+        let bestMatch = "General task";
+        let bestScore = 0;
+
+        for (const rule of rules) {
+          let score = 0;
+          for (const regex of rule.keywords) {
+            if (regex.test(text)) score += 1;
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = rule.type;
+          }
+        }
+        return bestMatch;
+      }
+
+      function analyzeTaskEntitiesAndSubsystems(rawText) {
+        const text = rawText || "";
+        const lower = text.toLowerCase();
+
+        // 1. Extract explicit file paths or filenames
+        const fileRegex = /\b(?:[\w.-]+\/)*[\w.-]+\.(?:ts|tsx|astro|js|mjs|dart|kt|kts|py|sh|sql|json|yaml|yml|md|html|css)\b/g;
+        const files = Array.from(new Set(text.match(fileRegex) || []));
+
+        // 2. Extract URLs
+        const urlRegex = /https?:\/\/[^\s)"'`<>]+/g;
+        const urls = Array.from(new Set(text.match(urlRegex) || []));
+
+        // 3. Extract code symbols / camelCase / PascalCase / snake_case identifiers
+        const symbolRegex = /\b(?:[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+|[a-z]+_[a-z0-9_]+|`[^`]+`)\b/g;
+        const symbols = Array.from(new Set((text.match(symbolRegex) || []).map((s) => s.replace(/`/g, "")))).slice(0, 12);
+
+        // 4. Extract explicit preservation / constraint phrases
+        const constraintPhrases = [];
+        const constraintPatterns = [
+          /keep\s+(?:the\s+)?existing\s+[^.,;!\n]+/gi,
+          /without\s+changing\s+[^.,;!\n]+/gi,
+          /do\s+not\s+[^.,;!\n]+/gi,
+          /don'?t\s+[^.,;!\n]+/gi,
+          /must\s+(?:not\s+)?[^.,;!\n]+/gi,
+          /preserve\s+[^.,;!\n]+/gi
+        ];
+        constraintPatterns.forEach((pat) => {
+          const matches = text.match(pat) || [];
+          matches.forEach((m) => constraintPhrases.push(m.trim()));
+        });
+
+        // 5. Identify target MyKidsTube subsystems & relevant files
+        const subsystems = [];
+        const relevantFiles = [];
+
+        const isCatalogOrFilter = /\b(filter|catalog|category|categories|search|pill|product|video|grid|library)\b/.test(lower);
+        const isPortalWeb = /\b(portal|astro|react|studio|upload|web|d1|cloudflare|worker|drizzle|login|passkey|production\s+build|dev(elopment)?)\b/.test(lower);
+        const isFlutterMobile = /\b(flutter|dart|mobile|tablet|ios|kid_home|kid_player|shorts|app_provider|sqflite)\b/.test(lower);
+        const isNativeAndroid = /\b(kotlin|compose|exoplayer|media3|room|workmanager|hilt|gradle)\b/.test(lower);
+        const isVpsServer = /\b(vps|nginx|docker|cleanup|ffmpeg|yt-dlp|handbrake|rsync|stream)\b/.test(lower);
+        const isBuildOrEnv = /\b(build|production|development|localhost|env|miniflare|wrangler|deploy)\b/.test(lower);
+
+        if (isPortalWeb || isCatalogOrFilter || isBuildOrEnv) {
+          subsystems.push("Web Portal & Edge API (`apps/portal`)");
+        }
+        if (isFlutterMobile || isCatalogOrFilter) {
+          subsystems.push("Flutter Mobile (`apps/mobile`)");
+        }
+        if (isNativeAndroid) {
+          subsystems.push("Native Android (`apps/mobile-android`)");
+        }
+        if (isVpsServer) {
+          subsystems.push("VPS Streamer & Sync Scripts (`apps/server`, `scripts/`)");
+        }
+
+        if (isCatalogOrFilter) {
+          relevantFiles.push(
+            "apps/portal/src/components/CategoryPills.tsx",
+            "apps/portal/src/components/KidsPortal.tsx",
+            "apps/portal/src/components/VideoGrid.tsx",
+            "apps/portal/src/components/studio/StudioVideosTab.tsx",
+            "apps/portal/src/features/catalog/catalog.repository.ts",
+            "apps/portal/src/pages/api/v1/catalog.ts",
+            "apps/mobile/lib/screens/kid_home_screen.dart",
+            "apps/mobile/lib/screens/parent_media_library_screen.dart",
+            "apps/mobile/lib/providers/app_provider.dart",
+            "DESIGN.md"
+          );
+        }
+
+        if (isBuildOrEnv) {
+          relevantFiles.push(
+            "apps/portal/astro.config.mjs",
+            "apps/portal/wrangler.json",
+            "apps/portal/package.json",
+            "apps/portal/src/bindings/env.ts",
+            "apps/portal/src/lib/env.ts",
+            "apps/portal/src/lib/db.ts",
+            "apps/portal/src/middleware.ts",
+            "docs/ai-workflow.md"
+          );
+        }
+
+        if (subsystems.length === 0) {
+          subsystems.push("Cross-Project (`apps/portal`, `apps/mobile`, `apps/mobile-android`, `apps/server`)");
+          relevantFiles.push(
+            "apps/portal/src/components/KidsPortal.tsx",
+            "apps/portal/src/components/StudioDashboard.tsx",
+            "apps/mobile/lib/providers/app_provider.dart",
+            "apps/mobile/lib/screens/kid_home_screen.dart",
+            "DESIGN.md"
+          );
+        }
+
+        files.forEach((f) => {
+          if (!relevantFiles.includes(f)) relevantFiles.unshift(f);
+        });
+
+        const hasDomainTermMapping = /\bproduct\s+catalog\b/i.test(text);
+
+        return {
+          files,
+          urls,
+          symbols,
+          constraintPhrases: Array.from(new Set(constraintPhrases)),
+          subsystems: Array.from(new Set(subsystems)),
+          relevantFiles: Array.from(new Set(relevantFiles)),
+          hasDomainTermMapping
+        };
+      }
+
+      /* ----------------------------------------------------------------------
+         7. AGENT-SPECIFIC FORMATTING ADAPTER (Section 4.D & Section 8)
+         ---------------------------------------------------------------------- */
+      function getAgentFormattingNotes(targetAgent, hasRepoAccess, customAgentDesc) {
+        const accessClause = hasRepoAccess
+          ? "Direct Repository Access Enabled: You have access to the project workspace. Inspect the referenced files directly before proposing or applying edits."
+          : "Standalone / Portable Prompt Mode: Do NOT assume direct filesystem access beyond the context provided in this prompt. Base your implementation on the verified interfaces, paths, and constraints embedded below, and clearly state where existing file contents must be plugged in.";
+
+        const profiles = {
+          "Generic AI agent": {
+            rolePrefix: "Act as a Senior Full-Stack & Mobile Engineer (Astro/Cloudflare Edge, React 19, Flutter/Dart, Kotlin/Compose).",
+            workflowDirective: accessClause
+          },
+          "ChatGPT": {
+            rolePrefix: "Act as a Principal Full-Stack & Mobile Architect assisting with the MyKidsTube monorepo.",
+            workflowDirective: `${accessClause} Provide complete, self-contained code blocks with exact relative file paths and clear step-by-step verification commands.`
+          },
+          "Claude / Claude Code": {
+            rolePrefix: "Act as a Senior Staff Engineer operating on the MyKidsTube monorepo (Claude / Claude Code workflow).",
+            workflowDirective: `${accessClause} Follow an Explore -> Plan -> Implement -> Verify workflow. Verify assumptions against actual source files before editing.`
+          },
+          "Cursor": {
+            rolePrefix: "Act as a Senior Full-Stack & Mobile Engineer inside Cursor IDE on the MyKidsTube workspace.",
+            workflowDirective: `${accessClause} Reference the relative paths listed in Section 3 and Section 5, preserve surrounding code and imports (\`@/*\` in \`apps/portal\`), and make surgical, minimal diffs.`
+          },
+          "Windsurf": {
+            rolePrefix: "Act as a Senior Full-Stack & Mobile Engineer in Windsurf Cascade on the MyKidsTube monorepo.",
+            workflowDirective: `${accessClause} Inspect existing domain repositories/components first, maintain strict type safety, and run verification commands after edits.`
+          },
+          "GitHub Copilot": {
+            rolePrefix: "Act as a Senior Software Engineer in GitHub Copilot Chat / Edits for the MyKidsTube monorepo.",
+            workflowDirective: `${accessClause} Keep changes scoped to the target files, adhere to \`DESIGN.md\` tokens and \`flutter_lints\` / \`tsconfig.json\` strict rules.`
+          },
+          "Custom agent": {
+            rolePrefix: `Act as a Senior Software Engineer tailored for: ${customAgentDesc || "Custom AI Agent"}.`,
+            workflowDirective: accessClause
+          }
+        };
+
+        return profiles[targetAgent] || profiles["Generic AI agent"];
+      }
+
+      /* ----------------------------------------------------------------------
+         8. TASK-TYPE SPECIFIC TEMPLATES (Section 5: 12 Required Sections)
+         ---------------------------------------------------------------------- */
+      function getTaskSpecificGuidance(taskType, analysis) {
+        const filesList = analysis.relevantFiles.map((f) => `\`${f}\``).join(", ");
+
+        const map = {
+          "New feature": {
+            roleSpecialty: "feature architecture, UI/UX fidelity (`DESIGN.md`), and backward-compatible state management",
+            steps: [
+              `1. **Inspect Existing Catalog/Component Patterns**: Review ${filesList} to understand current props, state flow, and styling tokens.`,
+              "2. **Design State & Data Flow**: Reuse existing state hooks/providers (`AppProvider` in Flutter or React state/hooks in `apps/portal`) and Drizzle repository methods (`catalog.repository.ts`) rather than introducing duplicate state stores.",
+              "3. **Implement UI & Logic**: Build the feature adhering strictly to `DESIGN.md` tokens (Light/Dark mode parity, stadium pills `9999px` / `BorderRadius.circular(20)`, `#FF0000` active accents, no glassmorphism or gradient clutter).",
+              "4. **Verify Isolation & Guards**: Ensure landscape vs. Shorts routing (`isShort` / `isVideoShort`) and `all_videos` API response keys remain untouched.",
+              "5. **Add & Run Unit/Widget Tests**: Add test coverage for the new filter/feature state transitions and empty-result states."
+            ],
+            edgeCases: [
+              "- Empty catalog or zero items matching the active filter combination (must render a clean empty state with a way to reset filters).",
+              "- Rapid switching between category pills and the new filter (prevent stale state or race conditions).",
+              "- Offline mode on mobile when network catalog sync is unavailable (must filter cached SQLite items seamlessly).",
+              "- Light mode and Dark mode high-contrast legibility on selected vs. unselected filter states."
+            ],
+            acceptance: [
+              "- The new capability works end-to-end without altering existing layout geometry or visual tokens defined in `DESIGN.md`.",
+              "- Combining the new control with existing category filter pills produces accurate results and can be cleanly reset.",
+              "- All existing unit/widget tests and static typechecks pass with 0 errors."
+            ]
+          },
+          "Bug fix": {
+            roleSpecialty: "root-cause diagnostics, state synchronization debugging, and regression testing",
+            steps: [
+              `1. **Reproduce & Trace State Flow**: Inspect ${filesList} and trace how filter/category state is initialized, updated, and passed to child lists or API queries.`,
+              "2. **Identify Root Cause**: Check for stale closures, reset overrides when category changes, mismatched category IDs (`'all'` vs. specific `categoryId` / `'shorts'`), or unawaited state updates.",
+              "3. **Apply Minimal, Targeted Fix**: Fix the defect at its root cause without breaking existing category pill selection, search filtering, or profile boundaries.",
+              "4. **Add Regression Test**: Write a deterministic test reproducing the category-change + filter scenario to guarantee the bug cannot recur."
+            ],
+            edgeCases: [
+              "- Switching from a populated category to an empty category while a secondary filter or search query is active.",
+              "- Switching between `'all'`, `'shorts'`, and standard categories (`'cartoons'`, `'learning'`, `'music'`).",
+              "- Switching active child profiles (`KidProfileSwitcherSheet` / studio profile selector) while a filter is applied."
+            ],
+            acceptance: [
+              "- The root cause of the failure when changing categories is clearly documented and resolved.",
+              "- Filter state and category selection work together reliably across repeated category switches.",
+              "- A regression test covering the exact reproduction scenario is added and passes."
+            ]
+          },
+          "Refactoring": {
+            roleSpecialty: "behavior-preserving code modularization, clean architecture, and strict visual/functional parity",
+            steps: [
+              `1. **Baseline Current Behavior & Public Contract**: Inspect ${filesList} and document all current inputs/props, events/callbacks, DOM structure/widget tree, and visual classes/tokens.`,
+              "2. **Plan Small, Behavior-Preserving Extractions**: Extract focused sub-components, pure helper functions, or custom hooks following the Phase 4 modular decomposition pattern in `docs/ai-workflow.md`.",
+              "3. **Preserve Exact Visuals & Runtime Semantics**: Keep all `DESIGN.md` styles, keyboard accessibility, and state transitions 100% identical.",
+              "4. **Verify Zero Regressions**: Run static analysis (`pnpm typecheck && pnpm build` or `flutter analyze && flutter test`) to confirm zero behavioral or visual drift."
+            ],
+            edgeCases: [
+              "- Preserving component state and focus across re-renders when sub-components are extracted.",
+              "- Maintaining exact TypeScript prop interfaces or Dart widget constructors so callers require zero breaking changes.",
+              "- Avoiding accidental changes to CSS specificity, Tailwind class ordering, or Light/Dark theme token inheritance."
+            ],
+            acceptance: [
+              "- Zero visual, layout, or behavioral changes compared to the pre-refactor baseline.",
+              "- Improved readability, reduced file/function complexity, and clean separation of concerns.",
+              "- 100% of existing tests, linters, and production builds pass without modification to test assertions."
+            ]
+          },
+          "Research and investigation": {
+            roleSpecialty: "build pipeline forensics, Cloudflare Workers/Miniflare runtime analysis, and environment parity investigation",
+            steps: [
+              `1. **Compare Environment Configurations**: Inspect ${filesList} to contrast local development (\`astro dev\` + Miniflare local SQLite D1 / \`flutter run\`) against production (\`astro build && wrangler deploy\` on Cloudflare Workers Edge + remote D1/R2 / release APK).`,
+              "2. **Check Runtime Binding & Fallback Differences**: Examine `apps/portal/src/bindings/env.ts`, `apps/portal/src/lib/env.ts`, and `apps/portal/src/lib/db.ts` (note the confirmed local D1 empty-table fallback to `API_BASE` and self-healing auth tables in `docs/ai-workflow.md`).",
+              "3. **Check Caching, CORS, & SSR Bundling**: Inspect `Cache-Control` headers (`/api/v1/catalog`), `getCorsHeaders()` origin checks (`apps/portal/src/lib/cors.ts`), Better Auth `BETTER_AUTH_URL` / RP origin matching (`apps/portal/src/lib/auth.ts`), and Vite/Rollup tree-shaking.",
+              "4. **Produce Evidence-Backed Root Cause Report**: Document confirmed facts vs. hypotheses, exact file/line references, and a prioritized remediation plan before changing production config."
+            ],
+            edgeCases: [
+              "- Local Miniflare D1 database being empty or on a different migration version than remote Cloudflare D1 (`wrangler d1 migrations apply`).",
+              "- Missing or mismatched environment variables (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CLEANUP_SECRET`) between local `.dev.vars`/`.env` and Cloudflare Worker production secrets.",
+              "- Edge runtime constraints in Cloudflare Workers (`nodejs_compat` flags in `wrangler.json` vs. full local Node.js APIs).",
+              "- Release build optimizations (e.g., R8/ProGuard or Flutter release mode vs. debug mode)."
+            ],
+            acceptance: [
+              "- Clear, evidence-based explanation of why production behaves differently from development, citing exact files and configuration keys.",
+              "- Separation of verified repository facts from runtime hypotheses requiring live log/env inspection.",
+              "- Concrete, low-risk remediation steps and verification commands."
+            ]
+          },
+          "Code review": {
+            roleSpecialty: "architectural compliance, security review, and `DESIGN.md` / `PARITY-ANDROID.md` standards auditing",
+            steps: [
+              `1. **Inspect Target Changes & Context**: Review ${filesList} against MyKidsTube architectural rules.`,
+              "2. **Check Non-Negotiables**: Verify `all_videos` key usage, Shorts vs. landscape isolation (`duration <= 70` and no `watch?v=`), guarded catalog pruning, and salted SHA-256 PIN storage.",
+              "3. **Evaluate UI & Performance**: Check compliance with `DESIGN.md` anti-patterns and 1 GB VPS / Cloudflare D1 quota limits.",
+              "4. **Report Findings by Severity**: Group findings into Critical, Major, Minor, and Nit with exact file/line references and concrete code fixes."
+            ],
+            edgeCases: [
+              "- Unhandled network failures or empty catalog responses triggering destructive local pruning.",
+              "- Unauthenticated access to `/api/studio/*` or `/api/v1/ingest` endpoints.",
+              "- Memory leaks in video player controllers (`VideoPlayerController` / `ExoPlayer`) on screen disposal."
+            ],
+            acceptance: [
+              "- Actionable, severity-ranked review report with zero false positives and concrete fix snippets."
+            ]
+          },
+          "Performance optimization": {
+            roleSpecialty: "Cloudflare Edge latency, SQLite query indexing, 60fps UI rendering, and 1 GB VPS memory optimization",
+            steps: [
+              `1. **Profile & Measure Baseline**: Inspect ${filesList} to identify bottlenecks (unindexed queries, redundant re-renders, unthrottled progress callbacks, or memory spikes).`,
+              "2. **Apply Targeted Optimizations**: Optimize queries, memoize expensive renders, throttle download progress updates (<=4Hz), and preserve local-first watch event buffering.",
+              "3. **Benchmark & Verify**: Measure before/after metrics and run full test suites."
+            ],
+            edgeCases: [
+              "- Low-memory devices and the 1 GB RAM / 1 vCPU VPS container limits (`safekids_nginx` 64MB cap).",
+              "- Large video catalogs (100+ items) during batch SQLite upsert and category filtering."
+            ],
+            acceptance: [
+              "- Measurable improvement in target performance metric with zero functional or visual regressions."
+            ]
+          },
+          "Security audit": {
+            roleSpecialty: "child-safety lockdown, WebAuthn/Better Auth session security, salted PIN cryptography, and WebView sandboxing",
+            steps: [
+              `1. **Audit Authentication & Authorization Boundaries**: Inspect ${filesList}, \`apps/portal/src/lib/parentAuth.ts\`, \`apps/portal/src/lib/auth.ts\`, and mobile PIN/pairing services.`,
+              "2. **Verify Child Sandboxing**: Check WebView domain locks (`youtube-nocookie.com`), touch-lock overlays, and pairing code expiration/rate limits.",
+              "3. **Provide Remediation & Hardening Plan**: Detail any vulnerabilities found and supply hardened code patches."
+            ],
+            edgeCases: [
+              "- Expired or replayed 6-digit pairing codes (`POST /api/v1/devices/pair`).",
+              "- Default PIN (`1234`) active on parent gate without forced update prompt.",
+              "- WebView navigation attempts via YouTube end-screen cards or channel watermarks."
+            ],
+            acceptance: [
+              "- Complete security assessment verifying all parent-gate, session cookie, bearer token, and child-sandbox boundaries."
+            ]
+          },
+          "Documentation": {
+            roleSpecialty: "technical accuracy, developer onboarding, and architectural clarity",
+            steps: [
+              `1. **Verify Against Source Code**: Cross-check all claims against ${filesList} and package manifests before writing documentation.`,
+              "2. **Update Documentation Clearly**: Use accurate relative paths, Mermaid diagrams where helpful, and copy-ready CLI commands (`Makefile` targets).",
+              "3. **Distinguish Facts from Unknowns**: Explicitly mark any unverified external configuration as `Needs verification`."
+            ],
+            edgeCases: [
+              "- Outdated references to legacy VPS FastAPI services (must reflect current Cloudflare Workers + D1 architecture)."
+            ],
+            acceptance: [
+              "- Documentation is 100% consistent with actual repository files, scripts, and endpoints."
+            ]
+          },
+          "General task": {
+            roleSpecialty: "full-stack and cross-platform software engineering across the MyKidsTube monorepo",
+            steps: [
+              `1. **Inspect Existing Implementation**: Review ${filesList} and related modules before making changes.`,
+              "2. **Reuse Existing Components & Utilities**: Leverage `@/shared/response/jsonResponse.ts`, `catalog.repository.ts`, `AppProvider`, and `DESIGN.md` tokens.",
+              "3. **Implement & Validate**: Apply clean, well-typed changes and run the relevant build and test commands."
+            ],
+            edgeCases: [
+              "- Empty states, offline/network error states, and Light/Dark theme consistency.",
+              "- Preserving backward compatibility across Web Portal, Flutter Mobile, and Native Android."
+            ],
+            acceptance: [
+              "- All stated objectives are met with zero regressions in existing functionality or tests."
+            ]
+          }
+        };
+
+        return map[taskType] || map["General task"];
+      }
+
+      /* ----------------------------------------------------------------------
+         9. CORE PROMPT GENERATOR (Combines Context + Task + 12-Section Template)
+         ---------------------------------------------------------------------- */
+      function buildStructuredPrompt(options) {
+        const rawTaskCheck = redactSensitivePatterns(options.rawTask);
+        const ctxNameCheck = redactSensitivePatterns(options.projectName);
+        const ctxSummaryCheck = redactSensitivePatterns(options.summary);
+        const ctxStackCheck = redactSensitivePatterns(options.techStack);
+        const ctxInstCheck = redactSensitivePatterns(options.instructions);
+        const ctxFullCheck = redactSensitivePatterns(options.fullMarkdown);
+
+        const totalRedactions =
+          rawTaskCheck.redactedCount +
+          ctxNameCheck.redactedCount +
+          ctxSummaryCheck.redactedCount +
+          ctxStackCheck.redactedCount +
+          ctxInstCheck.redactedCount +
+          ctxFullCheck.redactedCount;
+
+        const cleanTask = rawTaskCheck.sanitized.trim();
+        const resolvedTaskType =
+          options.selectedTaskType === "auto"
+            ? detectTaskTypeFromText(cleanTask)
+            : options.selectedTaskType;
+
+        const analysis = analyzeTaskEntitiesAndSubsystems(cleanTask);
+        const agentMeta = getAgentFormattingNotes(
+          options.targetAgent,
+          options.hasRepoAccess,
+          options.customAgentDesc
+        );
+        const taskGuidance = getTaskSpecificGuidance(resolvedTaskType, analysis);
+
+        // Build the scoped Project Context block that gets embedded into Section 3
+        const includedContextBlock = [
+          `### Project Overview`,
+          `- **Project Name:** ${ctxNameCheck.sanitized || "Unknown (Needs verification)"}`,
+          `- **Context Last Reviewed:** ${options.lastReviewed || "Unknown"}`,
+          `- **Summary:** ${ctxSummaryCheck.sanitized || "Unknown (Needs verification)"}`,
+          ``,
+          `### Technology Stack (Confirmed Repository Facts)`,
+          ctxStackCheck.sanitized || "Unknown / Needs verification",
+          ``,
+          `### Target Subsystems & Key Files for This Task`,
+          `- **Detected Subsystems:** ${analysis.subsystems.join(", ")}`,
+          `- **Key Reference Files:**`,
+          ...analysis.relevantFiles.map((f) => `  - \`${f}\``),
+          ``,
+          `### Project-Specific Rules & Non-Negotiable Constraints`,
+          ctxInstCheck.sanitized || "Unknown / Needs verification",
+          ``,
+          `### Detailed Architecture & Reference Context`,
+          ctxFullCheck.sanitized || "No additional markdown context loaded."
+        ].join("\n");
+
+        // Domain terminology note if user said "product catalog" etc.
+        const domainMappingNote = analysis.hasDomainTermMapping
+          ? "- **Terminology Mapping Note:** The user request mentions \"product catalog\". In **MyKidsTube**, the catalog is the curated **Video Catalog** (`apps/portal/src/components/KidsPortal.tsx`, `CategoryPills.tsx`, `StudioVideosTab.tsx`, `apps/portal/src/features/catalog/catalog.repository.ts`, and `apps/mobile/lib/screens/kid_home_screen.dart` / `parent_media_library_screen.dart`). Apply the request to the MyKidsTube video catalog unless clarified otherwise."
+          : "- **Terminology Note:** Preserve all technical terms, identifiers, and domain concepts from the user's request.";
+
+        const preservedEntitiesLines = [];
+        if (analysis.files.length > 0) {
+          preservedEntitiesLines.push(`- **Explicitly Mentioned Files:** ${analysis.files.map((f) => `\`${f}\``).join(", ")}`);
+        }
+        if (analysis.urls.length > 0) {
+          preservedEntitiesLines.push(`- **Explicitly Mentioned URLs:** ${analysis.urls.join(", ")}`);
+        }
+        if (analysis.symbols.length > 0) {
+          preservedEntitiesLines.push(`- **Detected Identifiers / Terms:** ${analysis.symbols.map((s) => `\`${s}\``).join(", ")}`);
+        }
+        if (analysis.constraintPhrases.length > 0) {
+          preservedEntitiesLines.push(`- **Explicit User Constraints Detected:** ${analysis.constraintPhrases.map((c) => `"${c}"`).join("; ")}`);
+        }
+        if (preservedEntitiesLines.length === 0) {
+          preservedEntitiesLines.push("- **Explicit File/URL Mentions:** None explicitly named in raw input; refer to the mapped MyKidsTube subsystem files in Section 3.");
+        }
+
+        const promptSections = [
+          `# AI Agent Task Specification — ${ctxNameCheck.sanitized || "MyKidsTube"}`,
+          `> **Generation Mode:** ${options.modeLabel} | **Task Type:** ${resolvedTaskType}${options.selectedTaskType === "auto" ? " (Auto-Detected)" : ""} | **Target Agent:** ${options.targetAgent}`,
+          ``,
+          `## 1. Agent Role`,
+          `${agentMeta.rolePrefix}`,
+          `You specialize in ${taskGuidance.roleSpecialty}.`,
+          `${agentMeta.workflowDirective}`,
+          ``,
+          `## 2. Objective`,
+          `Fulfill the following **${resolvedTaskType}** request for **${ctxNameCheck.sanitized || "MyKidsTube"}** accurately, safely, and in full compliance with the repository's existing architecture and \`DESIGN.md\` specification:`,
+          `> "${cleanTask}"`,
+          ``,
+          `## 3. Project Context`,
+          includedContextBlock,
+          ``,
+          `## 4. Current Task`,
+          `### Verbatim User Request`,
+          "```text",
+          cleanTask,
+          "```",
+          `### Extracted Task Scope & Preserved Terms`,
+          ...preservedEntitiesLines,
+          domainMappingNote,
+          ``,
+          `## 5. Implementation Instructions`,
+          ...taskGuidance.steps,
+          `- **Code Reuse & Hygiene:** Inspect existing components, hooks, and repositories before writing new code. Reuse existing utilities (\`@/shared/response/jsonResponse.ts\`, \`@/lib/cors.ts\`, \`catalog.repository.ts\`, \`AppProvider\`, \`DatabaseService\`) and avoid introducing unnecessary dependencies or duplicate implementations.`,
+          options.hasRepoAccess
+            ? `- **Repository Inspection Requirement:** Because you have repository access, read the target files listed in Section 3 before proposing or making any edits.`
+            : `- **Portable Context Requirement:** Because you may not have direct filesystem access, rely on the architecture, schema, and file contracts provided in Section 3. If you need the exact contents of a specific file (e.g., ${analysis.relevantFiles.slice(0, 3).map((f) => `\`${f}\``).join(", ")}) to complete an exact diff, ask for that file or provide a clean drop-in module with clear integration points.`,
+          ``,
+          `## 6. Requirements`,
+          `### Verified Task & Project Requirements`,
+          `- **Primary Functional Requirement:** Directly satisfy the user's request: *"${cleanTask}"*.`,
+          ...(analysis.constraintPhrases.length > 0
+            ? analysis.constraintPhrases.map((c) => `- **Explicit User Requirement:** Honor the stated constraint: *"${c}"*.`)
+            : []),
+          `- **Design System Compliance (\`DESIGN.md\`):** Use existing CSS/theme tokens (\`--color-brand: #FF0000\`, \`--color-bg-canvas\`, \`--color-bg-surface\`, \`--color-border\`, \`--color-text-primary\`, \`--color-text-secondary\`) with full Light Mode and Dark Mode parity.`,
+          `- **Data & API Contract Integrity:** Maintain \`all_videos\` key compatibility on \`GET /api/v1/catalog\` and strict landscape vs. Shorts separation (\`isShort\` / \`isVideoShort\`).`,
+          `### Template Recommendations [Suggested — Verify Against Task Scope]`,
+          `- *[Suggested]* Ensure all interactive controls have accessible labels, keyboard focus states, and clear empty/loading states.`,
+          `- *[Suggested]* Keep Astro API route handlers under 70 lines by delegating to \`src/features/<domain>/*.service.ts\` and \`*.repository.ts\`.`,
+          ``,
+          `## 7. Constraints`,
+          `- **Unrelated Functionality:** Do NOT modify unrelated screens, database tables, or production deployment configs.`,
+          `- **Prohibited UI Anti-Patterns (\`DESIGN.md\` Section 4):** No multi-color gradient text, no neon borders, no glassmorphism backdrop blurs, no comments sections, no dislike counts, no social share popups, and no 3-dot overflow menus in child-facing UI.`,
+          `- **Dependency Discipline:** Do NOT add new npm, pubspec, or Gradle dependencies unless strictly required and approved.`,
+          `- **Security & Privacy:** Never hardcode secrets or tokens in client code; preserve salted SHA-256 PIN verification, Better Auth session checks (\`requireParent\`), and \`youtube-nocookie.com\` WebView sandboxing.`,
+          `- **Resource Limits:** Respect Cloudflare D1 free-tier query budgets (keep watch analytics buffered locally during playback) and the 1 GB RAM / 1 vCPU VPS budget.`,
+          ``,
+          `## 8. Edge Cases`,
+          ...taskGuidance.edgeCases,
+          `- Invalid, empty, or malformed user/API inputs (must be handled gracefully without unhandled exceptions or UI crashes).`,
+          `- Network disconnection or offline tablet playback state (must never trigger destructive local catalog pruning).`,
+          ``,
+          `## 9. Testing and Verification`,
+          `Run the applicable verification commands for every subsystem touched (do **not** claim tests have passed unless you have actually executed them and verified the output):`,
+          `- **Web Portal (\`apps/portal\`):**`,
+          `  - Typecheck: \`cd apps/portal && pnpm typecheck\``,
+          `  - Production Build: \`cd apps/portal && pnpm build\``,
+          `- **Flutter Mobile (\`apps/mobile\`):**`,
+          `  - Static Analysis: \`cd apps/mobile && flutter analyze\``,
+          `  - Unit & Widget Tests: \`cd apps/mobile && flutter test\``,
+          `- **Native Android (\`apps/mobile-android\`):**`,
+          `  - Unit Tests: \`cd apps/mobile-android && ./gradlew testDebugUnitTest\``,
+          `- **VPS Server (\`apps/server\`):**`,
+          `  - Cleanup Service Tests: \`python3 apps/server/test_cleanup_auth.py\``,
+          ``,
+          `## 10. Acceptance Criteria`,
+          ...taskGuidance.acceptance,
+          `- All explicit user constraints (${analysis.constraintPhrases.length > 0 ? analysis.constraintPhrases.map((c) => `"${c}"`).join(", ") : "preserving existing design and behavior"}) are demonstrably satisfied.`,
+          `- Zero regressions in \`DESIGN.md\` visual tokens, child-safety locks, or existing test suites.`,
+          ``,
+          `## 11. Deliverables`,
+          `1. **Summary of Analysis / Root Cause:** Concise explanation of what was inspected and why the chosen approach fits the MyKidsTube architecture.`,
+          `2. **Code Changes:** Exact files created or modified (with relative paths).`,
+          `3. **Verification Results:** Actual output from running the relevant build/test/analyze commands (or explicit instructions on what to run if executed in an offline chat environment).`,
+          `4. **Remaining Risks or Follow-ups:** Any edge cases or open questions requiring human review.`,
+          ``,
+          `## 12. Assumptions and Open Questions`,
+          `### Confirmed Facts (from \`AI_PROJECT_CONTEXT.md\`)`,
+          `- The active API and SQLite catalog reside in \`apps/portal\` (Cloudflare Workers + D1 + Drizzle ORM), while \`apps/server\` runs Nginx HTTP 206 streaming and \`cleanup_service.py\`.`,
+          `- Both web (\`apps/portal\`) and mobile (\`apps/mobile\`, \`apps/mobile-android\`) consume the \`all_videos\` catalog structure and share \`DESIGN.md\` tokens.`,
+          `### Assumptions & Open Questions (Do Not Silently Invent Missing Requirements)`,
+          analysis.subsystems.length > 1
+            ? `- **Target Platform Clarification [Needs Verification]:** The request could apply to the Web Portal (\`apps/portal\`), the Flutter Mobile App (\`apps/mobile\`), or Native Android (\`apps/mobile-android\`). If only one surface is intended, confirm which app to target first (or implement consistently across \`apps/portal\` and \`apps/mobile\`).`
+            : `- **Target Platform Scope:** Scoped to ${analysis.subsystems.join(", ")} based on task keywords.`,
+          analysis.hasDomainTermMapping
+            ? `- **Domain Term Assumption:** Assumed "product catalog" refers to the MyKidsTube video catalog (\`KidsPortal.tsx\` / \`StudioVideosTab.tsx\` / \`kid_home_screen.dart\`).`
+            : `- **Ambiguities:** If any target component name, filter criterion, or environment variable is unspecified in the request above, state your assumption explicitly before modifying code.`
+        ];
+
+        return {
+          promptText: promptSections.join("\n"),
+          includedContextBlock,
+          resolvedTaskType,
+          analysis,
+          totalRedactions
+        };
+      }
+
+      /* ----------------------------------------------------------------------
+         10. CONTEXT completeness CHECK & UI SYNC
+         ---------------------------------------------------------------------- */
+      function checkContextCompleteness() {
+        const name = els.ctxProjectName.value.trim();
+        const summary = els.ctxSummary.value.trim();
+        const stack = els.ctxTechStack.value.trim();
+        const inst = els.ctxInstructions.value.trim();
+        const full = els.ctxFullMarkdown.value.trim();
+
+        els.ctxCharCount.textContent = `${full.length.toLocaleString()} chars`;
+
+        const isIncomplete =
+          !name ||
+          summary.length < 30 ||
+          stack.length < 30 ||
+          inst.length < 30 ||
+          full.length < 150;
+
+        if (isIncomplete) {
+          els.contextWarningBanner.classList.remove("hidden");
+        } else {
+          els.contextWarningBanner.classList.add("hidden");
+        }
+        return !isIncomplete;
+      }
+
+      function populateContextInputs(data) {
+        els.ctxProjectName.value = data.projectName || "";
+        els.ctxLastReviewed.value = data.lastReviewed || "";
+        els.ctxSummary.value = data.summary || "";
+        els.ctxTechStack.value = data.techStack || "";
+        els.ctxInstructions.value = data.instructions || "";
+        els.ctxFullMarkdown.value = data.fullMarkdown || "";
+        checkContextCompleteness();
+      }
+
+      function readCurrentContextFromInputs() {
+        return {
+          projectName: els.ctxProjectName.value,
+          lastReviewed: els.ctxLastReviewed.value,
+          summary: els.ctxSummary.value,
+          techStack: els.ctxTechStack.value,
+          instructions: els.ctxInstructions.value,
+          fullMarkdown: els.ctxFullMarkdown.value
+        };
+      }
+
+      function maybeSaveContextToLocalStorage() {
+        if (!els.saveLocalToggle.checked) return;
+        try {
+          const payload = JSON.stringify(readCurrentContextFromInputs());
+          localStorage.setItem(STORAGE_KEY, payload);
+        } catch (err) {
+          showFeedback("Could not save context to browser localStorage: " + err.message, "warn");
+        }
+      }
+
+      function loadSavedContextIfPresent() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            populateContextInputs(parsed);
+            els.saveLocalToggle.checked = true;
+            return true;
+          }
+        } catch (_) {
+          // Ignore storage read errors in restricted modes
+        }
+        populateContextInputs(DEFAULT_PROJECT_DATA);
+        return false;
+      }
+
+      /* ----------------------------------------------------------------------
+         11. LIVE INPUT ANALYSIS BAR UPDATER
+         ---------------------------------------------------------------------- */
+      function updateLiveTaskAnalysis() {
+        const raw = els.taskInput.value || "";
+        const trimmed = raw.trim();
+        const words = trimmed ? trimmed.split(/\s+/).length : 0;
+        els.taskInputCounter.textContent = `${raw.length.toLocaleString()} chars · ${words.toLocaleString()} words`;
+
+        const selectedType = els.taskTypeSelect.value;
+        const detectedType = detectTaskTypeFromText(raw);
+        els.detectedTaskBadge.textContent =
+          selectedType === "auto"
+            ? `Task: ${detectedType} (auto)`
+            : `Task: ${selectedType} (manual)`;
+
+        const analysis = analyzeTaskEntitiesAndSubsystems(raw);
+        els.detectedSubsystemsBadge.textContent = `Subsystems: ${analysis.subsystems.join(", ")}`;
+
+        const mentionParts = [];
+        if (analysis.files.length) mentionParts.push(`${analysis.files.length} file(s)`);
+        if (analysis.urls.length) mentionParts.push(`${analysis.urls.length} URL(s)`);
+        if (analysis.constraintPhrases.length) {
+          mentionParts.push(`${analysis.constraintPhrases.length} constraint(s)`);
+        }
+        els.detectedEntitiesBadge.textContent =
+          mentionParts.length > 0
+            ? `Preserved: ${mentionParts.join(", ")}`
+            : "Preserved: All technical terms & constraints";
+      }
+
+      /* ----------------------------------------------------------------------
+         12. GENERATE PROMPT HANDLER (Mode A Offline & Mode B AI-Enhanced)
+         ---------------------------------------------------------------------- */
+      async function handleGeneratePrompt(isRegenerate) {
+        hideFeedback();
+        const rawTask = els.taskInput.value.trim();
+
+        if (!rawTask) {
+          showFeedback(
+            "Validation Error: Please enter a task description, paste a voice transcript, or select one of the Quick Test Presets (Ex A–D) before generating a prompt.",
+            "err"
+          );
+          els.taskInput.focus();
+          return;
+        }
+
+        const isContextComplete = checkContextCompleteness();
+        const ctx = readCurrentContextFromInputs();
+
+        // Build deterministic Mode A prompt first (used directly in Mode A, or as structured base for Mode B)
+        const baseResult = buildStructuredPrompt({
+          rawTask,
+          projectName: ctx.projectName,
+          lastReviewed: ctx.lastReviewed,
+          summary: ctx.summary,
+          techStack: ctx.techStack,
+          instructions: ctx.instructions,
+          fullMarkdown: ctx.fullMarkdown,
+          selectedTaskType: els.taskTypeSelect.value,
+          targetAgent: els.targetAgentSelect.value,
+          customAgentDesc: els.customAgentInput.value.trim(),
+          hasRepoAccess: els.repoAccessCheckbox.checked,
+          modeLabel:
+            currentMode === "offline"
+              ? "Mode A — Offline Deterministic Template"
+              : "Mode B — AI-Enhanced (Pending Backend Response)"
+        });
+
+        // If Mode B is active, validate consent and endpoint before making any network call
+        if (currentMode === "ai") {
+          const endpoint = els.aiEndpointInput.value.trim();
+          const hasConsent = els.aiConsentCheckbox.checked;
+
+          if (!endpoint) {
+            showFeedback(
+              "Mode B Configuration Required: Please enter a Backend Proxy or Webhook URL in Section 2, or switch to Mode A (Offline Template).",
+              "warn"
+            );
+            renderPromptOutput(baseResult.promptText, baseResult.includedContextBlock, "Generated fallback offline prompt (Mode B endpoint not configured).");
+            return;
+          }
+
+          if (!hasConsent) {
+            showFeedback(
+              "Explicit Consent Required: To protect project privacy, Mode B will not transmit data externally until you check the explicit consent box in Section 2.",
+              "err"
+            );
+            return;
+          }
+
+          els.btnGenerate.disabled = true;
+          els.outputMetaStatus.textContent = `Contacting Mode B endpoint (${endpoint})...`;
+
+          try {
+            const timeoutMs = Math.max(2000, parseInt(els.aiTimeoutInput.value, 10) || 20000);
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+            const payload = buildWebhookOrApiPayload(rawTask, ctx, baseResult);
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+              signal: controller.signal
+            });
+            clearTimeout(timer);
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const enhancedPrompt =
+              data.prompt ||
+              data.enhancedPrompt ||
+              data.output ||
+              (data.data && data.data.prompt);
+
+            if (!enhancedPrompt || typeof enhancedPrompt !== "string") {
+              throw new Error("Response JSON did not contain a valid `prompt` or `enhancedPrompt` string field.");
+            }
+
+            renderPromptOutput(
+              enhancedPrompt,
+              baseResult.includedContextBlock,
+              `Generated via Mode B AI-Enhanced endpoint (${els.aiProviderSelect.value}).`
+            );
+            showFeedback("Mode B AI-Enhanced prompt generated successfully.", "ok");
+          } catch (err) {
+            renderPromptOutput(
+              baseResult.promptText,
+              baseResult.includedContextBlock,
+              `Mode B endpoint failed (${err.message}). Showing deterministic Mode A offline prompt instead.`
+            );
+            showFeedback(
+              `Mode B Backend Error (${err.message}). Displayed deterministic Mode A offline output instead — note that this fallback is template-generated, not AI-reasoned.`,
+              "warn"
+            );
+          } finally {
+            els.btnGenerate.disabled = false;
+          }
+          return;
+        }
+
+        // Mode A: Offline Deterministic Prompt Generation
+        const statusMsg = `${isRegenerate ? "Regenerated" : "Generated"} in Mode A (Offline Deterministic) · Task Type: ${baseResult.resolvedTaskType} · Target: ${els.targetAgentSelect.value}`;
+        renderPromptOutput(baseResult.promptText, baseResult.includedContextBlock, statusMsg);
+
+        if (baseResult.totalRedactions > 0) {
+          showFeedback(
+            `Security Guard: Automatically redacted ${baseResult.totalRedactions} potential credential/token pattern(s) from the generated prompt.`,
+            "warn"
+          );
+        } else if (!isContextComplete) {
+          showFeedback(
+            "Prompt generated with incomplete project context. Review Section 3 to ensure all project constraints are included.",
+            "warn"
+          );
+        } else {
+          showFeedback(
+            `${isRegenerate ? "Prompt regenerated" : "Prompt generated"} (${baseResult.resolvedTaskType} -> ${els.targetAgentSelect.value}). Ready to copy or export.`,
+            "ok"
+          );
+        }
+      }
+
+      function renderPromptOutput(promptText, includedContextText, statusLabel) {
+        els.promptOutputViewer.textContent = promptText;
+        els.promptOutputEditor.value = promptText;
+        els.includedContextPreviewText.textContent = includedContextText;
+
+        const lines = promptText ? promptText.split("\n").length : 0;
+        els.outputSizeStats.textContent = `${promptText.length.toLocaleString()} chars · ${lines.toLocaleString()} lines`;
+        els.outputMetaStatus.textContent = statusLabel;
+      }
+
+      function getCurrentPromptText() {
+        return isEditingOutput
+          ? els.promptOutputEditor.value
+          : els.promptOutputViewer.textContent;
+      }
+
+      function buildWebhookOrApiPayload(rawTask, ctx, baseResult) {
+        return {
+          schema_version: "1.0",
+          timestamp: new Date().toISOString(),
+          provider_profile: els.aiProviderSelect.value,
+          target_agent: els.targetAgentSelect.value,
+          has_repo_access: els.repoAccessCheckbox.checked,
+          task_type: baseResult.resolvedTaskType,
+          raw_task_input: rawTask,
+          detected_subsystems: baseResult.analysis.subsystems,
+          relevant_files: baseResult.analysis.relevantFiles,
+          project_context: {
+            name: ctx.projectName,
+            last_reviewed: ctx.lastReviewed,
+            summary: ctx.summary,
+            tech_stack: ctx.techStack,
+            constraints: ctx.instructions,
+            full_context_markdown: ctx.fullMarkdown
+          },
+          deterministic_baseline_prompt: baseResult.promptText
+        };
+      }
+
+      /* ----------------------------------------------------------------------
+         13. CLIPBOARD & FILE EXPORT UTILITIES (With Error Handling)
+         ---------------------------------------------------------------------- */
+      async function copyTextToClipboard(text, label) {
+        if (!text || !text.trim()) {
+          showFeedback(`Nothing to copy: ${label} is currently empty.`, "warn");
+          return;
+        }
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const temp = document.createElement("textarea");
+            temp.value = text;
+            temp.setAttribute("readonly", "");
+            temp.style.position = "fixed";
+            temp.style.opacity = "0";
+            document.body.appendChild(temp);
+            temp.select();
+            const ok = document.execCommand("copy");
+            document.body.removeChild(temp);
+            if (!ok) throw new Error("Fallback execCommand('copy') returned false.");
+          }
+          showFeedback(`Copied ${label} (${text.length.toLocaleString()} chars) to clipboard.`, "ok");
+        } catch (err) {
+          showFeedback(
+            `Clipboard Error: Could not copy ${label} automatically (${err.message}). Please select the text manually and press Cmd/Ctrl+C.`,
+            "err"
+          );
+        }
+      }
+
+      function downloadTextFile(filename, content, mimeType) {
+        if (!content || !content.trim()) {
+          showFeedback(`Export Error: Cannot export an empty file (${filename}). Generate a prompt first.`, "err");
+          return;
+        }
+        try {
+          const blob = new Blob([content], { type: mimeType || "text/plain;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          showFeedback(`Exported ${filename} (${content.length.toLocaleString()} bytes).`, "ok");
+        } catch (err) {
+          showFeedback(`Export Error: Failed to export ${filename} (${err.message}).`, "err");
+        }
+      }
+
+      /* ----------------------------------------------------------------------
+         14. EVENT LISTENERS & WIRING
+         ---------------------------------------------------------------------- */
+      // Theme Toggle (System -> Light -> Dark)
+      els.btnThemeToggle.addEventListener("click", () => {
+        if (currentTheme === "system") {
+          currentTheme = "light";
+          document.documentElement.setAttribute("data-theme", "light");
+          els.btnThemeToggle.textContent = "Theme: Light";
+        } else if (currentTheme === "light") {
+          currentTheme = "dark";
+          document.documentElement.setAttribute("data-theme", "dark");
+          els.btnThemeToggle.textContent = "Theme: Dark";
+        } else {
+          currentTheme = "system";
+          document.documentElement.removeAttribute("data-theme");
+          els.btnThemeToggle.textContent = "Theme: System";
+        }
+      });
+
+      els.btnDismissFeedback.addEventListener("click", hideFeedback);
+
+      els.btnRestoreContextFromWarn.addEventListener("click", () => {
+        populateContextInputs(DEFAULT_PROJECT_DATA);
+        maybeSaveContextToLocalStorage();
+        showFeedback("Restored verified default MyKidsTube project context.", "ok");
+      });
+
+      // Quick Test Presets (Examples A, B, C, D)
+      document.querySelectorAll(".preset-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.getAttribute("data-preset");
+          if (VALIDATION_PRESETS[key]) {
+            els.taskInput.value = VALIDATION_PRESETS[key];
+            els.taskTypeSelect.value = "auto";
+            updateLiveTaskAnalysis();
+            handleGeneratePrompt(false);
+          }
+        });
+      });
+
+      els.taskInput.addEventListener("input", updateLiveTaskAnalysis);
+      els.taskTypeSelect.addEventListener("change", updateLiveTaskAnalysis);
+
+      // Target Agent Selection: Auto-set sensible default for repoAccessCheckbox
+      els.targetAgentSelect.addEventListener("change", () => {
+        const val = els.targetAgentSelect.value;
+        if (val === "Custom agent") {
+          els.customAgentGroup.classList.remove("hidden");
+        } else {
+          els.customAgentGroup.classList.add("hidden");
+        }
+
+        const repoAwareAgents = ["Claude / Claude Code", "Cursor", "Windsurf", "GitHub Copilot"];
+        els.repoAccessCheckbox.checked = repoAwareAgents.includes(val);
+      });
+
+      // Primary Task Buttons
+      els.btnGenerate.addEventListener("click", () => handleGeneratePrompt(false));
+      els.btnRegenerate.addEventListener("click", () => handleGeneratePrompt(true));
+      els.btnClearTask.addEventListener("click", () => {
+        els.taskInput.value = "";
+        updateLiveTaskAnalysis();
+        showFeedback("Cleared task input.", "info");
+        els.taskInput.focus();
+      });
+
+      // Mode Switching (Mode A Offline vs Mode B AI-Enhanced)
+      els.btnModeOffline.addEventListener("click", () => {
+        currentMode = "offline";
+        els.btnModeOffline.classList.add("btn-active-pill");
+        els.btnModeAi.classList.remove("btn-active-pill");
+        els.modeBConfigPanel.classList.add("hidden");
+        els.operatingModeDot.classList.remove("ai-mode");
+        els.operatingModeText.textContent = "Mode A: Offline Deterministic";
+        els.modeExplanationText.innerHTML =
+          "<strong>Mode A (Offline Prompt Generation):</strong> Works 100% offline in your browser with zero external network calls or API keys. Uses deterministic rules, subsystem detection, and MyKidsTube architecture templates. Generic recommendations are explicitly labeled as suggestions rather than verified requirements.";
+      });
+
+      els.btnModeAi.addEventListener("click", () => {
+        currentMode = "ai";
+        els.btnModeAi.classList.add("btn-active-pill");
+        els.btnModeOffline.classList.remove("btn-active-pill");
+        els.modeBConfigPanel.classList.remove("hidden");
+        els.operatingModeDot.classList.add("ai-mode");
+        els.operatingModeText.textContent = "Mode B: AI-Enhanced (Backend / Webhook)";
+        els.modeExplanationText.innerHTML =
+          "<strong>Mode B (AI-Enhanced Prompt Generation):</strong> Sends the structured task and project context to your configured backend proxy or webhook (e.g., Cloudflare Worker route or Integrately webhook) for LLM reasoning. Requires explicit user consent below.";
+      });
+
+      els.btnPreviewWebhookPayload.addEventListener("click", () => {
+        const rawTask = els.taskInput.value.trim() || "(Sample Task Input)";
+        const ctx = readCurrentContextFromInputs();
+        const baseResult = buildStructuredPrompt({
+          rawTask,
+          projectName: ctx.projectName,
+          lastReviewed: ctx.lastReviewed,
+          summary: ctx.summary,
+          techStack: ctx.techStack,
+          instructions: ctx.instructions,
+          fullMarkdown: ctx.fullMarkdown,
+          selectedTaskType: els.taskTypeSelect.value,
+          targetAgent: els.targetAgentSelect.value,
+          customAgentDesc: els.customAgentInput.value.trim(),
+          hasRepoAccess: els.repoAccessCheckbox.checked,
+          modeLabel: "Mode B — Webhook Payload Preview"
+        });
+        const payload = buildWebhookOrApiPayload(rawTask, ctx, baseResult);
+        renderPromptOutput(
+          JSON.stringify(payload, null, 2),
+          baseResult.includedContextBlock,
+          "Previewing outbound JSON payload for Mode B Backend Proxy / Integrately Webhook."
+        );
+        showFeedback("Displayed outbound Mode B JSON payload in the output viewer.", "info");
+      });
+
+      // Context Editor Inputs
+      [
+        els.ctxProjectName,
+        els.ctxLastReviewed,
+        els.ctxSummary,
+        els.ctxTechStack,
+        els.ctxInstructions,
+        els.ctxFullMarkdown
+      ].forEach((inputEl) => {
+        inputEl.addEventListener("input", () => {
+          checkContextCompleteness();
+          maybeSaveContextToLocalStorage();
+        });
+      });
+
+      // Import Context File (Replace Full Markdown)
+      els.fileImportContext.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const content = String(reader.result || "");
+          els.ctxFullMarkdown.value = content;
+          els.ctxLastReviewed.value = new Date().toISOString().slice(0, 10);
+          checkContextCompleteness();
+          maybeSaveContextToLocalStorage();
+          showFeedback(`Imported project context from "${file.name}" (${content.length.toLocaleString()} chars).`, "ok");
+        };
+        reader.onerror = () => {
+          showFeedback(`Failed to read file "${file.name}".`, "err");
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+      });
+
+      // Append Supplemental Doc
+      els.fileAppendDoc.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const content = String(reader.result || "");
+          const separator = `\n\n---\n## Supplemental Imported Document: ${file.name}\n`;
+          els.ctxFullMarkdown.value = (els.ctxFullMarkdown.value || "") + separator + content;
+          checkContextCompleteness();
+          maybeSaveContextToLocalStorage();
+          showFeedback(`Appended supplemental document "${file.name}" (${content.length.toLocaleString()} chars) to context.`, "ok");
+        };
+        reader.onerror = () => {
+          showFeedback(`Failed to read supplemental file "${file.name}".`, "err");
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+      });
+
+      // Reload ./AI_PROJECT_CONTEXT.md via HTTP fetch (when served over localhost/HTTP)
+      els.btnFetchLocalContext.addEventListener("click", async () => {
+        if (window.location.protocol === "file:") {
+          showFeedback(
+            "Browser Security Notice: When opened directly via file://, browsers block fetch('./AI_PROJECT_CONTEXT.md') due to CORS rules. Use the 'Import Context File...' button next to this button to pick AI_PROJECT_CONTEXT.md from disk, or serve the directory over HTTP.",
+            "warn"
+          );
+          return;
+        }
+        try {
+          const res = await fetch("./AI_PROJECT_CONTEXT.md", { cache: "no-store" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const text = await res.text();
+          els.ctxFullMarkdown.value = text;
+          els.ctxLastReviewed.value = new Date().toISOString().slice(0, 10);
+          checkContextCompleteness();
+          maybeSaveContextToLocalStorage();
+          showFeedback(`Reloaded ./AI_PROJECT_CONTEXT.md (${text.length.toLocaleString()} chars) over HTTP.`, "ok");
+        } catch (err) {
+          showFeedback(
+            `Could not fetch ./AI_PROJECT_CONTEXT.md (${err.message}). Use 'Import Context File...' to select the file manually.`,
+            "warn"
+          );
+        }
+      });
+
+      // Reset Context to Built-in Verified Default
+      els.btnResetContext.addEventListener("click", () => {
+        populateContextInputs(DEFAULT_PROJECT_DATA);
+        maybeSaveContextToLocalStorage();
+        showFeedback("Reset project context to verified MyKidsTube repository defaults.", "ok");
+      });
+
+      // Export Updated AI_PROJECT_CONTEXT.md
+      els.btnExportContextMd.addEventListener("click", () => {
+        const ctx = readCurrentContextFromInputs();
+        const combinedMd = [
+          `# ${ctx.projectName || "AI_PROJECT_CONTEXT.md"}`,
+          `> **Last Reviewed:** ${ctx.lastReviewed || new Date().toISOString().slice(0, 10)}`,
+          ``,
+          `## Project Summary`,
+          ctx.summary,
+          ``,
+          `## Technology Stack Summary`,
+          ctx.techStack,
+          ``,
+          `## Project-Specific Instructions & Non-Negotiables`,
+          ctx.instructions,
+          ``,
+          `---`,
+          ``,
+          ctx.fullMarkdown
+        ].join("\n");
+        downloadTextFile("AI_PROJECT_CONTEXT.md", combinedMd, "text/markdown;charset=utf-8");
+      });
+
+      // Copy Project Context
+      els.btnCopyContext.addEventListener("click", () => {
+        const ctx = readCurrentContextFromInputs();
+        const text = `${ctx.projectName}\n\n${ctx.summary}\n\n${ctx.techStack}\n\n${ctx.instructions}\n\n${ctx.fullMarkdown}`;
+        copyTextToClipboard(text, "Project Context");
+      });
+
+      // LocalStorage Persistence Toggle & Erase
+      els.saveLocalToggle.addEventListener("change", () => {
+        if (els.saveLocalToggle.checked) {
+          maybeSaveContextToLocalStorage();
+          showFeedback("Enabled local browser storage for context edits.", "info");
+        } else {
+          try {
+            localStorage.removeItem(STORAGE_KEY);
+          } catch (_) {}
+          showFeedback("Disabled local browser storage and cleared saved context.", "info");
+        }
+      });
+
+      els.btnEraseLocalStorage.addEventListener("click", () => {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+          els.saveLocalToggle.checked = false;
+          populateContextInputs(DEFAULT_PROJECT_DATA);
+          showFeedback("Erased all saved data from browser localStorage and restored defaults.", "ok");
+        } catch (err) {
+          showFeedback("Error clearing localStorage: " + err.message, "err");
+        }
+      });
+
+      // Output Controls: Copy, Edit, Export .md/.txt, Show/Hide Included Context
+      els.btnCopyPrompt.addEventListener("click", () => {
+        copyTextToClipboard(getCurrentPromptText(), "Generated Prompt");
+      });
+
+      els.btnToggleEditPrompt.addEventListener("click", () => {
+        isEditingOutput = !isEditingOutput;
+        if (isEditingOutput) {
+          els.promptOutputEditor.value = els.promptOutputViewer.textContent;
+          els.promptOutputViewer.classList.add("hidden");
+          els.promptOutputEditor.classList.remove("hidden");
+          els.btnToggleEditPrompt.classList.add("btn-active-pill");
+          els.btnToggleEditPrompt.textContent = "Done Editing Prompt";
+          els.promptOutputEditor.focus();
+        } else {
+          els.promptOutputViewer.textContent = els.promptOutputEditor.value;
+          els.promptOutputEditor.classList.add("hidden");
+          els.promptOutputViewer.classList.remove("hidden");
+          els.btnToggleEditPrompt.classList.remove("btn-active-pill");
+          els.btnToggleEditPrompt.textContent = "Edit Generated Prompt";
+          const txt = els.promptOutputViewer.textContent;
+          els.outputSizeStats.textContent = `${txt.length.toLocaleString()} chars · ${(txt ? txt.split("\n").length : 0).toLocaleString()} lines (Manually Edited)`;
+        }
+      });
+
+      els.promptOutputEditor.addEventListener("input", () => {
+        const txt = els.promptOutputEditor.value;
+        els.promptOutputViewer.textContent = txt;
+        els.outputSizeStats.textContent = `${txt.length.toLocaleString()} chars · ${(txt ? txt.split("\n").length : 0).toLocaleString()} lines (Editing...)`;
+      });
+
+      els.btnExportMd.addEventListener("click", () => {
+        downloadTextFile("mykidstube-ai-prompt.md", getCurrentPromptText(), "text/markdown;charset=utf-8");
+      });
+
+      els.btnExportTxt.addEventListener("click", () => {
+        downloadTextFile("mykidstube-ai-prompt.txt", getCurrentPromptText(), "text/plain;charset=utf-8");
+      });
+
+      els.btnToggleContextPreview.addEventListener("click", () => {
+        const isHidden = els.includedContextPreviewPanel.classList.toggle("hidden");
+        els.btnToggleContextPreview.textContent = isHidden
+          ? "Show Included Context"
+          : "Hide Included Context";
+        els.btnToggleContextPreview.classList.toggle("btn-active-pill", !isHidden);
+      });
+
+      /* ----------------------------------------------------------------------
+         15. INITIALIZATION
+         ---------------------------------------------------------------------- */
+      loadSavedContextIfPresent();
+      updateLiveTaskAnalysis();
+
+      // Expose a clean programmatic test API on window.__MYKIDSTUBE_PROMPT_GEN__ for automated validation
+      window.__MYKIDSTUBE_PROMPT_GEN__ = {
+        detectTaskTypeFromText,
+        analyzeTaskEntitiesAndSubsystems,
+        buildStructuredPrompt,
+        redactSensitivePatterns,
+        VALIDATION_PRESETS,
+        DEFAULT_PROJECT_DATA
+      };
+    })();
+  </script>
+</body>
+</html>

@@ -102,6 +102,21 @@ For in-depth guides, visit the **[docs/](docs/)** folder:
 - **[Multi-User & 5-Kids Pairing Guide](docs/multi-user-pairing.md)**
 - **[Monorepo Architecture Plan](docs/monorepo-structure-plan.md)**
 - **[Media Ingestion & Video ID Renaming Guide](docs/media-sync-and-renaming.md)**
+- **[Project-Aware AI Prompt Generator Guide](docs/ai-prompt-generator.md)**
+
+---
+
+## 3. Project-Aware AI Prompt Generator (`ai-prompt-generator.html`)
+
+This repository includes a standalone, zero-dependency HTML prompt generator ([`ai-prompt-generator.html`](ai-prompt-generator.html)) paired with a structured source-of-truth context document ([`AI_PROJECT_CONTEXT.md`](AI_PROJECT_CONTEXT.md)).
+
+### Quick Usage
+1. Open [`ai-prompt-generator.html`](ai-prompt-generator.html) directly in any browser (`open ai-prompt-generator.html`) — no build step, backend server, or API key required.
+2. Paste a raw voice transcript, bug report, or feature idea into **Section 1** (or click one of the **Ex A–D** preset buttons).
+3. Select the **Task Type** (defaults to `Automatic detection`) and **Target AI Agent** (`Generic AI agent`, `ChatGPT`, `Claude / Claude Code`, `Cursor`, `Windsurf`, `GitHub Copilot`, or `Custom agent`).
+4. Click **Generate Prompt** to produce a portable, 12-section specification complete with verified MyKidsTube architecture, `DESIGN.md` tokens, and non-negotiable constraints, then click **Copy Prompt** or **Export .md / .txt**.
+
+For instructions on updating [`AI_PROJECT_CONTEXT.md`](AI_PROJECT_CONTEXT.md), enabling **Mode B (AI-Enhanced Backend Proxy / Integrately Webhook)**, and reviewing security/browser considerations, see **[docs/ai-prompt-generator.md](docs/ai-prompt-generator.md)**.
 
 ---
 
