@@ -9,6 +9,7 @@ import 'parent_server_screen.dart';
 import 'parent_storage_screen.dart';
 import 'parent_media_library_screen.dart';
 import 'parent_analytics_screen.dart';
+import '../widgets/add_video_sheet.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   final bool? isUsingDefaultPinOverride;
@@ -228,6 +229,19 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 const SizedBox(height: 10),
 
+                // Primary Action: Add YouTube Video
+                _buildNavTile(
+                  context: context,
+                  title: 'Add YouTube Video',
+                  subtitle: 'Paste YouTube video, short, or playlist to add to kids feed',
+                  icon: Icons.add_circle_outline_rounded,
+                  accentColor: KidColors.primary,
+                  badgeText: 'Instant',
+                  badgeColor: KidColors.primary,
+                  onTap: () => AddVideoSheet.show(context),
+                ),
+                const SizedBox(height: 10),
+
                 // Navigation Tile 1: Media Library & Ingestion
                 _buildNavTile(
                   context: context,
@@ -323,6 +337,34 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 const SizedBox(height: 10),
 
                 _buildAutoplaySettingsCard(context, provider),
+                const SizedBox(height: 20),
+
+                const Text(
+                  'Advanced Options (Optional)',
+                  style: TextStyle(
+                    color: KidColors.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Optional VPS Server Connection
+                _buildNavTile(
+                  context: context,
+                  title: 'Cloud / VPS Server Sync',
+                  subtitle: 'Optional: connect to a private self-hosted Nginx or Cloudflare portal',
+                  icon: Icons.dns_outlined,
+                  accentColor: isOnline ? KidColors.green : KidColors.textMuted,
+                  badgeText: isOnline ? 'Online' : 'Optional',
+                  badgeColor: isOnline ? KidColors.green : KidColors.cardElevated,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ParentServerScreen()),
+                    );
+                  },
+                ),
 
                 const SizedBox(height: 20),
 

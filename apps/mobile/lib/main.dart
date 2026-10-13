@@ -3,18 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/kid_home_screen.dart';
-import 'screens/device_pairing_screen.dart';
 import 'utils/constants.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-
+  // Enforce system UI overlay style matching YouTube Dark
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -22,12 +16,11 @@ void main() {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  final appProvider = AppProvider();
-
-  // runApp immediately without awaiting network initialization
   runApp(
-    ChangeNotifierProvider.value(
-      value: appProvider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AppProvider()),
+      ],
       child: const KidsTubeApp(),
     ),
   );
@@ -66,9 +59,6 @@ class _KidsTubeAppState extends State<KidsTubeApp> {
           if (provider.isLoading) {
             return const KidsTubeSplashScreen();
           }
-          if (!provider.isDevicePaired) {
-            return const DevicePairingScreen();
-          }
           return const KidHomeScreen();
         },
       ),
@@ -76,6 +66,7 @@ class _KidsTubeAppState extends State<KidsTubeApp> {
   }
 }
 
+/// Authentic YouTube-Style Clean Minimal Splash Screen
 class KidsTubeSplashScreen extends StatelessWidget {
   const KidsTubeSplashScreen({super.key});
 
@@ -87,51 +78,57 @@ class KidsTubeSplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Clean YouTube-Style Red Play Badge
             Container(
-              width: 84,
-              height: 84,
+              width: 72,
+              height: 52,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [KidColors.primary, KidColors.accent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
+                color: KidColors.primary,
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
                     color: KidColors.primary.withValues(alpha: 0.35),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
-              child: const Icon(Icons.tv_rounded, color: Colors.white, size: 48),
+              child: const Center(
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 38,
+                ),
+              ),
             ),
             const SizedBox(height: 20),
             const Text(
               'KidsTube',
               style: TextStyle(
-                color: Colors.white,
+                fontFamily: 'Roboto',
+                fontWeight: FontWeight.w900,
                 fontSize: 28,
-                fontWeight: FontWeight.w800,
                 letterSpacing: -0.5,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Text(
               'Safe & Fun Video Space',
               style: TextStyle(
+                fontFamily: 'Roboto',
                 color: KidColors.textMuted,
-                fontSize: 14,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
             const SizedBox(
-              width: 24,
-              height: 24,
+              width: 22,
+              height: 22,
               child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: KidColors.accent,
+                strokeWidth: 2.2,
+                color: KidColors.primary,
               ),
             ),
           ],

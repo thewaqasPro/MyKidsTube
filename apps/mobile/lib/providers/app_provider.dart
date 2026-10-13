@@ -805,6 +805,20 @@ class AppProvider extends ChangeNotifier {
     return success;
   }
 
+  /// Adds a YouTube or local video directly to the standalone local SQLite library
+  Future<void> addStandaloneVideo(VideoItem video) async {
+    await _db.upsertVideo(video, profileId: _activeProfile?.id);
+    await _loadFromLocalDb();
+    notifyListeners();
+  }
+
+  /// Deletes a video directly from the local library
+  Future<void> deleteStandaloneVideo(String videoId) async {
+    await _db.deleteVideo(videoId);
+    await _loadFromLocalDb();
+    notifyListeners();
+  }
+
   Future<void> setVpsUrl(String newUrl) async {
     _vpsUrl = newUrl;
     await _db.setSetting('vps_url', newUrl);

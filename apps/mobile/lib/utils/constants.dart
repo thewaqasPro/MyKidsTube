@@ -1,44 +1,44 @@
 import 'package:flutter/material.dart';
 
-/// WonderKids Bespoke Kid-Friendly Visual Design Tokens
+/// Authentic YouTube Dark Design System Tokens
 class KidColors {
-  // Primary Playful Brand Accents (Warm & Approachable)
-  static const Color primary = Color(0xFFFF5E62);         // Wonder Coral (#FF5E62)
-  static const Color accent = Color(0xFFFFB300);          // Wonder Sun (#FFB300)
-  static const Color red = Color(0xFFFF5E62);             // Friendly Coral Red
-  static const Color coral = Color(0xFFFF5E62);           // Warm Playful Coral
-  static const Color sun = Color(0xFFFFB300);             // Joyful Sunshine Yellow
-  static const Color sky = Color(0xFF38BDF8);             // Electric Sky Sparkle
-  static const Color mint = Color(0xFF10B981);            // Nature & Verified Safe Green
-  static const Color violet = Color(0xFFA855F7);          // Magic Bedtime Violet
-  static const Color bubblegum = Color(0xFFF472B6);       // Cheerful Bubblegum Pink
+  // YouTube Brand Red & Primary Accents
+  static const Color primary = Color(0xFFFF0000);         // YouTube Red (#FF0000)
+  static const Color accent = Color(0xFFFF0000);          // YouTube Red
+  static const Color red = Color(0xFFFF0000);             // YouTube Red
+  static const Color coral = Color(0xFFFF0000);           // Clean Red
+  static const Color sun = Color(0xFFFFB300);             // Subtle Amber
+  static const Color sky = Color(0xFF3EA6FF);             // YouTube Blue (#3EA6FF)
+  static const Color mint = Color(0xFF2BA640);            // Clean YouTube Green
+  static const Color violet = Color(0xFFA855F7);          // Bedtime Violet
+  static const Color bubblegum = Color(0xFFF472B6);       // Soft Pink
 
-  // Background & Surfaces (WonderKids Cosmic Night Fort)
-  static const Color bgDark = Color(0xFF0B0F19);          // Deep Cosmic Indigo (#0B0F19)
-  static const Color canvasDark = Color(0xFF0D1322);      // Atmospheric Canvas (#0D1322)
-  static const Color surfaceDark = Color(0xFF151D33);     // Card Surface (#151D33)
-  static const Color cardDark = Color(0xFF151D33);        // Rounded Card Base (#151D33)
-  static const Color cardElevated = Color(0xFF1D2845);    // Elevated Surface (#1D2845)
-  static const Color borderDark = Color(0xFF243052);      // Cosmic Navy Border (#243052)
+  // Background & Surfaces (Official YouTube Dark Mode)
+  static const Color bgDark = Color(0xFF0F0F0F);          // True YouTube Dark Background (#0F0F0F)
+  static const Color canvasDark = Color(0xFF0F0F0F);      // Canvas Dark
+  static const Color surfaceDark = Color(0xFF212121);     // YouTube Card Surface (#212121)
+  static const Color cardDark = Color(0xFF212121);        // YouTube Card Surface (#212121)
+  static const Color cardElevated = Color(0xFF282828);    // YouTube Elevated Surface (#282828)
+  static const Color borderDark = Color(0xFF303030);      // YouTube Border/Divider (#303030)
+  static const Color borderSubtle = Color(0xFF272727);    // Subtle Divider
 
-  // Top Category Filter Chips
-  static const Color chipUnselectedBg = Color(0xFF151D33);
-  static const Color chipUnselectedText = Color(0xFF94A3B8);
-  static const Color chipSelectedBg = Color(0xFF38BDF8);   // Playful Sky Blue for selected
-  static const Color chipSelectedText = Color(0xFF0D1322);
+  // YouTube Category Filter Chips
+  static const Color chipUnselectedBg = Color(0xFF272727);
+  static const Color chipUnselectedText = Color(0xFFF1F1F1);
+  static const Color chipSelectedBg = Color(0xFFFFFFFF);  // Pure White for selected pill (YouTube style)
+  static const Color chipSelectedText = Color(0xFF0F0F0F);// Dark text on selected white chip
 
-  // Typography Tokens
-  static const Color textLight = Color(0xFFFFFFFF);       // Pure White Text
-  static const Color textMuted = Color(0xFF94A3B8);       // Soft Slate Secondary Text
-  static const Color textTertiary = Color(0xFF64748B);    // Dim Slate Text
+  // Typography Tokens (YouTube Standards)
+  static const Color textLight = Color(0xFFFFFFFF);       // Primary High-Contrast White
+  static const Color textMuted = Color(0xFFAAAAAA);       // YouTube Secondary Metadata Gray (#AAAAAA)
+  static const Color textTertiary = Color(0xFF717171);    // Subtle Tertiary Gray (#717171)
 
   // Overlays, Radii & Badges
-  static const Color durationBadgeBg = Color(0xDD0B0F19); // Cosmic Translucent Badge
-  static const Color borderSubtle = Color(0xFF1D2845);
-  static const Color yellow = Color(0xFFFFB300);          // Sun Gold
-  static const Color green = Color(0xFF10B981);           // Mint Green
-  static const Color purple = Color(0xFFA855F7);          // Magic Violet
-  static const Color pink = Color(0xFFF472B6);            // Bubblegum Pink
+  static const Color durationBadgeBg = Color(0xCC000000); // 80% Black Duration Badge
+  static const Color yellow = Color(0xFFFFB300);          // Amber
+  static const Color green = Color(0xFF2BA640);           // Verified Green
+  static const Color purple = Color(0xFFA855F7);          // Violet
+  static const Color pink = Color(0xFFF472B6);            // Pink
 }
 
 class KidTheme {
@@ -61,7 +61,7 @@ class KidTheme {
           titleTextStyle: TextStyle(
             color: KidColors.textLight,
             fontFamily: 'Roboto',
-            fontSize: 20,
+            fontSize: 19,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
           ),
@@ -70,8 +70,8 @@ class KidTheme {
           color: KidColors.cardDark,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: KidColors.borderDark, width: 1.2),
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: KidColors.borderDark, width: 0.8),
           ),
         ),
       );

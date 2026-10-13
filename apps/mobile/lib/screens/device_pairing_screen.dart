@@ -260,6 +260,27 @@ class _DevicePairingScreenState extends State<DevicePairingScreen> {
                   ],
 
                   const SizedBox(height: 32),
+
+                  // Option to continue in standalone mode
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: KidColors.borderDark),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(builder: (_) => const KidHomeScreen()),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                    label: const Text('Continue in Standalone Mode'),
+                  ),
                 ],
               ),
             ),

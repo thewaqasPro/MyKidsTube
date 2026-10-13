@@ -7,6 +7,7 @@ import '../widgets/video_card.dart';
 import 'kid_player_screen.dart';
 import 'kid_shorts_feed_screen.dart';
 import 'parent_gate_dialog.dart';
+import '../widgets/add_video_sheet.dart';
 import '../widgets/child_avatar.dart';
 import '../widgets/kid_profile_switcher_sheet.dart';
 import '../widgets/orientation_mode_switch.dart';
@@ -173,6 +174,19 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
           icon: const Icon(Icons.search_rounded, color: Colors.white, size: 23),
           tooltip: 'Search',
           onPressed: () => setState(() => _isSearchOpen = true),
+        ),
+
+        // 1b. Add YouTube Video Button (Guarded by Parent Challenge)
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 23),
+          tooltip: 'Add Video',
+          onPressed: () async {
+            final allowed = await ParentGateDialog.showChallenge(context);
+            if (allowed && context.mounted) {
+              AddVideoSheet.show(context);
+            }
+          },
         ),
 
         // 2. Offline Mode Quick Indicator (if offline)
@@ -662,6 +676,28 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                       Navigator.pop(context);
                     },
                   ),
+                ),
+
+                // 1b. Add YouTube Video
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.add_circle_outline_rounded, color: KidColors.primary, size: 24),
+                  title: const Text(
+                    'Add YouTube Video',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textLight, fontSize: 14.5, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text(
+                    'Paste YouTube link or Shorts to add to library',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: KidColors.textMuted),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final allowed = await ParentGateDialog.showChallenge(context);
+                    if (allowed && context.mounted) {
+                      AddVideoSheet.show(context);
+                    }
+                  },
                 ),
 
                 // 2. Parent Dashboard & Controls

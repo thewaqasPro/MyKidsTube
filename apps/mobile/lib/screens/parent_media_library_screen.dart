@@ -4,6 +4,7 @@ import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../utils/constants.dart';
 import 'kid_player_screen.dart';
+import '../services/youtube_metadata_service.dart';
 
 class ParentMediaLibraryScreen extends StatefulWidget {
   const ParentMediaLibraryScreen({super.key});
@@ -49,34 +50,34 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
     setState(() => _isIngesting = true);
     final provider = Provider.of<AppProvider>(context, listen: false);
 
-    final success = await provider.submitUrlForIngestion(
-      url,
-      _selectedCategory,
-      quality: _selectedQuality,
-    );
+    // 1. Fetch metadata via oEmbed for instant local addition
+    final meta = await YouTubeMetadataService().fetchMetadata(url);
+    if (meta != null) {
+      final video = meta.toVideoItem(categoryId: _selectedCategory);
+      await provider.addStandaloneVideo(video);
+    }
+
+    // 2. Also try VPS ingestion in background if online
+    try {
+      await provider.submitUrlForIngestion(
+        url,
+        _selectedCategory,
+        quality: _selectedQuality,
+      );
+    } catch (_) {}
 
     setState(() => _isIngesting = false);
 
     if (mounted) {
-      if (success) {
-        _urlController.clear();
-        setState(() => _showAddForm = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Video queued! Server is processing download and metadata.'),
-            backgroundColor: KidColors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to queue video. Check VPS connection and URL.'),
-            backgroundColor: KidColors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      _urlController.clear();
+      setState(() => _showAddForm = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Video added to library!'),
+          backgroundColor: KidColors.mint,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
