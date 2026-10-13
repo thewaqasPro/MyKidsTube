@@ -8,15 +8,21 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
+import '../services/infinite_video_queue.dart';
 import '../utils/constants.dart';
 import '../widgets/touch_lock_overlay.dart';
 import '../widgets/video_card.dart';
 import '../widgets/kid_embed_player.dart';
 import '../widgets/orientation_mode_switch.dart';
+import '../widgets/player_control_drawer.dart';
+import '../widgets/player_suggestion_drawer.dart';
+import '../widgets/kid_profile_switcher_sheet.dart';
 import 'kid_shorts_feed_screen.dart';
 import 'parent_gate_dialog.dart';
 
 /// Authentic YouTube / YouTube Kids Player Screen
+/// Features 100% full-screen immersive video playback, vertical swipe for infinite next/prev,
+/// and horizontal swipe drawers (Left: Controls, Right: Suggestions).
 class KidPlayerScreen extends StatefulWidget {
   final VideoItem video;
   final List<VideoItem> playlist;
@@ -33,6 +39,14 @@ class KidPlayerScreen extends StatefulWidget {
 
 class _KidPlayerScreenState extends State<KidPlayerScreen> {
   late VideoItem _currentVideo;
+  late InfiniteVideoQueue _queue;
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  bool _isLeftDrawerOpen = false;
+  bool _isRightDrawerOpen = false;
+  double _horizontalDragOffset = 0.0;
+
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isLocked = false;
@@ -52,6 +66,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
   Key _embedPlayerKey = UniqueKey();
   late final GlobalKey _nativePlayerKey = GlobalKey(debugLabel: 'kid_native_player');
+  // ignore: unused_field
   String? _selectedRelatedCategory;
   int _controllerGeneration = 0;
   VideoPlayerController? _inFlightController;
@@ -81,13 +96,30 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
           );
         }
       });
+      _pageController = PageController();
       return;
     }
 
-    // Note: Orientation is initialized in didChangeDependencies according to the user's AppOrientationMode
-    WakelockPlus.enable();
+    _pageController = PageController(initialPage: 0);
 
+    WakelockPlus.enable();
     _startWatchTracker();
+  }
+
+  bool _queueInitialized = false;
+  void _ensureQueueInitialized() {
+    if (_queueInitialized) return;
+    _queueInitialized = true;
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final pool = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
+        .where((v) => !v.isShort)
+        .toList();
+    _queue = InfiniteVideoQueue(
+      pool: pool.isNotEmpty ? pool : [widget.video],
+      initialVideo: widget.video,
+    );
+    _currentIndex = 0;
+    _currentVideo = _queue[0];
     _initControllerForVideo(_currentVideo);
   }
 
@@ -263,7 +295,11 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       if (_currentVideo.isShort) {
         _advanceToNextShort(isAutomatic: true);
       } else {
-        _playNextVideo(isAutomatic: true);
+        if (_currentVideo.isShort) {
+      _advanceToNextShort();
+    } else {
+      _playNextVideo(isAutomatic: true);
+    }
       }
       return;
     }
@@ -285,6 +321,19 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     _resetControlsTimer();
   }
 
+  void _onPageChanged(int index) {
+    _flushWatchSession();
+    setState(() {
+      _currentIndex = index;
+      _currentVideo = _queue[index];
+      _isTimeUp = false;
+      _isAutoAdvancing = false;
+    });
+
+    _queue.ensureCapacity(index);
+    _initControllerForVideo(_currentVideo);
+  }
+
   void _playNextVideo({bool isAutomatic = false}) {
     final provider = context.read<AppProvider>();
     if (isAutomatic) {
@@ -300,41 +349,38 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         return;
       }
     }
-    final list = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
-        .where((v) => !v.isShort)
-        .toList();
-    final currentIndex = list.indexWhere((v) => v.id == _currentVideo.id);
-    if (currentIndex != -1 && currentIndex < list.length - 1) {
-      _initControllerForVideo(list[currentIndex + 1]);
-    } else if (list.isNotEmpty && list.first.id != _currentVideo.id) {
-      _initControllerForVideo(list.first);
+
+    if (_pageController.hasClients && _currentIndex < _queue.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  // ignore: unused_element
+  void _playPreviousVideo() {
+    if (_pageController.hasClients && _currentIndex > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  void _jumpToVideo(int index) {
+    if (index < 0 || index >= _queue.length) return;
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeInOutCubic,
+      );
     }
   }
 
   void _advanceToNextShort({bool isAutomatic = false}) {
-    final provider = context.read<AppProvider>();
-    if (isAutomatic) {
-      if (!provider.autoplayEnabled) return;
-      if (provider.isAutoplaySessionLimitReached) {
-        _flushWatchSession(isAtVideoEnd: true);
-        provider.markAutoplaySessionLimitFired();
-        _controller?.pause();
-        setState(() {
-          _isLocked = false;
-          _isTimeUp = true;
-        });
-        return;
-      }
-    }
-    final shorts = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
-        .where((v) => v.isShort)
-        .toList();
-    final currentIndex = shorts.indexWhere((v) => v.id == _currentVideo.id);
-    if (currentIndex != -1 && currentIndex < shorts.length - 1) {
-      _initControllerForVideo(shorts[currentIndex + 1]);
-    } else if (shorts.isNotEmpty && shorts.first.id != _currentVideo.id) {
-      _initControllerForVideo(shorts.first);
-    }
+    _playNextVideo(isAutomatic: isAutomatic);
   }
 
   void _handleEmbedEnded() {
@@ -358,7 +404,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     _isAutoAdvancing = true;
     _flushWatchSession(isAtVideoEnd: true);
     if (_currentVideo.isShort) {
-      _advanceToNextShort(isAutomatic: true);
+      _advanceToNextShort();
     } else {
       _playNextVideo(isAutomatic: true);
     }
@@ -374,17 +420,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       _hasError = true;
       _errorMessage = 'Uncurated video blocked for child safety.';
     });
-  }
-
-  void _playPreviousVideo() {
-    final provider = context.read<AppProvider>();
-    final list = (widget.playlist.isNotEmpty ? widget.playlist : provider.allVideos)
-        .where((v) => !v.isShort)
-        .toList();
-    final currentIndex = list.indexWhere((v) => v.id == _currentVideo.id);
-    if (currentIndex > 0) {
-      _initControllerForVideo(list[currentIndex - 1]);
-    }
   }
 
   void _resetControlsTimer() {
@@ -457,7 +492,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     return '$minutes:$seconds';
   }
 
-
   String get _cleanTitle {
     if (_currentVideo.title.contains('•')) {
       return _currentVideo.title.split('•').last.trim();
@@ -477,6 +511,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     _controller?.removeListener(_playerListener);
     _controller?.dispose();
     _controller = null;
+    _pageController.dispose();
 
     // Restore orientation based on the active preference
     switch (_savedOrientationMode) {
@@ -512,6 +547,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       provider.applyCurrentOrientationMode();
     }
 
+    _ensureQueueInitialized();
+
     final orientation = MediaQuery.of(context).orientation;
     if (_lastOrientation != orientation) {
       _lastOrientation = orientation;
@@ -525,189 +562,325 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final orientation = MediaQuery.of(context).orientation;
     final provider = context.watch<AppProvider>();
     _savedOrientationMode = provider.orientationMode;
-    final isLandscape = orientation == Orientation.landscape || provider.orientationMode == AppOrientationMode.landscape;
 
     final mediaQuery = MediaQuery.of(context);
-    final screenSize = mediaQuery.size;
     final padding = mediaQuery.padding;
-
-    final relatedVideos = widget.playlist.isNotEmpty
-        ? widget.playlist.where((v) => v.id != _currentVideo.id && !v.isShort).toList()
-        : provider.getRecommendationsFor(_currentVideo, filterCategory: _selectedRelatedCategory);
-
-    // 1. Calculate Player Geometry (Dynamic positioning in unified Stack)
-    late final double playerLeft;
-    late final double playerTop;
-    late final double playerWidth;
-    late final double playerHeight;
-
-    if (_isImmersiveLandscape) {
-      // Fullscreen mode: fills entire screen
-      playerLeft = 0;
-      playerTop = 0;
-      playerWidth = screenSize.width;
-      playerHeight = screenSize.height;
-    } else if (isLandscape) {
-      // Landscape Split mode: occupies left side below top bar
-      final availableWidth = screenSize.width - padding.left - padding.right;
-      final availableHeight = (screenSize.height - padding.top - padding.bottom - 40.0).clamp(100.0, double.infinity);
-      final naturalVideoWidth = availableHeight * (16 / 9);
-      final maxVideoWidth = (availableWidth - 140.0).clamp(200.0, availableWidth * 0.76);
-      final videoWidth = naturalVideoWidth.clamp(200.0, maxVideoWidth);
-
-      playerLeft = padding.left;
-      playerTop = padding.top + 40.0;
-      playerWidth = videoWidth;
-      playerHeight = availableHeight;
-    } else {
-      // Portrait mode: occupies full available width below top bar with natural 16:9 ratio
-      final effectiveAspectRatio = (_isInitialized && _controller != null && _controller!.value.aspectRatio > 0)
-          ? _controller!.value.aspectRatio
-          : (_currentVideo.isShort ? (9 / 16) : (16 / 9));
-      final availableWidth = screenSize.width - padding.left - padding.right;
-      final videoHeight = availableWidth / effectiveAspectRatio;
-
-      playerLeft = padding.left;
-      playerTop = padding.top + 40.0;
-      playerWidth = availableWidth;
-      playerHeight = videoHeight;
-    }
 
     final position = _controller?.value.position ?? Duration.zero;
     final duration = _controller?.value.duration ?? Duration.zero;
 
     return PopScope(
-      canPop: !_isLocked && !_isImmersiveLandscape,
+      canPop: !_isLocked && !_isLeftDrawerOpen && !_isRightDrawerOpen,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (_isLeftDrawerOpen) {
+          setState(() => _isLeftDrawerOpen = false);
+          return;
+        }
+        if (_isRightDrawerOpen) {
+          setState(() => _isRightDrawerOpen = false);
+          return;
+        }
         if (_isImmersiveLandscape && !_isLocked) {
           _exitFullscreen();
         }
       },
       child: Scaffold(
-        backgroundColor: isLandscape ? Colors.black : KidColors.bgDark,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // ==========================================
-            // LAYER 1: VIDEO PLAYER SURFACE (STABLE WIDGET NODE)
-            // Stays permanently mounted; never destroyed across rotation/fullscreen
-            // ==========================================
-            Positioned(
-              left: playerLeft,
-              top: playerTop,
-              width: playerWidth,
-              height: playerHeight,
-              child: _buildPlayerSurface(),
-            ),
-
-            // Controls & scrubber for MP4 direct playback over player surface
-            if (!_useEmbed)
-              Positioned(
-                left: playerLeft,
-                top: playerTop,
-                width: playerWidth,
-                height: playerHeight,
-                child: Stack(
-                  children: [
-                    if (_showControls && !_isLocked && !_isTimeUp)
-                      (_isImmersiveLandscape
-                          ? _buildLandscapeControls(context)
-                          : (isLandscape
-                              ? _buildSplitPlayerControls(position, duration)
-                              : _buildPortraitControls(position, duration))),
-                    if (!_isImmersiveLandscape)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: _buildRedScrubber(position, duration),
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragStart: (_) {
+            _horizontalDragOffset = 0.0;
+          },
+          onHorizontalDragUpdate: (details) {
+            _horizontalDragOffset += details.delta.dx;
+          },
+          onHorizontalDragEnd: (details) {
+            if (_isLocked) return;
+            final velocity = details.primaryVelocity ?? 0.0;
+            if (velocity > 180 || _horizontalDragOffset > 60) {
+              // Swiped / dragged right -> Open left control drawer or close right drawer
+              if (_isRightDrawerOpen) {
+                setState(() => _isRightDrawerOpen = false);
+              } else {
+                setState(() {
+                  _isLeftDrawerOpen = true;
+                  _isRightDrawerOpen = false;
+                });
+              }
+            } else if (velocity < -180 || _horizontalDragOffset < -60) {
+              // Swiped / dragged left -> Open right suggestion drawer or close left drawer
+              if (_isLeftDrawerOpen) {
+                setState(() => _isLeftDrawerOpen = false);
+              } else {
+                setState(() {
+                  _isRightDrawerOpen = true;
+                  _isLeftDrawerOpen = false;
+                });
+              }
+            }
+            _horizontalDragOffset = 0.0;
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // ==========================================
+              // LAYER 1: 100% FULL-SCREEN VERTICAL SWIPE FEED
+              // ==========================================
+              Positioned.fill(
+                child: PageView.builder(
+                  controller: _pageController,
+                  scrollDirection: Axis.vertical,
+                  physics: (_isLocked || _isLeftDrawerOpen || _isRightDrawerOpen)
+                      ? const NeverScrollableScrollPhysics()
+                      : const PageScrollPhysics(),
+                  itemCount: _queue.length,
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (context, index) {
+                    if (index == _currentIndex) {
+                      return _buildPlayerSurface();
+                    }
+                    final video = _queue[index];
+                    return Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: CachedNetworkImage(
+                          imageUrl: video.thumbnailUrl,
+                          fit: BoxFit.contain,
+                          errorWidget: (_, __, ___) => const Center(
+                            child: CircularProgressIndicator(color: KidColors.primary),
+                          ),
+                        ),
                       ),
-                  ],
+                    );
+                  },
                 ),
               ),
 
-            // ==========================================
-            // LAYER 2: FIXED TOP BAR (NOT IN FULLSCREEN)
-            // ==========================================
-            if (!_isLocked && !_isImmersiveLandscape)
-              Positioned(
-                left: padding.left,
-                right: padding.right,
-                top: padding.top,
-                height: 40.0,
-                child: _buildFixedTopBar(context, isLandscape: isLandscape),
-              ),
+              // Direct controls & scrubber overlay
+              if (!_useEmbed && _showControls && !_isLocked && !_isTimeUp)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: false,
+                    child: _buildControlsOverlay(context, position, duration, padding),
+                  ),
+                ),
 
-            // ==========================================
-            // LAYER 3: PLAYLIST / DETAILS AREA
-            // ==========================================
-            if (!_isImmersiveLandscape) ...[
-              if (isLandscape) ...[
-                // Vertical divider
+              // Peek Handles / Subtle Edge Buttons (when controls are active)
+              if (_showControls && !_isLocked && !_isLeftDrawerOpen && !_isRightDrawerOpen) ...[
+                // Left Control Edge Peek Button
                 Positioned(
-                  left: playerLeft + playerWidth,
-                  top: playerTop,
-                  width: 1,
-                  height: playerHeight,
-                  child: Container(color: KidColors.borderDark),
+                  left: padding.left + 8,
+                  top: padding.top + 16,
+                  child: _buildEdgePeekButton(
+                    icon: Icons.menu_rounded,
+                    tooltip: 'Controls & Settings',
+                    onTap: () => setState(() => _isLeftDrawerOpen = true),
+                  ),
                 ),
-                // Landscape Right Playlist
+
+                // Right Playlist Edge Peek Button
                 Positioned(
-                  left: playerLeft + playerWidth + 1,
-                  top: playerTop,
-                  right: padding.right,
-                  bottom: padding.bottom,
-                  child: _buildLandscapePlaylistSection(relatedVideos),
-                ),
-              ] else ...[
-                // Portrait Bottom Details & Playlist
-                Positioned(
-                  left: padding.left,
-                  top: playerTop + playerHeight,
-                  right: padding.right,
-                  bottom: padding.bottom,
-                  child: _buildPortraitDetailsAndPlaylist(relatedVideos, position, duration),
+                  right: padding.right + 8,
+                  top: padding.top + 16,
+                  child: _buildEdgePeekButton(
+                    icon: Icons.playlist_play_rounded,
+                    tooltip: 'Up Next Queue',
+                    onTap: () => setState(() => _isRightDrawerOpen = true),
+                  ),
                 ),
               ],
-            ],
 
-            // ==========================================
-            // LAYER 4: FULLSCREEN FLOATING EXIT BUTTON
-            // ==========================================
-            if (!_isLocked && _isImmersiveLandscape)
-              Positioned(
-                top: padding.top + 16,
-                left: padding.left + 16,
-                child: _buildFullscreenExitButton(),
+              // ==========================================
+              // LAYER 2: LEFT CONTROL DRAWER (OVERLAY)
+              // ==========================================
+              PlayerControlDrawer(
+                isOpen: _isLeftDrawerOpen,
+                onClose: () => setState(() => _isLeftDrawerOpen = false),
+                onBack: () => Navigator.of(context).pop(),
+                video: _currentVideo,
+                isShort: false,
+                isMuted: _isMuted,
+                onToggleMute: _toggleMute,
+                onLock: () => setState(() {
+                  _isLocked = true;
+                  _showControls = false;
+                  _isLeftDrawerOpen = false;
+                }),
+                childAvatarIcon: provider.activeProfile?.avatarIcon,
+                onAvatarTap: () => KidProfileSwitcherSheet.show(context),
               ),
 
-            // ==========================================
-            // LAYER 5: TOUCH LOCK OVERLAY
-            // ==========================================
-            TouchLockOverlay(
-              isLocked: _isLocked,
-              showLockButton: false,
-              onLock: () => setState(() {
-                _isLocked = true;
-                _showControls = false;
-              }),
-              onUnlock: () => setState(() {
-                _isLocked = false;
-                _showControls = true;
-              }),
+              // ==========================================
+              // LAYER 3: RIGHT SUGGESTION DRAWER (OVERLAY)
+              // ==========================================
+              PlayerSuggestionDrawer(
+                isOpen: _isRightDrawerOpen,
+                onClose: () => setState(() => _isRightDrawerOpen = false),
+                videos: _queue.items,
+                currentIndex: _currentIndex,
+                onSelectVideo: (idx) {
+                  setState(() => _isRightDrawerOpen = false);
+                  _jumpToVideo(idx);
+                },
+                onShuffle: () {
+                  setState(() {
+                    _queue.shuffleUpcoming(_currentIndex);
+                  });
+                },
+              ),
+
+              // ==========================================
+              // LAYER 4: TOUCH LOCK OVERLAY
+              // ==========================================
+              TouchLockOverlay(
+                isLocked: _isLocked,
+                showLockButton: false,
+                onLock: () => setState(() {
+                  _isLocked = true;
+                  _showControls = false;
+                  _isLeftDrawerOpen = false;
+                  _isRightDrawerOpen = false;
+                }),
+                onUnlock: () => setState(() {
+                  _isLocked = false;
+                  _showControls = true;
+                }),
+              ),
+
+              // ==========================================
+              // LAYER 5: TIME'S UP OVERLAY (SESSION LIMIT)
+              // ==========================================
+              if (_isTimeUp)
+                Positioned.fill(
+                  child: _buildTimeUpOverlay(),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEdgePeekButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.65),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlsOverlay(
+    BuildContext context,
+    Duration position,
+    Duration duration,
+    EdgeInsets padding,
+  ) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.35),
+      child: SafeArea(
+        child: Stack(
+          children: [
+            // Center Play/Pause & Skip buttons
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 32),
+                    tooltip: 'Replay 10s',
+                    onPressed: () => _seekRelative(-10),
+                  ),
+                  const SizedBox(width: 20),
+                  GestureDetector(
+                    onTap: _togglePlayPause,
+                    child: Container(
+                      width: 62,
+                      height: 62,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white30, width: 1.2),
+                      ),
+                      child: Icon(
+                        _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 38,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  IconButton(
+                    icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 32),
+                    tooltip: 'Forward 10s',
+                    onPressed: () => _seekRelative(10),
+                  ),
+                ],
+              ),
             ),
 
-            // ==========================================
-            // LAYER 6: TIME'S UP OVERLAY (SESSION LIMIT)
-            // ==========================================
-            if (_isTimeUp)
-              Positioned.fill(
-                child: _buildTimeUpOverlay(),
+            // Bottom Red Scrubber Bar & Timestamps
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 8,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildRedScrubber(position, duration),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        // Toddler Lock quick button
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 18),
+                          tooltip: 'Lock screen',
+                          onPressed: () => setState(() {
+                            _isLocked = true;
+                            _showControls = false;
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -829,11 +1002,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       _isAutoAdvancing = false;
     });
 
-    if (_currentVideo.isShort) {
-      _advanceToNextShort();
-    } else {
-      _playNextVideo();
-    }
+    _playNextVideo();
   }
 
   Widget _buildPlayerSurface() {
@@ -881,6 +1050,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildFullscreenExitButton() {
     return SafeArea(
       child: GestureDetector(
@@ -898,68 +1068,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  Widget _buildLandscapePlaylistSection(List<VideoItem> relatedVideos) {
-    return Container(
-      color: KidColors.canvasDark,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: KidColors.borderDark, width: 0.5)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Up Next',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    color: KidColors.textLight,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(Icons.shuffle_rounded, color: KidColors.primary, size: 16),
-                  tooltip: 'Shuffle',
-                  onPressed: () {
-                    context.read<AppProvider>().reseedRecommendations();
-                  },
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: relatedVideos.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No more videos',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        color: KidColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                    itemCount: relatedVideos.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
-                    itemBuilder: (context, index) {
-                      final item = relatedVideos[index];
-                      return _buildLandscapeVideoCard(item);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // ignore: unused_element
   Widget _buildPortraitControls(Duration position, Duration duration) {
     return Container(
       color: Colors.black.withValues(alpha: 0.3),
@@ -1018,6 +1127,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildPortraitDetailsAndPlaylist(
     List<VideoItem> relatedVideos,
     Duration position,
@@ -1028,7 +1138,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         children: [
-          // Video Title (FontWeight 500, 14.5px)
           Text(
             _cleanTitle,
             style: const TextStyle(
@@ -1040,8 +1149,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             ),
           ),
           const SizedBox(height: 6),
-
-          // Metadata & Stream Mode Row (hidden for embeds where playback time is unavailable)
           if (!_useEmbed) ...[
             Text(
               '${_formatDuration(position)} / ${_formatDuration(duration)} • ${_currentVideo.quality}${_currentVideo.fileSizeBytes > 0 ? " • ${(_currentVideo.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
@@ -1054,113 +1161,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             ),
             const SizedBox(height: 10),
           ],
-
-          // Single-Row Action Bar (Kids Landscape & Lock Screen)
-          Row(
-            children: [
-              // Kids Landscape Mode
-              _buildPillButton(
-                icon: Icons.stay_current_landscape_rounded,
-                iconColor: KidColors.accent,
-                label: 'Kids Landscape',
-                onTap: () {
-                  _toggleOrientation(toLandscape: true);
-                  setState(() => _isImmersiveLandscape = false);
-                },
-              ),
-              const SizedBox(width: 10),
-
-              // Toddler Lock
-              _buildPillButton(
-                icon: Icons.lock_outline_rounded,
-                iconColor: Colors.white,
-                label: 'Lock Screen',
-                onTap: () => setState(() {
-                  _isLocked = true;
-                  _showControls = false;
-                }),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(color: KidColors.borderDark, height: 1),
-          const SizedBox(height: 16),
-
-          // "Up Next / More Videos" Header with Shuffle & Quick Filters
-          Row(
-            children: [
-              const Text(
-                'More for Kids',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  color: KidColors.textLight,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  context.read<AppProvider>().reseedRecommendations();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: KidColors.cardDark,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: KidColors.borderDark, width: 0.8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.shuffle_rounded, size: 13, color: KidColors.primary),
-                      SizedBox(width: 4),
-                      Text(
-                        'Shuffle',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Category Quick-Filters (All Picks vs More [Category])
-          if (_currentCategoryName.isNotEmpty) ...[
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildRecommendationFilterChip(
-                    label: 'All Picks',
-                    isSelected: _selectedRelatedCategory == null,
-                    onTap: () => setState(() => _selectedRelatedCategory = null),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildRecommendationFilterChip(
-                    label: 'More $_currentCategoryName',
-                    isSelected: _selectedRelatedCategory == _currentVideo.categoryId,
-                    onTap: () => setState(() {
-                      _selectedRelatedCategory = _selectedRelatedCategory == _currentVideo.categoryId
-                          ? null
-                          : _currentVideo.categoryId;
-                    }),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // List of more curated parent-approved videos
           ...relatedVideos.map((item) => Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: VideoCard(
@@ -1173,9 +1173,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  // ==========================================
-  // 1a. FIXED TOP BAR (COMMON HEADER FOR LANDSCAPE & PORTRAIT)
-  // ==========================================
+  // ignore: unused_element
   Widget _buildFixedTopBar(
     BuildContext context, {
     required bool isLandscape,
@@ -1191,7 +1189,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          // Back / Close Button
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(
@@ -1203,8 +1200,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           const SizedBox(width: 4),
-
-          // Video Title
           Expanded(
             child: Text(
               _cleanTitle,
@@ -1219,8 +1214,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             ),
           ),
           const SizedBox(width: 4),
-
-          // Lock Screen (Toddler Lock)
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(
@@ -1234,8 +1227,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               _showControls = false;
             }),
           ),
-
-          // Fullscreen / Landscape Switcher
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(
@@ -1256,271 +1247,11 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               }
             },
           ),
-
-          // Mode Selector (3-way cycle toggle)
           const OrientationModeSwitch(size: 20, color: Colors.white),
         ],
       ),
     );
   }
-
-
-
-  Widget _buildSplitPlayerControls(Duration position, Duration duration) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.45),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 28),
-              onPressed: _playPreviousVideo,
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28),
-              onPressed: () => _seekRelative(-10),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: _togglePlayPause,
-              child: Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            IconButton(
-              icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28),
-              onPressed: () => _seekRelative(10),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 28),
-              onPressed: _playNextVideo,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLandscapeVideoCard(VideoItem item) {
-    final title = item.title.contains('•') ? item.title.split('•').last.trim() : item.title;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => _initControllerForVideo(item),
-        child: Container(
-          decoration: BoxDecoration(
-            color: KidColors.surfaceDark,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: KidColors.borderDark, width: 0.8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 16:9 Thumbnail Image taking full card width
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CachedNetworkImage(
-                        imageUrl: item.thumbnailUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => Container(color: Colors.black26),
-                      ),
-                      if (item.isShort || (!item.needsEmbed && item.duration > 0 && item.durationFormatted.isNotEmpty && item.durationFormatted != '0:00'))
-                        Positioned(
-                          bottom: 3,
-                          right: 3,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
-                            decoration: BoxDecoration(
-                              color: KidColors.durationBadgeBg,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              item.durationFormatted,
-                              style: const TextStyle(
-                                fontFamily: 'Roboto',
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              // Video Title at the very bottom, clamped to two lines in small text (No channel icons, no sidebar text)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(5, 5, 5, 5),
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    color: KidColors.textLight,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-
-
-  Widget _buildLandscapeControls(BuildContext context) {
-    final position = _controller?.value.position ?? Duration.zero;
-    final duration = _controller?.value.duration ?? Duration.zero;
-
-    return Container(
-      color: Colors.black.withValues(alpha: 0.45),
-      child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Top Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
-                    onPressed: _exitFullscreen,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _cleanTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(_isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: Colors.white, size: 20),
-                    onPressed: _toggleMute,
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 20),
-                    onPressed: () => setState(() {
-                      _isLocked = true;
-                      _showControls = false;
-                    }),
-                  ),
-                ],
-              ),
-            ),
-
-            // Center Controls (Skip Prev, Replay 10, Play/Pause, Forward 10, Skip Next)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 36),
-                  onPressed: _playPreviousVideo,
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 36),
-                  onPressed: () => _seekRelative(-10),
-                ),
-                const SizedBox(width: 20),
-                GestureDetector(
-                  onTap: _togglePlayPause,
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _controller?.value.isPlaying == true ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 42,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                IconButton(
-                  icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 36),
-                  onPressed: () => _seekRelative(10),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 36),
-                  onPressed: _playNextVideo,
-                ),
-              ],
-            ),
-
-            // Bottom Red Scrubber Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildRedScrubber(position, duration),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${_formatDuration(position)} / ${_formatDuration(duration)}',
-                        style: const TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 12),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white, size: 24),
-                        onPressed: _exitFullscreen,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
 
   Widget _buildPendingOrErrorState() {
     return Stack(
@@ -1599,7 +1330,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
-                      onPressed: _currentVideo.isShort ? _advanceToNextShort : _playNextVideo,
+                      onPressed: _playNextVideo,
                       icon: const Icon(Icons.skip_next_rounded, size: 18),
                       label: const Text('Next Video', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                     ),
@@ -1613,7 +1344,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  /// Sleek YouTube Red Scrubber Bar
   Widget _buildRedScrubber(Duration position, Duration duration) {
     final maxMs = duration.inMilliseconds.toDouble();
     final currentMs = position.inMilliseconds.clamp(0, duration.inMilliseconds).toDouble();
@@ -1623,7 +1353,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         trackHeight: 3.5,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-        activeTrackColor: KidColors.primary, // Signature YouTube Red #FF0000
+        activeTrackColor: KidColors.primary,
         inactiveTrackColor: Colors.white24,
         thumbColor: KidColors.primary,
         overlayColor: KidColors.primary.withValues(alpha: 0.3),
@@ -1635,82 +1365,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         onChanged: (val) {
           _controller?.seekTo(Duration(milliseconds: val.toInt()));
         },
-      ),
-    );
-  }
-
-  /// YouTube Standard Pill Button (18px radius)
-  Widget _buildPillButton({
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: KidColors.surfaceDark,
-          borderRadius: BorderRadius.circular(18), // 18px radius per DESIGN.md
-          border: Border.all(color: KidColors.borderDark, width: 1.0),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: iconColor, size: 19),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'Roboto',
-                color: KidColors.textLight,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String get _currentCategoryName {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    final catName = provider.categories
-        .where((c) => c.id == _currentVideo.categoryId)
-        .firstOrNull
-        ?.name;
-    if (catName == null || catName.isEmpty) return 'Category';
-    return catName.replaceAll(RegExp(r'^[^\w\s&]+'), '').trim();
-  }
-
-  Widget _buildRecommendationFilterChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? KidColors.chipSelectedBg : KidColors.surfaceDark,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? Colors.transparent : KidColors.borderDark,
-            width: 0.8,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Roboto',
-            color: isSelected ? KidColors.chipSelectedText : KidColors.chipUnselectedText,
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
       ),
     );
   }

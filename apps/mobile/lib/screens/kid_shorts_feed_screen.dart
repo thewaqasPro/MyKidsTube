@@ -8,10 +8,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/video_item.dart';
 import '../providers/app_provider.dart';
+import '../services/infinite_video_queue.dart';
 import '../utils/constants.dart';
 import '../widgets/child_avatar.dart';
 import '../widgets/kid_embed_player.dart';
 import '../widgets/kid_profile_switcher_sheet.dart';
+import '../widgets/player_control_drawer.dart';
+import '../widgets/player_suggestion_drawer.dart';
 import '../widgets/touch_lock_overlay.dart';
 import 'kid_player_screen.dart';
 import 'parent_gate_dialog.dart';
@@ -31,7 +34,7 @@ class KidShortsFeedScreen extends StatefulWidget {
 }
 
 class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerProviderStateMixin {
-  late List<VideoItem> _shorts;
+  late InfiniteVideoQueue _queue;
   late PageController _pageController;
   int _currentIndex = 0;
   final Map<int, VideoPlayerController> _controllers = {};
@@ -39,8 +42,11 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   final Set<int> _failedIndices = {};
 
   bool _isLocked = false;
-  final bool _isMuted = false;
+  bool _isMuted = false;
   bool _isTimeUp = false;
+
+  bool _isLeftDrawerOpen = false;
+  bool _isRightDrawerOpen = false;
 
   bool _showPlayPauseIcon = false;
   bool _lastActionWasPlay = true;
@@ -69,16 +75,14 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
           );
         }
       });
-      _shorts = [];
       _pageController = PageController();
       return;
     }
 
     // Strictly isolate short videos (vertical format, <= 70s, /shorts/ URL)
     final filtered = widget.videos.where((v) => v.isShort).toList();
-    _shorts = filtered;
 
-    if (_shorts.isEmpty) {
+    if (filtered.isEmpty && initialVideo == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           Navigator.of(context).pop();
@@ -88,13 +92,13 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       return;
     }
 
-    int targetIndex = 0;
-    if (initialVideo != null) {
-      final found = _shorts.indexWhere((v) => v.id == initialVideo.id);
-      if (found != -1) targetIndex = found;
-    }
-    _currentIndex = targetIndex.clamp(0, _shorts.length - 1);
-    _pageController = PageController(initialPage: _currentIndex);
+    _queue = InfiniteVideoQueue(
+      pool: filtered.isNotEmpty ? filtered : [if (initialVideo != null) initialVideo],
+      initialVideo: initialVideo,
+    );
+
+    _currentIndex = 0;
+    _pageController = PageController(initialPage: 0);
 
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -126,8 +130,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _flushWatchSession({bool isAtVideoEnd = false}) {
-    if (_accumulatedSessionSeconds > 0 && _currentIndex >= 0 && _currentIndex < _shorts.length) {
-      final currentVideo = _shorts[_currentIndex];
+    if (_accumulatedSessionSeconds > 0 && _currentIndex >= 0 && _currentIndex < _queue.length) {
+      final currentVideo = _queue[_currentIndex];
       final secs = _accumulatedSessionSeconds;
       _accumulatedSessionSeconds = 0;
       final duration = currentVideo.duration;
@@ -214,7 +218,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
     // Initialize needed controllers
     for (final idx in neededIndices) {
-      if (idx >= 0 && idx < _shorts.length && !_controllers.containsKey(idx)) {
+      if (idx >= 0 && idx < _queue.length && !_controllers.containsKey(idx)) {
         _createController(idx, autoPlay: idx == centerIndex);
       }
     }
@@ -228,8 +232,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _createController(int index, {bool autoPlay = false}) {
-    if (index < 0 || index >= _shorts.length) return;
-    final video = _shorts[index];
+    if (index < 0 || index >= _queue.length) return;
+    final video = _queue[index];
 
     final hasLocal = video.localFilePath != null && File(video.localFilePath!).existsSync();
     // If video needs embed and has no local file, skip native controller
@@ -278,7 +282,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _goToNextShort() {
-    if (_currentIndex < _shorts.length - 1) {
+    if (_currentIndex < _queue.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
@@ -292,7 +296,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     final provider = Provider.of<AppProvider>(context, listen: false);
 
     if (!provider.autoplayEnabled) {
-      // Autoplay off: zero automatic advancement (native + embed, shorts + player)
       _flushWatchSession(isAtVideoEnd: true);
       final ctrl = _controllers[index];
       ctrl?.pause();
@@ -300,7 +303,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     }
 
     if (provider.isAutoplaySessionLimitReached) {
-      // Session limit reached: stop at end of current video, show "Time's up" card
       _flushWatchSession(isAtVideoEnd: true);
       provider.markAutoplaySessionLimitFired();
       final ctrl = _controllers[index];
@@ -312,14 +314,13 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       return;
     }
 
-    if (_currentIndex < _shorts.length - 1) {
+    if (_currentIndex < _queue.length - 1) {
       _flushWatchSession(isAtVideoEnd: true);
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
     } else {
-      // Loop video
       _flushWatchSession(isAtVideoEnd: true);
       final ctrl = _controllers[index];
       ctrl?.seekTo(Duration.zero);
@@ -329,7 +330,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
   void _onPageChanged(int newIndex) {
     _flushWatchSession();
-    // Pause previous
     final prevCtrl = _controllers[_currentIndex];
     prevCtrl?.pause();
 
@@ -338,6 +338,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       _isTimeUp = false;
     });
 
+    _queue.ensureCapacity(newIndex);
     _initControllersForWindow(newIndex);
   }
 
@@ -364,6 +365,16 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     });
   }
 
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+      for (final ctrl in _controllers.values) {
+        ctrl.setVolume(_isMuted ? 0.0 : 1.0);
+      }
+    });
+  }
+
+  // ignore: unused_element
   Widget _buildTopBar(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -387,7 +398,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
               children: [
-                // 1. Back button
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
@@ -395,8 +405,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: 4),
-
-                // 2. Shorts Title
                 const Text(
                   'Shorts',
                   style: TextStyle(
@@ -407,10 +415,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     letterSpacing: -0.2,
                   ),
                 ),
-
                 const Spacer(),
-
-                // 3. Toddler Lock
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(
@@ -421,8 +426,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                   tooltip: 'Lock Screen',
                   onPressed: () => setState(() => _isLocked = true),
                 ),
-
-                // 4. Active Child Avatar
                 Padding(
                   padding: const EdgeInsets.only(right: 8, left: 4),
                   child: GestureDetector(
@@ -443,7 +446,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
   @override
   Widget build(BuildContext context) {
-    if (_shorts.isEmpty) {
+    if (_queue.length == 0) {
       return PopScope(
         canPop: !_isLocked,
         child: Scaffold(
@@ -467,68 +470,190 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       );
     }
 
+    final provider = context.watch<AppProvider>();
+    final currentVideo = _queue[_currentIndex];
+
     return PopScope(
-      canPop: !_isLocked,
+      canPop: !_isLocked && !_isLeftDrawerOpen && !_isRightDrawerOpen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_isLeftDrawerOpen) {
+          setState(() => _isLeftDrawerOpen = false);
+          return;
+        }
+        if (_isRightDrawerOpen) {
+          setState(() => _isRightDrawerOpen = false);
+          return;
+        }
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            // 1. Vertical Fullscreen PageView
-            PageView.builder(
-              controller: _pageController,
-              scrollDirection: Axis.vertical,
-              physics: (_isLocked || _isTimeUp) ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
-              itemCount: _shorts.length,
-              onPageChanged: _onPageChanged,
-              itemBuilder: (context, index) {
-                return _buildVideoPage(index);
-              },
-            ),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: (details) {
+            if (_isLocked) return;
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity > 260) {
+              if (_isRightDrawerOpen) {
+                setState(() => _isRightDrawerOpen = false);
+              } else {
+                setState(() {
+                  _isLeftDrawerOpen = true;
+                  _isRightDrawerOpen = false;
+                });
+              }
+            } else if (velocity < -260) {
+              if (_isLeftDrawerOpen) {
+                setState(() => _isLeftDrawerOpen = false);
+              } else {
+                setState(() {
+                  _isRightDrawerOpen = true;
+                  _isLeftDrawerOpen = false;
+                });
+              }
+            }
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1. Vertical Fullscreen PageView
+              PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                physics: (_isLocked || _isTimeUp || _isLeftDrawerOpen || _isRightDrawerOpen)
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(),
+                itemCount: _queue.length,
+                onPageChanged: _onPageChanged,
+                itemBuilder: (context, index) {
+                  return _buildVideoPage(index);
+                },
+              ),
 
-            // 2. Play/Pause Big Center Indicator
-            if (_showPlayPauseIcon)
-              Center(
-                child: AnimatedOpacity(
-                  opacity: _showPlayPauseIcon ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _lastActionWasPlay ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                      color: Colors.white,
-                      size: 60,
+              // 2. Play/Pause Big Center Indicator
+              if (_showPlayPauseIcon)
+                Center(
+                  child: AnimatedOpacity(
+                    opacity: _showPlayPauseIcon ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 250),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _lastActionWasPlay ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                        color: Colors.white,
+                        size: 60,
+                      ),
                     ),
                   ),
                 ),
+
+              // 3. Floating Peek Handles for Sidebars
+              if (!_isLocked && !_isLeftDrawerOpen && !_isRightDrawerOpen) ...[
+                Positioned(
+                  left: 12,
+                  top: MediaQuery.of(context).padding.top + 10,
+                  child: _buildEdgePeekButton(
+                    icon: Icons.menu_rounded,
+                    onTap: () => setState(() => _isLeftDrawerOpen = true),
+                  ),
+                ),
+                Positioned(
+                  right: 12,
+                  top: MediaQuery.of(context).padding.top + 10,
+                  child: _buildEdgePeekButton(
+                    icon: Icons.playlist_play_rounded,
+                    onTap: () => setState(() => _isRightDrawerOpen = true),
+                  ),
+                ),
+              ],
+
+              // 4. Left Control Drawer (Overlay)
+              PlayerControlDrawer(
+                isOpen: _isLeftDrawerOpen,
+                onClose: () => setState(() => _isLeftDrawerOpen = false),
+                onBack: () => Navigator.of(context).pop(),
+                video: currentVideo,
+                isShort: true,
+                isMuted: _isMuted,
+                onToggleMute: _toggleMute,
+                onLock: () => setState(() {
+                  _isLocked = true;
+                  _isLeftDrawerOpen = false;
+                }),
+                childAvatarIcon: provider.activeProfile?.avatarIcon,
+                onAvatarTap: () => KidProfileSwitcherSheet.show(context),
               ),
 
-            // 3. Toddler Touch Lock Overlay
-            TouchLockOverlay(
-              isLocked: _isLocked,
-              showLockButton: false,
-              onLock: () => setState(() => _isLocked = true),
-              onUnlock: () => setState(() => _isLocked = false),
-            ),
-
-            // 4. Fixed Blue Top Bar (Visible & Stable across Shorts transitions)
-            if (!_isLocked)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _buildTopBar(context),
+              // 5. Right Suggestion Drawer (Overlay)
+              PlayerSuggestionDrawer(
+                isOpen: _isRightDrawerOpen,
+                onClose: () => setState(() => _isRightDrawerOpen = false),
+                videos: _queue.items,
+                currentIndex: _currentIndex,
+                onSelectVideo: (idx) {
+                  setState(() => _isRightDrawerOpen = false);
+                  if (_pageController.hasClients) {
+                    _pageController.animateToPage(
+                      idx,
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeInOutCubic,
+                    );
+                  }
+                },
+                onShuffle: () {
+                  setState(() {
+                    _queue.shuffleUpcoming(_currentIndex);
+                  });
+                },
               ),
 
-            // 5. Time's Up Overlay (Session Limit)
-            if (_isTimeUp)
-              Positioned.fill(
-                child: _buildTimeUpOverlay(),
+              // 6. Toddler Touch Lock Overlay
+              TouchLockOverlay(
+                isLocked: _isLocked,
+                showLockButton: false,
+                onLock: () => setState(() => _isLocked = true),
+                onUnlock: () => setState(() => _isLocked = false),
               ),
-          ],
+
+              // 7. Time's Up Overlay (Session Limit)
+              if (_isTimeUp)
+                Positioned.fill(
+                  child: _buildTimeUpOverlay(),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEdgePeekButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.6),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Icon(icon, color: Colors.white, size: 19),
         ),
       ),
     );
@@ -647,13 +772,12 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   Widget _buildVideoPage(int index) {
-    final video = _shorts[index];
+    final video = _queue[index];
     final ctrl = _controllers[index];
     final isInitialized = ctrl != null && ctrl.value.isInitialized;
     final isInitializing = ctrl != null && !ctrl.value.isInitialized;
     final isCurrent = index == _currentIndex;
 
-    // Only activate embed when on current visible index, not initializing, and video genuinely needs embed
     final isEmbed = isCurrent && !isInitializing && (video.needsEmbed || _failedIndices.contains(index));
 
     return GestureDetector(
@@ -670,10 +794,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // A. Clean Solid Black Backdrop (No Gaussian blur on transitions!)
           Container(color: Colors.black),
 
-          // B. Main Video Player (Centered or Edge-to-Edge)
           Center(
             child: isInitialized
                 ? AspectRatio(
@@ -738,7 +860,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                                   ))))),
           ),
 
-          // C. Bottom Video Meta Info & Scrub Bar (Full Width, No Side Rail)
           if (!_isLocked)
             Positioned(
               left: 16,
@@ -748,7 +869,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Channel Chip
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
@@ -766,7 +886,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Title
                   Text(
                     video.title.contains('•') ? video.title.split('•').last.trim() : video.title,
                     maxLines: 2,
@@ -780,7 +899,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Scrub Progress Bar
                   if (isInitialized)
                     VideoProgressIndicator(
                       ctrl,
@@ -801,80 +919,36 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   Widget _buildShortPendingState(VideoItem video) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (video.thumbnailUrl.isNotEmpty)
-          FittedBox(
-            fit: BoxFit.cover,
-            clipBehavior: Clip.hardEdge,
-            child: SizedBox(
-              width: 9,
-              height: 16,
-              child: Transform.scale(
-                scale: 1.78,
-                child: CachedNetworkImage(
-                  imageUrl: video.thumbnailUrl,
-                  fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => Container(color: const Color(0xFF18181B)),
-                ),
+    return Container(
+      color: const Color(0xEB0D1A33),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_sync_rounded, color: KidColors.yellow, size: 48),
+              const SizedBox(height: 12),
+              const Text(
+                'Short Syncing',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
-            ),
-          ),
-        Container(
-          color: Colors.black.withValues(alpha: 0.65),
-        ),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: KidColors.yellow.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.bolt_rounded, color: KidColors.yellow, size: 48),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Short Syncing to Storage',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Tap anywhere or swipe up for next short',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: KidColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  ),
-                  onPressed: _goToNextShort,
-                  icon: const Icon(Icons.arrow_downward_rounded, size: 20),
-                  label: const Text('Next Short', style: TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
+              const SizedBox(height: 6),
+              const Text(
+                'This vertical video is preparing for playback.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _goToNextShort,
+                icon: const Icon(Icons.skip_next_rounded),
+                label: const Text('Next Short'),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
