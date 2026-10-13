@@ -451,6 +451,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     });
   }
 
+  // ignore: unused_element
   void _toggleMute() {
     if (_controller == null) return;
     setState(() {
@@ -668,13 +669,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                       const SizedBox(height: 10),
                       _buildAvatarActionIcon(provider),
                       const SizedBox(height: 10),
-                      _buildActionIcon(
-                        icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                        tooltip: _isMuted ? 'Unmute' : 'Mute',
-                        iconColor: _isMuted ? KidColors.primary : Colors.white,
-                        onTap: _toggleMute,
-                      ),
-                      const SizedBox(height: 10),
+
                       _buildActionIcon(
                         icon: Icons.lock_outline_rounded,
                         tooltip: 'Lock screen',

@@ -159,6 +159,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     }
   }
 
+  // ignore: unused_element
   void _toggleMute() {
     setState(() {
       _isMuted = !_isMuted;
@@ -475,13 +476,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                       const SizedBox(height: 10),
                       _buildAvatarActionIcon(provider),
                       const SizedBox(height: 10),
-                      _buildActionIcon(
-                        icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                        tooltip: _isMuted ? 'Unmute' : 'Mute',
-                        iconColor: _isMuted ? KidColors.primary : Colors.white,
-                        onTap: _toggleMute,
-                      ),
-                      const SizedBox(height: 10),
+
                       _buildActionIcon(
                         icon: Icons.lock_outline_rounded,
                         tooltip: 'Lock screen',
