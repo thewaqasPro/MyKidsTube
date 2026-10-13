@@ -27,10 +27,29 @@ elif [ -f "$REPO_ROOT/apps/server/.env" ]; then
     set +a
 fi
 
+# Auto-detect local VPS IP and user from vps/ip.md if available
+if [ -z "$VPS_HOST" ] && [ -f "$REPO_ROOT/vps/ip.md" ]; then
+    VPS_TARGET_RAW="$(tr -d '[:space:]' < "$REPO_ROOT/vps/ip.md")"
+    if [[ "$VPS_TARGET_RAW" =~ ^(.*)@(.*)$ ]]; then
+        VPS_USER="${BASH_REMATCH[1]}"
+        VPS_HOST="${BASH_REMATCH[2]}"
+    else
+        VPS_HOST="$VPS_TARGET_RAW"
+    fi
+fi
+
+# Auto-detect local SSH key from vps/*.key if available
+if [ -z "$SSH_KEY" ]; then
+    FOUND_KEY="$(find "$REPO_ROOT/vps" -maxdepth 1 -name "*.key" 2>/dev/null | head -n 1)"
+    if [ -n "$FOUND_KEY" ]; then
+        SSH_KEY="$FOUND_KEY"
+    fi
+fi
+
 PORTAL_URL="${PORTAL_URL:-https://mykidstube.kidstube.workers.dev}"
-VPS_HOST="${VPS_HOST:-155.248.219.73}"
+VPS_HOST="${VPS_HOST:-your-vps-ip}"
 VPS_USER="${VPS_USER:-ubuntu}"
-SSH_KEY="${SSH_KEY:-$REPO_ROOT/vps/ssh-key-2026-09-27.key}"
+SSH_KEY="${SSH_KEY:-$REPO_ROOT/vps/id_rsa}"
 
 RAW_DIR="${RAW_DIR:-$HOME/Downloads/MyKidsTube_Raw}"
 OPTIMIZED_DIR="${OPTIMIZED_DIR:-$HOME/Downloads/MyKidsTube_Optimized}"
@@ -287,4 +306,3 @@ case "$1" in
         exit 1
         ;;
 esac
-

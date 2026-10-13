@@ -7,8 +7,8 @@
 ## 📌 Why Filenames Must Be `<youtube_id>.mp4`
 
 The KidsTube architecture serves media directly over HTTP 206 byte-range streaming via Nginx and the Cloudflare D1 catalog:
-- Streaming URL format: `https://kidsapi.waqas.pro/media/videos/{youtube_id}.mp4`
-- Thumbnail format: `https://kidsapi.waqas.pro/media/thumbs/{youtube_id}.webp`
+- Streaming URL format: `https://<YOUR_MEDIA_HOST>/media/videos/{youtube_id}.mp4`
+- Thumbnail format: `https://<YOUR_MEDIA_HOST>/media/thumbs/{youtube_id}.webp`
 
 When downloading videos with desktop tools (such as *4K Video Downloader*, web browsers, or default HandBrake output presets), files are often saved with human-readable titles (e.g. `Aladdin - A Whole New World.mp4` or `Dwayne Johnson - You're Welcome.mp4`).
 
@@ -22,7 +22,7 @@ To prevent broken streams and manual renaming work, the repository provides auto
 When you have downloaded or encoded a batch of videos from a YouTube playlist into `~/Downloads/MyKidsTube_Optimized/`:
 
 ```bash
-./scripts/sync-mykidstube.sh rename "https://www.youtube.com/playlist?list=PLOba6OKTJnLbDvwBBEwO1EaVsiICn8Svw"
+./scripts/sync-mykidstube.sh rename "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
 ```
 
 **What it does:**
@@ -37,7 +37,7 @@ When you have downloaded or encoded a batch of videos from a YouTube playlist in
 You do not even need to run a separate rename step before uploading. If you have files with song titles in `~/Downloads/MyKidsTube_Optimized/`, pass the playlist URL directly to the upload command:
 
 ```bash
-./scripts/sync-mykidstube.sh upload "https://www.youtube.com/playlist?list=PLOba6OKTJnLbDvwBBEwO1EaVsiICn8Svw"
+./scripts/sync-mykidstube.sh upload "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
 ```
 
 **What it does:**
@@ -68,7 +68,7 @@ If you have a folder of videos with arbitrary titles and no playlist link:
 You can download any YouTube playlist or video directly with ID filenames from your Mac terminal:
 
 ```bash
-./scripts/sync-mykidstube.sh download "https://www.youtube.com/playlist?list=..."
+./scripts/sync-mykidstube.sh download "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
 ```
 
 **Why this works:**
@@ -82,7 +82,7 @@ You can download any YouTube playlist or video directly with ID filenames from y
 ### Preview Without Changing Anything (Dry-Run)
 To test how files will be matched without renaming any files on disk:
 ```bash
-./scripts/rename_videos.py --playlist "https://www.youtube.com/playlist?list=..." --dry-run
+./scripts/rename_videos.py --playlist "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID" --dry-run
 ```
 
 ### Undo Previous Renames (Revert to Original Titles)
@@ -95,7 +95,7 @@ If you ever need to revert files back to their human-readable song titles:
 ### Verify Files on VPS
 To check the count and sample of videos stored on the VPS:
 ```bash
-ssh -i vps/ssh-key-2026-09-27.key ubuntu@155.248.219.73 "ls -1 /home/ubuntu/kidstube/data/media/videos/*.mp4 | wc -l"
+ssh -i ~/.ssh/your-key.key ubuntu@<YOUR_VPS_IP> "ls -1 /home/ubuntu/kidstube/data/media/videos/*.mp4 | wc -l"
 ```
 
 ---

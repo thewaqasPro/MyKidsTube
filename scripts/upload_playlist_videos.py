@@ -12,12 +12,37 @@ import re
 import difflib
 import subprocess
 
-PLAYLIST_URL = "https://www.youtube.com/playlist?list=PLOba6OKTJnLbDvwBBEwO1EaVsiICn8Svw"
-LOCAL_DIR = os.path.expanduser("~/Downloads/MyKidsTube_Optimized")
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SSH_KEY = os.path.join(REPO_ROOT, "vps", "ssh-key-2026-09-27.key")
-VPS_HOST = "155.248.219.73"
-VPS_USER = "ubuntu"
+LOCAL_DIR = os.path.expanduser("~/Downloads/MyKidsTube_Optimized")
+
+# Auto-detect local VPS IP and user from vps/ip.md if available
+default_vps_host = "your-vps-ip"
+default_vps_user = "ubuntu"
+ip_file = os.path.join(REPO_ROOT, "vps", "ip.md")
+if os.path.exists(ip_file):
+    try:
+        with open(ip_file, "r") as f:
+            content = f.read().strip()
+            if "@" in content:
+                default_vps_user, default_vps_host = content.split("@", 1)
+            elif content:
+                default_vps_host = content
+    except Exception:
+        pass
+
+# Auto-detect local SSH key from vps/*.key if available
+default_ssh_key = os.path.join(REPO_ROOT, "vps", "id_rsa")
+vps_dir = os.path.join(REPO_ROOT, "vps")
+if os.path.isdir(vps_dir):
+    for fname in os.listdir(vps_dir):
+        if fname.endswith(".key"):
+            default_ssh_key = os.path.join(vps_dir, fname)
+            break
+
+PLAYLIST_URL = os.environ.get("PLAYLIST_URL", "")
+SSH_KEY = os.environ.get("SSH_KEY", default_ssh_key)
+VPS_HOST = os.environ.get("VPS_HOST", default_vps_host)
+VPS_USER = os.environ.get("VPS_USER", default_vps_user)
 VPS_TARGET_DIR = "/home/ubuntu/kidstube/data/media/videos"
 VPS_THUMBS_DIR = "/home/ubuntu/kidstube/data/media/thumbs"
 
@@ -27,8 +52,17 @@ def normalize(s):
     return s.lower()
 
 def main():
+    global PLAYLIST_URL
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
+        PLAYLIST_URL = sys.argv[1]
+
+    if not PLAYLIST_URL:
+        print("❌ Usage: python3 upload_playlist_videos.py <PLAYLIST_URL> [--dry-run]")
+        sys.exit(1)
+
     if not os.path.exists(SSH_KEY):
         print(f"❌ SSH key not found at: {SSH_KEY}")
+        print("💡 Pass SSH_KEY environment variable pointing to your private key.")
         sys.exit(1)
 
     os.chmod(SSH_KEY, 0o600)
@@ -134,7 +168,7 @@ def main():
     print(f"🎉 Upload Complete! Successfully uploaded {success_count}/{len(matches)} videos.")
     if fail_count > 0:
         print(f"⚠️ Failed: {fail_count} files.")
-    print(f"📂 Location on VPS: {VPS_TARGET_DIR}/")
+    print(f"📁 Location on VPS: {VPS_TARGET_DIR}/")
     print("=" * 60)
 
 if __name__ == "__main__":

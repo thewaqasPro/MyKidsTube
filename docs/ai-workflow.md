@@ -34,25 +34,25 @@ Through end-to-end trace from Cloudflare D1 database -> Edge API -> Flutter Mobi
    - Ingestion endpoints (`queue/add.ts` and `v1/ingest.ts`) allowed user-provided `category_id = 'shorts'` to be saved on standard watch URLs.
 
 3. **Feed Rendering & Navigation Interception**:
-   - `_buildShortsShelf` in [kid_home_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_home_screen.dart) gathered `provider.allVideos.where((v) => v.isShort)`. Due to the flawed getter, these 25 landscape videos populated the shelf at index 0.
+   - `_buildShortsShelf` in [kid_home_screen.dart](apps/mobile/lib/screens/kid_home_screen.dart) gathered `provider.allVideos.where((v) => v.isShort)`. Due to the flawed getter, these 25 landscape videos populated the shelf at index 0.
    - When tapped, the cards pushed `KidShortsFeedScreen`.
-   - In [kid_player_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_player_screen.dart), an `if (widget.video.isShort)` guard intercepted those videos and rerouted them back into `KidShortsFeedScreen`.
+   - In [kid_player_screen.dart](apps/mobile/lib/screens/kid_player_screen.dart), an `if (widget.video.isShort)` guard intercepted those videos and rerouted them back into `KidShortsFeedScreen`.
 
 ---
 
 ### 3. Implementation Steps & Fixes Applied
 
-#### A. Mobile Model Redesign ([video_item.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/models/video_item.dart))
+#### A. Mobile Model Redesign ([video_item.dart](apps/mobile/lib/models/video_item.dart))
 Strictly defined what constitutes an authentic Short:
 - **Definitive Disqualifiers**: Any video with `sourceUrl.contains('watch?v=')` or `duration > 70` is **ALWAYS** a landscape video (`isShort = false`).
 - **Authentic Identifiers**: Videos with `sourceUrl.contains('/shorts/')` or valid `short_` prefix.
 - **Category Fallback**: `categoryId == 'shorts'` is only accepted if `duration > 0 && duration <= 70` and NOT a `watch?v=` URL.
 
-#### B. Portal & API Alignment ([constants.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/constants.ts), [catalog.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/v1/catalog.ts))
+#### B. Portal & API Alignment ([constants.ts](apps/portal/src/lib/constants.ts), [catalog.ts](apps/portal/src/pages/api/v1/catalog.ts))
 - Aligned `isVideoShort(...)` in `constants.ts` to enforce the same exclusions.
 - Guarded `catalog.ts` so `source_url` generation does not construct `/shorts/` paths for videos exceeding 70 seconds.
 
-#### C. Ingestion Sanitization ([v1/ingest.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/v1/ingest.ts), [queue/add.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/queue/add.ts))
+#### C. Ingestion Sanitization ([v1/ingest.ts](apps/portal/src/pages/api/v1/ingest.ts), [queue/add.ts](apps/portal/src/pages/api/queue/add.ts))
 - Any ingestion payload attempting to set `category_id = 'shorts'` for a non-short URL automatically defaults to `'cartoons'` or the relevant standard category.
 
 #### D. Cloudflare D1 Remote Database Remediation
@@ -61,11 +61,11 @@ Strictly defined what constitutes an authentic Short:
 - **Verification**: `SELECT count(*) FROM videos WHERE category_id = 'shorts';` now returns **48 rows**, all 48 having `source_url LIKE '%/shorts/%'`. Exactly 0 watch URLs remain in the shorts category.
 
 #### E. Navigation Guards in Mobile Screens
-1. **[kid_home_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_home_screen.dart)**:
+1. **[kid_home_screen.dart](apps/mobile/lib/screens/kid_home_screen.dart)**:
    - Added `if (!item.isShort)` safeguard on shelf card taps to route directly to `_openPlayer` instead of `KidShortsFeedScreen`.
    - Deduped the dynamic category pill list to avoid duplicate "Shorts" tabs.
-2. **[kid_shorts_feed_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_shorts_feed_screen.dart)**:
-   - Added startup safeguard in `initState`: if the initial video passed is not a short, it immediately replaces route with [KidPlayerScreen](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_player_screen.dart).
+2. **[kid_shorts_feed_screen.dart](apps/mobile/lib/screens/kid_shorts_feed_screen.dart)**:
+   - Added startup safeguard in `initState`: if the initial video passed is not a short, it immediately replaces route with [KidPlayerScreen](apps/mobile/lib/screens/kid_player_screen.dart).
    - Filtered `_shorts` strictly to `widget.videos.where((v) => v.isShort).toList()`. If empty, pops safely to prevent blank or improper screen states.
 
 ---
@@ -79,8 +79,8 @@ Strictly defined what constitutes an authentic Short:
    - `true_url_shorts`: 48
    - `watch_url_shorts`: 0
 4. **Behavior Guarantee**:
-   - All landscape videos route to [KidPlayerScreen](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_player_screen.dart).
-   - Only true `/shorts/` videos appear on the top shelf and play in [KidShortsFeedScreen](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_shorts_feed_screen.dart).
+   - All landscape videos route to [KidPlayerScreen](apps/mobile/lib/screens/kid_player_screen.dart).
+   - Only true `/shorts/` videos appear on the top shelf and play in [KidShortsFeedScreen](apps/mobile/lib/screens/kid_shorts_feed_screen.dart).
 
 ---
 
@@ -118,9 +118,9 @@ Strictly defined what constitutes an authentic Short:
 - Local D1 now contains all 9 tables, seed categories, profiles, and `parent_pin = '1234'`.
 
 #### C. Self-Healing Resilience in Auth Endpoints
-- **[login.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/auth/login.ts)**: If `admin_settings` table is missing, automatically creates the table, seeds `parent_pin = '1234'`, and defaults to `'1234'` instead of crashing with HTTP 500.
-- **[parentAuth.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/parentAuth.ts)**: If `parent_sessions` table is missing when creating a session, automatically creates the table and index.
-- **[db.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/db.ts)**: If local D1 has no videos yet, gracefully falls back to `API_BASE` so Studio and the web catalog display videos immediately.
+- **[login.ts](apps/portal/src/pages/api/auth/login.ts)**: If `admin_settings` table is missing, automatically creates the table, seeds `parent_pin = '1234'`, and defaults to `'1234'` instead of crashing with HTTP 500.
+- **[parentAuth.ts](apps/portal/src/lib/parentAuth.ts)**: If `parent_sessions` table is missing when creating a session, automatically creates the table and index.
+- **[db.ts](apps/portal/src/lib/db.ts)**: If local D1 has no videos yet, gracefully falls back to `API_BASE` so Studio and the web catalog display videos immediately.
 
 #### D. Convenient Package Scripts
 - Added `"db:migrate:local"` and `"db:migrate:remote"` to `apps/portal/package.json`.
@@ -166,21 +166,21 @@ Strictly defined what constitutes an authentic Short:
   - No network traffic generated during regular watching, saving Cloudflare free-tier quota limits.
 
 #### C. Dedicated Sub-Pages Created
-- [parent_security_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_security_screen.dart): PIN form with current, new, and confirm PINs, show/hide toggles, default PIN warning banner.
-- [parent_server_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_server_screen.dart): Live ping latency badge, URL configuration, device pairing request & verification.
-- [parent_storage_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_storage_screen.dart): Storage usage card, progress bar, single-row action toolbar, and offline video file list with play/delete actions.
-- [parent_media_library_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_media_library_screen.dart): Collapsible ingestion card, category pills, search bar, multi-select mode with bulk deletion dialog.
-- [parent_analytics_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_analytics_screen.dart): Today & total screen time cards, 7-day bar chart, top 5 videos leaderboard, category distribution, and on-demand "Sync to Cloud Server Now" button.
+- [parent_security_screen.dart](apps/mobile/lib/screens/parent_security_screen.dart): PIN form with current, new, and confirm PINs, show/hide toggles, default PIN warning banner.
+- [parent_server_screen.dart](apps/mobile/lib/screens/parent_server_screen.dart): Live ping latency badge, URL configuration, device pairing request & verification.
+- [parent_storage_screen.dart](apps/mobile/lib/screens/parent_storage_screen.dart): Storage usage card, progress bar, single-row action toolbar, and offline video file list with play/delete actions.
+- [parent_media_library_screen.dart](apps/mobile/lib/screens/parent_media_library_screen.dart): Collapsible ingestion card, category pills, search bar, multi-select mode with bulk deletion dialog.
+- [parent_analytics_screen.dart](apps/mobile/lib/screens/parent_analytics_screen.dart): Today & total screen time cards, 7-day bar chart, top 5 videos leaderboard, category distribution, and on-demand "Sync to Cloud Server Now" button.
 
 #### D. Executive Command Center Redesign (`ParentDashboardScreen`)
-- Rebuilt [parent_dashboard_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_dashboard_screen.dart) as an executive hub.
+- Rebuilt [parent_dashboard_screen.dart](apps/mobile/lib/screens/parent_dashboard_screen.dart) as an executive hub.
 - Includes 2x2 summary metric grid (Catalog Size, Today's Screen Time, Offline Storage, VPS Online status).
 - 5 polished navigation cards with icons, badges, subtitles, and chevron transitions leading directly to each sub-page.
 
 #### E. Backend Alignment
-- [watch.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/metrics/watch.ts): Added batch event processing (`body.events`).
-- [parentAuth.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/parentAuth.ts): Added Bearer token parsing and paired device verification.
-- [v1/videos.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/v1/videos.ts): Exposed GET and DELETE endpoints for mobile clients.
+- [watch.ts](apps/portal/src/pages/api/metrics/watch.ts): Added batch event processing (`body.events`).
+- [parentAuth.ts](apps/portal/src/lib/parentAuth.ts): Added Bearer token parsing and paired device verification.
+- [v1/videos.ts](apps/portal/src/pages/api/v1/videos.ts): Exposed GET and DELETE endpoints for mobile clients.
 
 ### 3. Verification & Testing
 - `flutter analyze` on `apps/mobile`: **0 issues found** (clean analysis).
@@ -206,44 +206,44 @@ Strictly defined what constitutes an authentic Short:
 
 ### 2. Architecture & Implementation Summary
 
-#### A. Edge D1 Schema Evolution ([0005_enhanced_analytics.sql](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/migrations/0005_enhanced_analytics.sql))
+#### A. Edge D1 Schema Evolution ([0005_enhanced_analytics.sql](apps/portal/migrations/0005_enhanced_analytics.sql))
 - Enhanced `watch_events` with: `device_id`, `profile_id`, `video_duration`, `completion_rate`, `is_completed`, `is_skipped`, and composite performance indexes (`idx_watch_events_analytics_dev_prof`, `idx_watch_events_completion`, `idx_watch_events_skip`).
 - Added `device_profile_links` junction table (`device_id`, `profile_id`, `is_active`, `last_switched_at`).
 - Applied migration safely to local Miniflare D1 and production remote D1 (`d1_migrations` updated).
 
 #### B. Portal Analytics APIs & UI
-- **Batch Ingestion API** ([watch.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/metrics/watch.ts)): Supports chunked batch ingestion (`events` array) with completion and skip calculation.
-- **Studio Analytics API** ([analytics.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/studio/analytics.ts)): Exposes filtered statistics by `device_id`, `profile_id`, and `range` (7d, 30d, 90d, all), returning:
+- **Batch Ingestion API** ([watch.ts](apps/portal/src/pages/api/metrics/watch.ts)): Supports chunked batch ingestion (`events` array) with completion and skip calculation.
+- **Studio Analytics API** ([analytics.ts](apps/portal/src/pages/api/studio/analytics.ts)): Exposes filtered statistics by `device_id`, `profile_id`, and `range` (7d, 30d, 90d, all), returning:
   - Metric summary cards (Total watch time, sessions, completion %, bounce/skip %).
   - Daily time-series trends with session counts.
   - Retention funnel (`started` -> `survived_10s` -> `completed_75pct`).
   - Category consumption distribution.
   - "Content Kids Love Most" leaderboard (views, completions, total seconds).
   - "Passed Quickly (< 10s)" list with skip counts and avg abandon time.
-- **Studio Analytics UI** ([StudioAnalyticsView.tsx](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/components/StudioAnalyticsView.tsx)):
-  - Built with modern dark-mode aesthetic, interactive SVG bar charts, retention funnel visualization, and filter dropdowns. Integrated into [StudioDashboard.tsx](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/components/StudioDashboard.tsx).
+- **Studio Analytics UI** ([StudioAnalyticsView.tsx](apps/portal/src/components/StudioAnalyticsView.tsx)):
+  - Built with modern dark-mode aesthetic, interactive SVG bar charts, retention funnel visualization, and filter dropdowns. Integrated into [StudioDashboard.tsx](apps/portal/src/components/StudioDashboard.tsx).
 
 #### C. Mobile SQLite & State Upgrades
-- **Local SQLite** ([database_service.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/services/database_service.dart)):
+- **Local SQLite** ([database_service.dart](apps/mobile/lib/services/database_service.dart)):
   - Added `local_child_profiles` table (`id`, `name`, `avatar_icon`, `age_bracket`, `created_at`).
   - Seeded default initial profiles (Kid 1: Ali, Kid 2: Fatima, Kid 3: Omar).
   - Added columns `device_id`, `profile_id`, `profile_name`, `video_duration`, `completion_rate`, `is_completed`, `is_skipped` to `local_watch_events`.
   - Implemented per-profile queries for analytics, loved videos, and skipped videos.
-- **State Management** ([app_provider.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/providers/app_provider.dart)):
+- **State Management** ([app_provider.dart](apps/mobile/lib/providers/app_provider.dart)):
   - Local profile loading and active profile persistence.
   - Added `addLocalProfile`, `deleteLocalProfile`, `switchProfile`.
   - Upgraded `recordWatchSession` to pass duration, completion, and skip parameters.
 
 #### D. Kid-Friendly Profile Switching & Playback Instrumentation
-- **Kid Profile Switcher Sheet** ([kid_profile_switcher_sheet.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/widgets/kid_profile_switcher_sheet.dart)):
+- **Kid Profile Switcher Sheet** ([kid_profile_switcher_sheet.dart](apps/mobile/lib/widgets/kid_profile_switcher_sheet.dart)):
   - Tactile, kid-friendly bottom sheet. Children tap their avatar to switch who is watching instantly with zero PIN friction.
   - "Add Kid Profile" option at bottom protected by Parent PIN verification.
-  - Integrated into top AppBars in both [KidHomeScreen](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_home_screen.dart) and [KidShortsFeedScreen](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_shorts_feed_screen.dart).
+  - Integrated into top AppBars in both [KidHomeScreen](apps/mobile/lib/screens/kid_home_screen.dart) and [KidShortsFeedScreen](apps/mobile/lib/screens/kid_shorts_feed_screen.dart).
 - **Skip & Completion Instrumentation**:
-  - In [kid_player_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_player_screen.dart) and [kid_shorts_feed_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/kid_shorts_feed_screen.dart):
+  - In [kid_player_screen.dart](apps/mobile/lib/screens/kid_player_screen.dart) and [kid_shorts_feed_screen.dart](apps/mobile/lib/screens/kid_shorts_feed_screen.dart):
     - Videos abandoned in $< 10$ seconds are automatically flagged `is_skipped = 1`.
     - Videos watched $\ge 75\%$ of duration or to completion are flagged `is_completed = 1`.
-- **Parent Mobile Analytics Screen** ([parent_analytics_screen.dart](file:///Users/waqas/Development/2026/MyKidsTube/apps/mobile/lib/screens/parent_analytics_screen.dart)):
+- **Parent Mobile Analytics Screen** ([parent_analytics_screen.dart](apps/mobile/lib/screens/parent_analytics_screen.dart)):
   - Horizontal kid profile selector chips (`[ All Children ]`, `[ Ali ]`, `[ Fatima ]`, `[ Omar ]`).
   - 2x2 key metrics grid (Today's time, total watch time, Loved / Completed %, Passed quickly %).
   - 7-day watch trend chart.
@@ -274,7 +274,7 @@ Strictly defined what constitutes an authentic Short:
 ### 2. Implementation Summary
 
 #### A. Drizzle ORM Integration (`drizzle-orm` & `drizzle-kit`)
-- Configured [drizzle.config.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/drizzle.config.ts) for Cloudflare D1 SQLite.
+- Configured [drizzle.config.ts](apps/portal/drizzle.config.ts) for Cloudflare D1 SQLite.
 - Partitioned type-safe schema domain definitions in `apps/portal/src/db/schema/`:
   - `auth.ts`: Better Auth tables (`user`, `session`, `account`, `verification`, `passkey`).
   - `catalog.ts`: `categories`, `videos`.
@@ -282,37 +282,37 @@ Strictly defined what constitutes an authentic Short:
   - `analytics.ts`: `watchEvents`.
   - `devices.ts`: `devices`, `adminSettings`, `parentSessions`.
   - `index.ts`: Unified export barrel.
-- Implemented `getDrizzle(d1)` and [getDrizzleDb(context)](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/db/index.ts) with safe Cloudflare Workers environment binding resolution.
+- Implemented `getDrizzle(d1)` and [getDrizzleDb(context)](apps/portal/src/db/index.ts) with safe Cloudflare Workers environment binding resolution.
 
 #### B. Better Auth Edge Server & Client Setup
-- Configured Better Auth with Drizzle SQLite adapter in [lib/auth.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/auth.ts):
+- Configured Better Auth with Drizzle SQLite adapter in [lib/auth.ts](apps/portal/src/lib/auth.ts):
   - Enabled Email & Password authentication with auto-sign-in on sign-up.
   - Enabled WebAuthn Passkeys (`@better-auth/passkey`) with dynamic RP origin matching.
   - Enabled Bearer token authorization plugin.
   - Configured session cookies with 7-day expiration and rolling renewal.
-- Mounted catch-all Astro API route at [pages/api/auth/[...all].ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/auth/%5B...all%5D.ts).
-- Initialized client-side SDK in [lib/auth-client.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/auth-client.ts) with `createAuthClient` and `passkeyClient`.
-- Implemented global Astro middleware in [middleware.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/middleware.ts) injecting authenticated `locals.user` and `locals.session`.
-- Created [lib/env.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/lib/env.ts) to safely resolve Cloudflare Worker bindings without touching deprecated `locals.runtime.env`.
+- Mounted catch-all Astro API route at [pages/api/auth/[...all].ts](apps/portal/src/pages/api/auth/%5B...all%5D.ts).
+- Initialized client-side SDK in [lib/auth-client.ts](apps/portal/src/lib/auth-client.ts) with `createAuthClient` and `passkeyClient`.
+- Implemented global Astro middleware in [middleware.ts](apps/portal/src/middleware.ts) injecting authenticated `locals.user` and `locals.session`.
+- Created [lib/env.ts](apps/portal/src/lib/env.ts) to safely resolve Cloudflare Worker bindings without touching deprecated `locals.runtime.env`.
 
 #### C. Cloudflare D1 Migrations Applied
 - **`0006_better_auth_tables.sql`**: Created `user`, `session`, `account`, `verification`, and `passkey` tables with foreign keys and unique indexes.
 - **`0007_passkey_columns_fix.sql`**: Added `credential_id` and `aaguid` columns to align with Better Auth Drizzle adapter.
 - Applied migrations to both local Miniflare D1 (`--local`) and remote production D1 (`--remote`).
 
-#### D. Dual-Mode Parent Login ([LoginPage.tsx](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/components/LoginPage.tsx))
+#### D. Dual-Mode Parent Login ([LoginPage.tsx](apps/portal/src/components/LoginPage.tsx))
 - Tabbed interface switching seamlessly between:
   1. **Master Account**: Email + Password sign-in / sign-up.
   2. **Biometric Passkey**: 1-tap authentication using FaceID, TouchID, or Windows Hello.
   3. **Quick PIN**: 4-digit tactile keypad for fast unlocks.
 
-#### E. Studio Dashboard Security Control Center ([StudioDashboard.tsx](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/components/StudioDashboard.tsx))
+#### E. Studio Dashboard Security Control Center ([StudioDashboard.tsx](apps/portal/src/components/StudioDashboard.tsx))
 - Rebuilt the "PIN & Security" tab into a comprehensive Security Control Center:
   - **Master Account Profile Card**: Displays parent avatar, name, email, role badge, session type, and 1-click Sign Out.
   - **Biometric Passkeys Manager**: Allows enrolling new device passkeys (`authClient.passkey.addPasskey`), lists enrolled hardware credentials, and provides 1-tap revocation.
   - **Child Gate & Tablet PIN Manager**: Displays current PIN status and includes an interactive form to change the 4–6 digit numerical PIN across all paired tablets.
   - **Active Parent Sessions Manager**: Displays active login sessions with device/browser info, IP address, and remote revocation controls.
-- Created [pages/api/studio/pin.ts](file:///Users/waqas/Development/2026/MyKidsTube/apps/portal/src/pages/api/studio/pin.ts) for type-safe PIN retrieval and updates via Drizzle ORM.
+- Created [pages/api/studio/pin.ts](apps/portal/src/pages/api/studio/pin.ts) for type-safe PIN retrieval and updates via Drizzle ORM.
 
 ---
 
