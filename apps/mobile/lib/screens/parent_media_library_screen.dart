@@ -18,7 +18,7 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   String _selectedCategory = 'cartoons';
-  String _selectedQuality = '720p';
+  final String _selectedQuality = '720p';
   bool _isIngesting = false;
   bool _showAddForm = false;
 
@@ -275,63 +275,30 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: provider.categories.any((c) => c.id == _selectedCategory)
-                                  ? _selectedCategory
-                                  : (provider.categories.isNotEmpty ? provider.categories.first.id : 'cartoons'),
-                              dropdownColor: KidColors.cardDark,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              decoration: InputDecoration(
-                                labelText: 'Category',
-                                labelStyle: const TextStyle(color: KidColors.textMuted),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                filled: true,
-                                fillColor: KidColors.bgDark,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: KidColors.borderDark),
-                                ),
-                              ),
-                              items: provider.categories.map((c) {
-                                return DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedCategory = val);
-                              },
-                            ),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: provider.categories.any((c) => c.id == _selectedCategory)
+                            ? _selectedCategory
+                            : (provider.categories.isNotEmpty ? provider.categories.first.id : 'cartoons'),
+                        dropdownColor: KidColors.cardDark,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Category',
+                          labelStyle: const TextStyle(color: KidColors.textMuted),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          filled: true,
+                          fillColor: KidColors.bgDark,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: KidColors.borderDark),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: _selectedQuality,
-                              dropdownColor: KidColors.cardDark,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              decoration: InputDecoration(
-                                labelText: 'Quality',
-                                labelStyle: const TextStyle(color: KidColors.textMuted),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                filled: true,
-                                fillColor: KidColors.bgDark,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: KidColors.borderDark),
-                                ),
-                              ),
-                              items: const [
-                                DropdownMenuItem(value: '720p', child: Text('720p')),
-                                DropdownMenuItem(value: '480p', child: Text('480p')),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) setState(() => _selectedQuality = val);
-                              },
-                            ),
-                          ),
-                        ],
+                        ),
+                        items: provider.categories.map((c) {
+                          return DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis));
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedCategory = val);
+                        },
                       ),
                       const SizedBox(height: 12),
                       SizedBox(
@@ -345,9 +312,9 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
                           onPressed: _isIngesting ? null : _submitIngest,
                           icon: _isIngesting
                               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 18),
+                              : const Icon(Icons.add_rounded, color: Colors.white, size: 18),
                           label: Text(
-                            _isIngesting ? 'Queuing on Server...' : 'Download & Ingest to Library',
+                            _isIngesting ? 'Adding Video...' : 'Add Video to Catalog',
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                           ),
                         ),
@@ -620,7 +587,7 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(width: 8),
-                        if (video.isOfflineReady) ...[
+                        if (provider.isServerOnline && video.isOfflineReady) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(
@@ -639,32 +606,33 @@ class _ParentMediaLibraryScreenState extends State<ParentMediaLibraryScreen> {
                 ),
               ),
 
-              // Actions: Download & Delete
+              // Actions: Download (only if server connected) & Delete
               if (!_isSelectionMode) ...[
-                IconButton(
-                  tooltip: video.isOfflineReady ? 'Downloaded' : 'Download Offline',
-                  icon: Icon(
-                    video.isOfflineReady ? Icons.download_done_rounded : Icons.download_rounded,
-                    color: video.isOfflineReady ? KidColors.green : Colors.white70,
-                    size: 20,
-                  ),
-                  onPressed: () async {
-                    if (video.isOfflineReady) {
-                      provider.deleteDownloaded(video);
-                    } else {
-                      final err = await provider.startDownload(video);
-                      if (err != null && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(err),
-                            backgroundColor: KidColors.red,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                if (provider.isServerOnline)
+                  IconButton(
+                    tooltip: video.isOfflineReady ? 'Downloaded' : 'Download Offline',
+                    icon: Icon(
+                      video.isOfflineReady ? Icons.download_done_rounded : Icons.download_rounded,
+                      color: video.isOfflineReady ? KidColors.green : Colors.white70,
+                      size: 20,
+                    ),
+                    onPressed: () async {
+                      if (video.isOfflineReady) {
+                        provider.deleteDownloaded(video);
+                      } else {
+                        final err = await provider.startDownload(video);
+                        if (err != null && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(err),
+                              backgroundColor: KidColors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
                       }
-                    }
-                  },
-                ),
+                    },
+                  ),
                 IconButton(
                   tooltip: 'Delete Video',
                   icon: const Icon(Icons.delete_outline_rounded, color: KidColors.red, size: 20),

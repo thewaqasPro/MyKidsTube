@@ -167,7 +167,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
 
-                // Executive Quick Stats (2x2 Grid)
+                // Executive Quick Stats (Clean 2-card Primary Row)
                 Row(
                   children: [
                     Expanded(
@@ -191,43 +191,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: 'Offline Media',
-                        value: '$cachedMb MB',
-                        subtitle: '$downloadedCount downloaded',
-                        icon: Icons.storage_rounded,
-                        color: KidColors.green,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: 'VPS Server',
-                        value: isOnline ? 'Online' : 'Offline',
-                        subtitle: isOnline ? 'Connected' : 'Check URL',
-                        icon: Icons.cloud_done_rounded,
-                        color: isOnline ? KidColors.green : KidColors.red,
-                      ),
-                    ),
-                  ],
-                ),
 
-                const SizedBox(height: 20),
-
-                const Text(
-                  'Management Sections',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
 
                 // Primary Action: Add YouTube Video
                 _buildNavTile(
@@ -240,13 +205,24 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   badgeColor: KidColors.primary,
                   onTap: () => AddVideoSheet.show(context),
                 ),
+                const SizedBox(height: 14),
+
+                const Text(
+                  'Content & Safety',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
                 const SizedBox(height: 10),
 
-                // Navigation Tile 1: Media Library & Ingestion
+                // Navigation Tile 1: Media Library
                 _buildNavTile(
                   context: context,
                   title: 'Media Library',
-                  subtitle: 'Add video URLs, browse catalog, search, and bulk delete',
+                  subtitle: 'Browse, search, and delete curated videos',
                   icon: Icons.movie_creation_outlined,
                   accentColor: KidColors.primary,
                   badgeText: '$totalVideos items',
@@ -262,7 +238,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 _buildNavTile(
                   context: context,
                   title: 'Watch Time & Analytics',
-                  subtitle: 'Local-first screen time stats, top videos, and occasional cloud sync',
+                  subtitle: 'Screen time stats, top videos, and watch history',
                   icon: Icons.insights_rounded,
                   accentColor: KidColors.accent,
                   badgeText: 'Local-First',
@@ -274,27 +250,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // Navigation Tile 3: Device Storage & Offline Media
-                _buildNavTile(
-                  context: context,
-                  title: 'Device Storage & Media',
-                  subtitle: 'Manage downloaded videos, free up disk space, single-row actions',
-                  icon: Icons.folder_special_outlined,
-                  accentColor: KidColors.green,
-                  badgeText: '$cachedMb MB',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentStorageScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 4: PIN & Security Settings
+                // Navigation Tile 3: PIN & Security Settings
                 _buildNavTile(
                   context: context,
                   title: 'PIN & Security Settings',
-                  subtitle: 'Configure salted parent PIN, protect gate challenge, and locks',
+                  subtitle: 'Configure parent PIN, protect gate challenge, and locks',
                   icon: Icons.lock_outline_rounded,
                   accentColor: _isUsingDefaultPin ? KidColors.yellow : KidColors.primary,
                   badgeText: _isUsingDefaultPin ? 'Default 1234' : 'Protected',
@@ -303,23 +263,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     Navigator.of(context)
                         .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
                         .then((_) => _checkDefaultPin());
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 5: VPS Server Connection
-                _buildNavTile(
-                  context: context,
-                  title: 'VPS Server Connection',
-                  subtitle: 'Configure Cloudflare/VPS base URL, live ping test, device pairing',
-                  icon: Icons.dns_outlined,
-                  accentColor: isOnline ? KidColors.green : KidColors.red,
-                  badgeText: isOnline ? 'Online' : 'Offline',
-                  badgeColor: isOnline ? KidColors.green : KidColors.red,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentServerScreen()),
-                    );
                   },
                 ),
 
@@ -350,11 +293,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // Optional VPS Server Connection
+                // Navigation Tile 4: VPS Server Connection (Moved to Advanced)
                 _buildNavTile(
                   context: context,
-                  title: 'Cloud / VPS Server Sync',
-                  subtitle: 'Optional: connect to a private self-hosted Nginx or Cloudflare portal',
+                  title: 'VPS Server Connection',
+                  subtitle: 'Optional: connect a private self-hosted Nginx or Cloudflare backend',
                   icon: Icons.dns_outlined,
                   accentColor: isOnline ? KidColors.green : KidColors.textMuted,
                   badgeText: isOnline ? 'Online' : 'Optional',
@@ -362,6 +305,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ParentServerScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Navigation Tile 5: Device Storage & Media (Moved to Advanced)
+                _buildNavTile(
+                  context: context,
+                  title: 'Device Storage & Media',
+                  subtitle: 'Manage downloaded offline cache ($downloadedCount files) and free up disk space',
+                  icon: Icons.folder_special_outlined,
+                  accentColor: KidColors.green,
+                  badgeText: '$cachedMb MB',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ParentStorageScreen()),
                     );
                   },
                 ),
@@ -447,48 +406,19 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   const SizedBox(height: 16),
                 ],
 
-                // Footer Quick Actions Toolbar in a Single Row
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: KidColors.cardDark,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: KidColors.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: KidColors.borderDark),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          onPressed: provider.isSyncing ? null : () => provider.syncCatalog(),
-                          icon: provider.isSyncing
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.sync_rounded, color: Colors.white70, size: 18),
-                          label: Text(
-                            provider.isSyncing ? 'Syncing...' : 'Sync Catalog',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: KidColors.surfaceDark,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.child_care_rounded, size: 18, color: KidColors.yellow),
-                          label: const Text('Return to Kids', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                        ),
-                      ),
-                    ],
+                // Return to Kids Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: KidColors.surfaceDark,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.child_care_rounded, size: 20, color: KidColors.yellow),
+                    label: const Text('Return to Kids', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                   ),
                 ),
                 const SizedBox(height: 20),
