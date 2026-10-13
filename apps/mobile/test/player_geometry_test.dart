@@ -295,7 +295,7 @@ void main() {
       expect(playerRect.height, equals(500.0));
     });
 
-    testWidgets('Horizontal drag gestures open Left Control Drawer and Right Suggestion Drawer', (tester) async {
+    testWidgets('Horizontal drag gestures open and close Right Suggestion Drawer; Left sidebar is removed', (tester) async {
       tester.view.physicalSize = const Size(900, 500);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -309,29 +309,12 @@ void main() {
       await tester.pumpWidget(buildTestApp(provider: provider, video: video, playlist: playlist, screenSize: const Size(900, 500)));
       await tester.pump();
 
-      // Drawers are initially mounted as overlays
-      expect(find.byType(PlayerControlDrawer), findsOneWidget);
+      // Left control drawer is removed; right suggestion drawer is mounted
+      expect(find.byType(PlayerControlDrawer), findsNothing);
       expect(find.byType(PlayerSuggestionDrawer), findsOneWidget);
-
-      final controlDrawer = tester.widget<PlayerControlDrawer>(find.byType(PlayerControlDrawer));
-      expect(controlDrawer.isOpen, isFalse);
 
       final suggestionDrawer = tester.widget<PlayerSuggestionDrawer>(find.byType(PlayerSuggestionDrawer));
       expect(suggestionDrawer.isOpen, isFalse);
-
-      // Swipe right from center to open Left Control Drawer
-      await tester.drag(find.byType(PageView), const Offset(400, 0));
-      await tester.pump();
-
-      final openControlDrawer = tester.widget<PlayerControlDrawer>(find.byType(PlayerControlDrawer));
-      expect(openControlDrawer.isOpen, isTrue);
-
-      // Close it via tap on dismiss barrier
-      openControlDrawer.onClose();
-      await tester.pump();
-
-      final closedControlDrawer = tester.widget<PlayerControlDrawer>(find.byType(PlayerControlDrawer));
-      expect(closedControlDrawer.isOpen, isFalse);
 
       // Swipe left from center to open Right Suggestion Drawer
       await tester.drag(find.byType(PageView), const Offset(-400, 0));
@@ -339,6 +322,13 @@ void main() {
 
       final openSuggestionDrawer = tester.widget<PlayerSuggestionDrawer>(find.byType(PlayerSuggestionDrawer));
       expect(openSuggestionDrawer.isOpen, isTrue);
+
+      // Close it via tap on dismiss barrier
+      openSuggestionDrawer.onClose();
+      await tester.pump();
+
+      final closedSuggestionDrawer = tester.widget<PlayerSuggestionDrawer>(find.byType(PlayerSuggestionDrawer));
+      expect(closedSuggestionDrawer.isOpen, isFalse);
     });
   });
 

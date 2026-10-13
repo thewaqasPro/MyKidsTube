@@ -27,6 +27,12 @@ class InfiniteVideoQueue {
   /// Total number of items currently materialized in the queue.
   int get length => _queue.length;
 
+  /// Whether the queue contains no items.
+  bool get isEmpty => _queue.isEmpty;
+
+  /// Whether the queue contains at least one item.
+  bool get isNotEmpty => _queue.isNotEmpty;
+
   /// Retrieves the video item at the specified index.
   VideoItem operator [](int index) => _queue[index];
 

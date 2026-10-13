@@ -10,11 +10,11 @@ import '../models/video_item.dart';
 import '../providers/app_provider.dart';
 import '../services/infinite_video_queue.dart';
 import '../utils/constants.dart';
+import '../widgets/child_avatar.dart';
 import '../widgets/touch_lock_overlay.dart';
 import '../widgets/video_card.dart';
 import '../widgets/kid_embed_player.dart';
 import '../widgets/orientation_mode_switch.dart';
-import '../widgets/player_control_drawer.dart';
 import '../widgets/player_suggestion_drawer.dart';
 import '../widgets/kid_profile_switcher_sheet.dart';
 import 'kid_shorts_feed_screen.dart';
@@ -22,7 +22,7 @@ import 'parent_gate_dialog.dart';
 
 /// Authentic YouTube / YouTube Kids Player Screen
 /// Features 100% full-screen immersive video playback, vertical swipe for infinite next/prev,
-/// and horizontal swipe drawers (Left: Controls, Right: Suggestions).
+/// right-side floating action icon column, and right-side Up Next suggestions drawer.
 class KidPlayerScreen extends StatefulWidget {
   final VideoItem video;
   final List<VideoItem> playlist;
@@ -43,7 +43,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   late PageController _pageController;
   int _currentIndex = 0;
 
-  bool _isLeftDrawerOpen = false;
   bool _isRightDrawerOpen = false;
   double _horizontalDragOffset = 0.0;
 
@@ -295,11 +294,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       if (_currentVideo.isShort) {
         _advanceToNextShort(isAutomatic: true);
       } else {
-        if (_currentVideo.isShort) {
-      _advanceToNextShort();
-    } else {
-      _playNextVideo(isAutomatic: true);
-    }
+        _playNextVideo(isAutomatic: true);
       }
       return;
     }
@@ -572,13 +567,9 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     final duration = _controller?.value.duration ?? Duration.zero;
 
     return PopScope(
-      canPop: !_isLocked && !_isLeftDrawerOpen && !_isRightDrawerOpen,
+      canPop: !_isLocked && !_isRightDrawerOpen,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (_isLeftDrawerOpen) {
-          setState(() => _isLeftDrawerOpen = false);
-          return;
-        }
         if (_isRightDrawerOpen) {
           setState(() => _isRightDrawerOpen = false);
           return;
@@ -601,25 +592,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
             if (_isLocked) return;
             final velocity = details.primaryVelocity ?? 0.0;
             if (velocity > 180 || _horizontalDragOffset > 60) {
-              // Swiped / dragged right -> Open left control drawer or close right drawer
+              // Swiped right -> close right suggestion drawer if open
               if (_isRightDrawerOpen) {
                 setState(() => _isRightDrawerOpen = false);
-              } else {
-                setState(() {
-                  _isLeftDrawerOpen = true;
-                  _isRightDrawerOpen = false;
-                });
               }
             } else if (velocity < -180 || _horizontalDragOffset < -60) {
-              // Swiped / dragged left -> Open right suggestion drawer or close left drawer
-              if (_isLeftDrawerOpen) {
-                setState(() => _isLeftDrawerOpen = false);
-              } else {
-                setState(() {
-                  _isRightDrawerOpen = true;
-                  _isLeftDrawerOpen = false;
-                });
-              }
+              // Swiped left -> Open right suggestion drawer
+              setState(() => _isRightDrawerOpen = true);
             }
             _horizontalDragOffset = 0.0;
           },
@@ -633,7 +612,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 child: PageView.builder(
                   controller: _pageController,
                   scrollDirection: Axis.vertical,
-                  physics: (_isLocked || _isLeftDrawerOpen || _isRightDrawerOpen)
+                  physics: (_isLocked || _isRightDrawerOpen)
                       ? const NeverScrollableScrollPhysics()
                       : const PageScrollPhysics(),
                   itemCount: _queue.length,
@@ -659,7 +638,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 ),
               ),
 
-              // Direct controls & scrubber overlay
+              // Direct controls & scrubber overlay with video title at the BOTTOM
               if (!_useEmbed && _showControls && !_isLocked && !_isTimeUp)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -668,53 +647,54 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   ),
                 ),
 
-              // Peek Handles / Subtle Edge Buttons (when controls are active)
-              if (_showControls && !_isLocked && !_isLeftDrawerOpen && !_isRightDrawerOpen) ...[
-                // Left Control Edge Peek Button
+              // Right-side Floating Action Column (all controls placed on the right as circular icons)
+              if (_showControls && !_isLocked && !_isRightDrawerOpen)
                 Positioned(
-                  left: padding.left + 8,
-                  top: padding.top + 16,
-                  child: _buildEdgePeekButton(
-                    icon: Icons.menu_rounded,
-                    tooltip: 'Controls & Settings',
-                    onTap: () => setState(() => _isLeftDrawerOpen = true),
+                  right: padding.right + 12,
+                  top: padding.top + 14,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildActionIcon(
+                        icon: Icons.arrow_back_rounded,
+                        tooltip: 'Exit',
+                        onTap: () {
+                          if (_isImmersiveLandscape) {
+                            _exitFullscreen();
+                          }
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _buildAvatarActionIcon(provider),
+                      const SizedBox(height: 10),
+                      _buildActionIcon(
+                        icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                        tooltip: _isMuted ? 'Unmute' : 'Mute',
+                        onTap: _toggleMute,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildActionIcon(
+                        icon: Icons.lock_outline_rounded,
+                        tooltip: 'Lock screen',
+                        onTap: () => setState(() {
+                          _isLocked = true;
+                          _showControls = false;
+                          _isRightDrawerOpen = false;
+                        }),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildActionIcon(
+                        icon: Icons.playlist_play_rounded,
+                        tooltip: 'Up Next',
+                        onTap: () => setState(() => _isRightDrawerOpen = true),
+                      ),
+                    ],
                   ),
                 ),
 
-                // Right Playlist Edge Peek Button
-                Positioned(
-                  right: padding.right + 8,
-                  top: padding.top + 16,
-                  child: _buildEdgePeekButton(
-                    icon: Icons.playlist_play_rounded,
-                    tooltip: 'Up Next Queue',
-                    onTap: () => setState(() => _isRightDrawerOpen = true),
-                  ),
-                ),
-              ],
-
               // ==========================================
-              // LAYER 2: LEFT CONTROL DRAWER (OVERLAY)
-              // ==========================================
-              PlayerControlDrawer(
-                isOpen: _isLeftDrawerOpen,
-                onClose: () => setState(() => _isLeftDrawerOpen = false),
-                onBack: () => Navigator.of(context).pop(),
-                video: _currentVideo,
-                isShort: false,
-                isMuted: _isMuted,
-                onToggleMute: _toggleMute,
-                onLock: () => setState(() {
-                  _isLocked = true;
-                  _showControls = false;
-                  _isLeftDrawerOpen = false;
-                }),
-                childAvatarIcon: provider.activeProfile?.avatarIcon,
-                onAvatarTap: () => KidProfileSwitcherSheet.show(context),
-              ),
-
-              // ==========================================
-              // LAYER 3: RIGHT SUGGESTION DRAWER (OVERLAY)
+              // LAYER 2: RIGHT SUGGESTION DRAWER (OVERLAY)
               // ==========================================
               PlayerSuggestionDrawer(
                 isOpen: _isRightDrawerOpen,
@@ -733,7 +713,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               ),
 
               // ==========================================
-              // LAYER 4: TOUCH LOCK OVERLAY
+              // LAYER 3: TOUCH LOCK OVERLAY
               // ==========================================
               TouchLockOverlay(
                 isLocked: _isLocked,
@@ -741,7 +721,6 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                 onLock: () => setState(() {
                   _isLocked = true;
                   _showControls = false;
-                  _isLeftDrawerOpen = false;
                   _isRightDrawerOpen = false;
                 }),
                 onUnlock: () => setState(() {
@@ -751,7 +730,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               ),
 
               // ==========================================
-              // LAYER 5: TIME'S UP OVERLAY (SESSION LIMIT)
+              // LAYER 4: TIME'S UP OVERLAY (SESSION LIMIT)
               // ==========================================
               if (_isTimeUp)
                 Positioned.fill(
@@ -764,7 +743,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     );
   }
 
-  Widget _buildEdgePeekButton({
+  Widget _buildActionIcon({
     required IconData icon,
     required String tooltip,
     required VoidCallback onTap,
@@ -775,19 +754,51 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
         borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(10),
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.65),
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white24, width: 0.8),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 8,
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 6,
               ),
             ],
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
+          child: Icon(icon, color: Colors.white, size: 21),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarActionIcon(AppProvider provider) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => KidProfileSwitcherSheet.show(context),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.65),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Center(
+            child: ChildAvatar(
+              avatarIcon: provider.activeProfile?.avatarIcon ?? 'bear',
+              radius: 13,
+            ),
+          ),
         ),
       ),
     );
@@ -842,17 +853,36 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               ),
             ),
 
-            // Bottom Red Scrubber Bar & Timestamps
+            // Bottom Video Title, Red Scrubber Bar & Timestamps (No quality badges)
             Positioned(
-              left: 12,
-              right: 12,
+              left: 14,
+              right: 14,
               bottom: 8,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Title positioned at the BOTTOM
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 60, bottom: 4),
+                    child: Text(
+                      _cleanTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        shadows: [
+                          Shadow(color: Colors.black87, blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                  ),
                   _buildRedScrubber(position, duration),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -860,15 +890,15 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                           '${_formatDuration(position)} / ${_formatDuration(duration)}',
                           style: const TextStyle(
                             fontFamily: 'Roboto',
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         // Toddler Lock quick button
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 18),
+                          icon: const Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 18),
                           tooltip: 'Lock screen',
                           onPressed: () => setState(() {
                             _isLocked = true;
@@ -1151,7 +1181,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
           const SizedBox(height: 6),
           if (!_useEmbed) ...[
             Text(
-              '${_formatDuration(position)} / ${_formatDuration(duration)} • ${_currentVideo.quality}${_currentVideo.fileSizeBytes > 0 ? " • ${(_currentVideo.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
+              '${_formatDuration(position)} / ${_formatDuration(duration)}${_currentVideo.fileSizeBytes > 0 ? " • ${(_currentVideo.fileSizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB" : ""}',
               style: const TextStyle(
                 fontFamily: 'Roboto',
                 color: KidColors.textMuted,

@@ -25,7 +25,7 @@ class PlayerSuggestionDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final drawerWidth = (mediaQuery.size.width * 0.78).clamp(260.0, 340.0);
+    final drawerWidth = (mediaQuery.size.width * 0.75).clamp(240.0, 320.0);
 
     return IgnorePointer(
       ignoring: !isOpen,
@@ -39,7 +39,7 @@ class PlayerSuggestionDrawer extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               onTap: onClose,
               child: Container(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.black.withValues(alpha: 0.6),
               ),
             ),
 
@@ -52,16 +52,16 @@ class PlayerSuggestionDrawer extends StatelessWidget {
               bottom: 0,
               width: drawerWidth,
               child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xF5111726),
-                  border: const Border(
-                    left: BorderSide(color: KidColors.borderDark, width: 1.2),
+                decoration: const BoxDecoration(
+                  color: KidColors.cardDark,
+                  border: Border(
+                    left: BorderSide(color: KidColors.borderDark, width: 1.0),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 24,
-                      offset: const Offset(-8, 0),
+                      color: Colors.black54,
+                      blurRadius: 20,
+                      offset: Offset(-6, 0),
                     ),
                   ],
                 ),
@@ -119,9 +119,9 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                                 ),
                               )
                             : ListView.separated(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 itemCount: videos.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                separatorBuilder: (_, __) => const SizedBox(height: 12),
                                 itemBuilder: (context, index) {
                                   final item = videos[index];
                                   final isCurrent = index == currentIndex;
@@ -142,6 +142,91 @@ class PlayerSuggestionDrawer extends StatelessWidget {
   }
 
   Widget _buildDrawerVideoCard(VideoItem item, int index, bool isCurrent) {
+    if (item.isShort) {
+      // 1. YouTube Shorts: Vertical 9:16 card with NO title (kids recognize thumbnails)
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            onClose();
+            onSelectVideo(index);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: isCurrent ? KidColors.primary.withValues(alpha: 0.15) : KidColors.surfaceDark,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isCurrent ? KidColors.primary : KidColors.borderDark,
+                width: isCurrent ? 2.0 : 0.8,
+              ),
+            ),
+            child: AspectRatio(
+              aspectRatio: 9 / 16,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(11),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: item.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => Container(color: Colors.black38),
+                    ),
+                    // Small Short Badge at Top-Left
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: KidColors.durationBadgeBg,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.bolt_rounded, color: Colors.white, size: 12),
+                            SizedBox(width: 3),
+                            Text(
+                              'Short',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isCurrent)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: KidColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 2. Standard Videos: 16:9 Thumbnail with title moved to the BOTTOM
     final title = item.title.contains('•') ? item.title.split('•').last.trim() : item.title;
 
     return Material(
@@ -158,19 +243,19 @@ class PlayerSuggestionDrawer extends StatelessWidget {
             color: isCurrent ? KidColors.primary.withValues(alpha: 0.15) : KidColors.surfaceDark,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isCurrent ? KidColors.primary.withValues(alpha: 0.7) : KidColors.borderDark,
-              width: isCurrent ? 1.4 : 0.8,
+              color: isCurrent ? KidColors.primary : KidColors.borderDark,
+              width: isCurrent ? 1.5 : 0.8,
             ),
           ),
-          child: Row(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               // 16:9 Thumbnail
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 90,
-                  height: 54,
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -179,14 +264,14 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                         fit: BoxFit.cover,
                         errorWidget: (_, __, ___) => Container(color: Colors.black38),
                       ),
-                      if (item.durationFormatted.isNotEmpty)
+                      if (item.durationFormatted.isNotEmpty && item.durationFormatted != '00:00')
                         Positioned(
-                          bottom: 3,
-                          right: 3,
+                          bottom: 4,
+                          right: 4,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.75),
+                              color: KidColors.durationBadgeBg,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -204,14 +289,14 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
 
-              // Title and details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              const SizedBox(height: 6),
+
+              // Title positioned at the BOTTOM of the card
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -223,19 +308,12 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                         height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    if (isCurrent)
-                      const Text(
-                        'Now Playing',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          color: KidColors.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                  ),
+                  if (isCurrent) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.play_arrow_rounded, color: KidColors.primary, size: 18),
                   ],
-                ),
+                ],
               ),
             ],
           ),
