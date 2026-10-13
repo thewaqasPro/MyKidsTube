@@ -463,9 +463,17 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
   void _toggleOrientation({required bool toLandscape}) {
     final provider = Provider.of<AppProvider>(context, listen: false);
     if (toLandscape) {
+      _orientationModeBeforeFullscreen ??= provider.orientationMode;
+      _isImmersiveLandscape = true;
       provider.setOrientationMode(AppOrientationMode.landscape);
     } else {
-      provider.setOrientationMode(AppOrientationMode.portrait);
+      _isImmersiveLandscape = false;
+      if (_orientationModeBeforeFullscreen != null) {
+        provider.setOrientationMode(_orientationModeBeforeFullscreen!);
+        _orientationModeBeforeFullscreen = null;
+      } else {
+        provider.setOrientationMode(AppOrientationMode.portrait);
+      }
     }
   }
 
@@ -563,6 +571,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
 
     final mediaQuery = MediaQuery.of(context);
     final padding = mediaQuery.padding;
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
 
     final position = _controller?.value.position ?? Duration.zero;
     final duration = _controller?.value.duration ?? Duration.zero;
@@ -669,7 +678,16 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                       const SizedBox(height: 10),
                       _buildAvatarActionIcon(provider),
                       const SizedBox(height: 10),
-
+                      _buildActionIcon(
+                        icon: isLandscape
+                            ? Icons.stay_current_portrait_rounded
+                            : Icons.stay_current_landscape_rounded,
+                        tooltip: isLandscape ? 'Switch to Portrait' : 'Switch to Landscape',
+                        onTap: () {
+                          _toggleOrientation(toLandscape: !isLandscape);
+                        },
+                      ),
+                      const SizedBox(height: 10),
                       _buildActionIcon(
                         icon: Icons.lock_outline_rounded,
                         tooltip: 'Lock screen',
@@ -892,15 +910,38 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        // Toddler Lock quick button
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 18),
-                          tooltip: 'Lock screen',
-                          onPressed: () => setState(() {
-                            _isLocked = true;
-                            _showControls = false;
-                          }),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Toddler Lock quick button
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.lock_outline_rounded, color: Colors.white70, size: 18),
+                              tooltip: 'Lock screen',
+                              onPressed: () => setState(() {
+                                _isLocked = true;
+                                _showControls = false;
+                              }),
+                            ),
+                            // Orientation toggle button
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                MediaQuery.of(context).orientation == Orientation.landscape
+                                    ? Icons.fullscreen_exit_rounded
+                                    : Icons.fullscreen_rounded,
+                                color: Colors.white70,
+                                size: 20,
+                              ),
+                              tooltip: MediaQuery.of(context).orientation == Orientation.landscape
+                                  ? 'Exit Fullscreen'
+                                  : 'Fullscreen',
+                              onPressed: () {
+                                final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
+                                _toggleOrientation(toLandscape: !isLand);
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
