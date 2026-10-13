@@ -671,6 +671,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                       _buildActionIcon(
                         icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                         tooltip: _isMuted ? 'Unmute' : 'Mute',
+                        iconColor: _isMuted ? KidColors.primary : Colors.white,
                         onTap: _toggleMute,
                       ),
                       const SizedBox(height: 10),
@@ -747,6 +748,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     required IconData icon,
     required String tooltip,
     required VoidCallback onTap,
+    Color iconColor = Colors.white,
   }) {
     return Material(
       color: Colors.transparent,
@@ -767,7 +769,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               ),
             ],
           ),
-          child: Icon(icon, color: Colors.white, size: 21),
+          child: Icon(icon, color: iconColor, size: 21),
         ),
       ),
     );
@@ -1049,6 +1051,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         key: _embedPlayerKey,
                         youtubeId: _currentVideo.effectiveYoutubeId,
                         autoPlay: true,
+                        isMuted: _isMuted,
                         scale: 1.14,
                         onEnded: _handleEmbedEnded,
                         onVideoChanged: _handleEmbedVideoChanged,

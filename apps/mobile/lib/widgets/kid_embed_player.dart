@@ -13,6 +13,7 @@ import '../utils/constants.dart';
 class KidEmbedPlayer extends StatefulWidget {
   final String youtubeId;
   final bool autoPlay;
+  final bool isMuted;
   final double? aspectRatio;
   final double scale;
   final Color shieldColor;
@@ -26,6 +27,7 @@ class KidEmbedPlayer extends StatefulWidget {
     super.key,
     required this.youtubeId,
     this.autoPlay = true,
+    this.isMuted = false,
     this.aspectRatio,
     this.scale = 1.0,
     this.shieldColor = KidColors.canvasDark,
@@ -42,11 +44,13 @@ class KidEmbedPlayer extends StatefulWidget {
   static String buildEmbedHtml({
     required String youtubeId,
     bool autoPlay = true,
+    bool isMuted = false,
     double scale = 1.0,
     double currentPlaybackSeconds = 0.0,
   }) {
     final id = youtubeId;
     final autoPlayFlag = autoPlay ? 1 : 0;
+    final muteFlag = isMuted ? 1 : 0;
     final startParam = currentPlaybackSeconds > 2 ? '&start=${currentPlaybackSeconds.toInt()}' : '';
     return '''
 <!DOCTYPE html>
@@ -75,7 +79,7 @@ class KidEmbedPlayer extends StatefulWidget {
 <body>
   <iframe
     id="player"
-    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag$startParam&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+    src="https://www.youtube-nocookie.com/embed/$id?autoplay=$autoPlayFlag&mute=$muteFlag$startParam&controls=0&playsinline=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&enablejsapi=1&origin=https://www.youtube-nocookie.com"
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
   </iframe>
   <script>
@@ -143,10 +147,35 @@ class KidEmbedPlayer extends StatefulWidget {
       }
     }
 
+    function muteVideo() {
+      try {
+        if (window.player && typeof window.player.mute === 'function') {
+          window.player.mute();
+        }
+        var frame = document.getElementById('player');
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+        }
+      } catch(e) {}
+    }
+
+    function unMuteVideo() {
+      try {
+        if (window.player && typeof window.player.unMute === 'function') {
+          window.player.unMute();
+        }
+        var frame = document.getElementById('player');
+        if (frame && frame.contentWindow) {
+          frame.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+        }
+      } catch(e) {}
+    }
+
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         events: {
           'onReady': function(event) {
+            ${isMuted ? "try { event.target.mute(); } catch(e) {}" : ""}
             ${autoPlay ? "try { event.target.playVideo(); } catch(e) {}" : ""}
           },
           'onStateChange': onPlayerStateChange
@@ -233,12 +262,19 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
     super.dispose();
   }
 
+  void setMuted(bool muted) {
+    final js = muted ? 'muteVideo();' : 'unMuteVideo();';
+    _controller.runJavaScript(js);
+  }
+
   @override
   void didUpdateWidget(KidEmbedPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.youtubeId != widget.youtubeId) {
       _currentPlaybackSeconds = 0.0;
       _loadVideo(widget.youtubeId);
+    } else if (oldWidget.isMuted != widget.isMuted) {
+      setMuted(widget.isMuted);
     }
   }
 
@@ -320,6 +356,9 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
             if (mounted) {
               setState(() => _isLoading = false);
               _onUserInteraction();
+              if (widget.isMuted) {
+                setMuted(true);
+              }
               if (widget.autoPlay) {
                 _sendPlayCommands();
               }
@@ -402,6 +441,7 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
     final html = KidEmbedPlayer.buildEmbedHtml(
       youtubeId: id,
       autoPlay: widget.autoPlay,
+      isMuted: widget.isMuted,
       scale: widget.scale,
       currentPlaybackSeconds: _currentPlaybackSeconds,
     );

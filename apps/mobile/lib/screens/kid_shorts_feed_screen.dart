@@ -478,6 +478,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                       _buildActionIcon(
                         icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
                         tooltip: _isMuted ? 'Unmute' : 'Mute',
+                        iconColor: _isMuted ? KidColors.primary : Colors.white,
                         onTap: _toggleMute,
                       ),
                       const SizedBox(height: 10),
@@ -543,6 +544,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     required IconData icon,
     required String tooltip,
     required VoidCallback onTap,
+    Color iconColor = Colors.white,
   }) {
     return Material(
       color: Colors.transparent,
@@ -563,7 +565,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
               ),
             ],
           ),
-          child: Icon(icon, color: Colors.white, size: 21),
+          child: Icon(icon, color: iconColor, size: 21),
         ),
       ),
     );
@@ -754,6 +756,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                         child: KidEmbedPlayer(
                           youtubeId: video.effectiveYoutubeId,
                           autoPlay: isCurrent,
+                          isMuted: _isMuted,
                           scale: 1.14,
                           topShieldHeight: 68.0,
                           bottomShieldHeight: 74.0,
