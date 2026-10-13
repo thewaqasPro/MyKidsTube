@@ -255,5 +255,13 @@ void main() {
       expect(shortsContent.contains('fullscreen_rounded'), isFalse);
       expect(shortsContent.contains('OrientationModeSwitch'), isFalse);
     });
+
+    testWidgets('Shorts screen has no artificial top padding pushing player down', (tester) async {
+      final shortsContent = File('lib/screens/kid_shorts_feed_screen.dart').readAsStringSync();
+      expect(shortsContent.contains('padding.top + 40'), isFalse,
+          reason: 'No artificial 40px top padding should exist above Shorts player');
+      expect(shortsContent.contains('topShieldHeight: 68.0'), isFalse,
+          reason: 'No oversized top shield creating dark gap');
+    });
   });
 }

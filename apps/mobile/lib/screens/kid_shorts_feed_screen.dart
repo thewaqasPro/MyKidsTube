@@ -736,38 +736,43 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
           Center(
             child: isInitialized
-                ? AspectRatio(
-                    aspectRatio: ctrl.value.aspectRatio,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(ctrl.value.aspectRatio > 1.2 ? 16 : 0),
-                      child: VideoPlayer(ctrl),
-                    ),
-                  )
+                ? (ctrl.value.aspectRatio <= 1.0
+                    ? SizedBox.expand(
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(
+                            width: ctrl.value.size.width > 0 ? ctrl.value.size.width : 9,
+                            height: ctrl.value.size.height > 0 ? ctrl.value.size.height : 16,
+                            child: VideoPlayer(ctrl),
+                          ),
+                        ),
+                      )
+                    : AspectRatio(
+                        aspectRatio: ctrl.value.aspectRatio,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: VideoPlayer(ctrl),
+                        ),
+                      ))
                 : (isEmbed
-                    ? Padding(
-                        padding: EdgeInsets.only(
-                          top: MediaQuery.of(context).padding.top + 40,
-                        ),
-                        child: KidEmbedPlayer(
-                          youtubeId: video.effectiveYoutubeId,
-                          autoPlay: isCurrent,
-                          isMuted: _isMuted,
-                          scale: 1.14,
-                          topShieldHeight: 68.0,
-                          bottomShieldHeight: 74.0,
-                          shieldColor: const Color(0xFF0D1A33),
-                          onEnded: () => _onVideoFinished(index),
-                          onVideoChanged: (newId) {
-                            if (newId != video.effectiveYoutubeId) {
-                              _onVideoFinished(index);
-                            }
-                          },
-                          onUnknownVideoDetected: (newId) {
-                            if (newId != video.effectiveYoutubeId) {
-                              _onVideoFinished(index);
-                            }
-                          },
-                        ),
+                    ? KidEmbedPlayer(
+                        youtubeId: video.effectiveYoutubeId,
+                        autoPlay: isCurrent,
+                        isMuted: _isMuted,
+                        scale: 1.14,
+                        shieldColor: KidColors.canvasDark,
+                        onEnded: () => _onVideoFinished(index),
+                        onVideoChanged: (newId) {
+                          if (newId != video.effectiveYoutubeId) {
+                            _onVideoFinished(index);
+                          }
+                        },
+                        onUnknownVideoDetected: (newId) {
+                          if (newId != video.effectiveYoutubeId) {
+                            _onVideoFinished(index);
+                          }
+                        },
                       )
                     : (_failedIndices.contains(index)
                         ? _buildShortPendingState(video)
