@@ -18,8 +18,7 @@ class DatabaseService {
     await instance._createDB(db, 1);
     try {
       await db.execute('''
-        CREATE TABLE IF NOT EXISTS local_child_profiles (
-          id TEXT PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS local_child_profiles (\n          id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           avatar_icon TEXT DEFAULT 'bear',
           age_bracket TEXT DEFAULT 'all',
@@ -44,6 +43,13 @@ class DatabaseService {
           is_synced INTEGER DEFAULT 0
         );
       ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS deleted_videos (
+          video_id TEXT PRIMARY KEY,
+          deleted_at INTEGER NOT NULL
+        );
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_deleted_videos_id ON deleted_videos (video_id);');
     } catch (_) {}
     return DatabaseService.withDatabase(db);
   }
@@ -228,19 +234,28 @@ class DatabaseService {
         try {
           await db.execute('CREATE INDEX IF NOT EXISTS idx_videos_profile ON videos (profile_id);');
         } catch (_) {}
+
+        // Deleted video tombstones table: ensures deleted videos stay permanently deleted
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS deleted_videos (
+            video_id TEXT PRIMARY KEY,
+            deleted_at INTEGER NOT NULL
+          );
+        ''');
+        try {
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_deleted_videos_id ON deleted_videos (video_id);');
+        } catch (_) {}
       },
     );
   }
 
   Future _createDB(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE categories (
-        id TEXT PRIMARY KEY,
+      CREATE TABLE categories (\n        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         icon TEXT DEFAULT 'category',
         display_order INTEGER DEFAULT 0
-      );
-    ''');
+      );\n    ''');
 
     await db.execute('''
       CREATE TABLE videos (
@@ -283,6 +298,14 @@ class DatabaseService {
       );
     ''');
 
+    await db.execute('''
+      CREATE TABLE deleted_videos (
+        video_id TEXT PRIMARY KEY,
+        deleted_at INTEGER NOT NULL
+      );
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_deleted_videos_id ON deleted_videos (video_id);');
+
     // Default settings (Note: parent PIN is salted & hashed in secure storage, NOT plaintext in settings)
     await db.insert('settings', {'key': 'vps_url', 'value': 'https://mykidstube.kidstube.workers.dev'},
         conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -307,6 +330,58 @@ class DatabaseService {
       final db = await database;
       await db.delete('videos');
       await db.delete('categories');
+    } catch (_) {}
+  }
+
+  // --- Deleted Videos (Tombstone Persistence) ---
+  Future<void> recordDeletedVideos(List<String> videoIds) async {
+    if (videoIds.isEmpty) return;
+    try {
+      final db = await database;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final batch = db.batch();
+      for (final id in videoIds) {
+        batch.insert(
+          'deleted_videos',
+          {'video_id': id, 'deleted_at': now},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    } catch (_) {}
+  }
+
+  Future<Set<String>> getDeletedVideoIds() async {
+    try {
+      final db = await database;
+      final rows = await db.query('deleted_videos', columns: ['video_id']);
+      return rows.map((r) => r['video_id'] as String).toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<bool> isVideoDeleted(String videoId) async {
+    try {
+      final db = await database;
+      final rows = await db.query('deleted_videos', where: 'video_id = ?', whereArgs: [videoId], limit: 1);
+      return rows.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> unmarkDeletedVideo(String videoId) async {
+    try {
+      final db = await database;
+      await db.delete('deleted_videos', where: 'video_id = ?', whereArgs: [videoId]);
+    } catch (_) {}
+  }
+
+  Future<void> clearDeletedVideosHistory() async {
+    try {
+      final db = await database;
+      await db.delete('deleted_videos');
     } catch (_) {}
   }
 
@@ -368,6 +443,8 @@ class DatabaseService {
         await db.execute('ALTER TABLE videos ADD COLUMN profile_id TEXT DEFAULT "kids_all";');
       } catch (_) {}
 
+      final deletedIds = await getDeletedVideoIds();
+
       await db.transaction((txn) async {
         // Query existing downloaded items and profile assignments
         final existingVideos = await txn.query(
@@ -382,6 +459,9 @@ class DatabaseService {
         }
 
         for (final vid in videos) {
+          // Permanently ignore videos that have been deleted by the user
+          if (deletedIds.contains(vid.id)) continue;
+
           final data = vid.toMap();
           var pId = vid.profileId;
           if (pId.isEmpty || pId == 'kids_all') {
@@ -441,7 +521,7 @@ class DatabaseService {
       // Find all videos currently in SQLite
       final allLocalVideos = await db.query(
         'videos',
-        columns: ['id', 'profile_id', 'local_file_path', 'local_thumbnail_path'],
+        columns: ['id', 'profile_id', 'local_file_path', 'local_thumbnail_path', 'status'],
       );
 
       if (allLocalVideos.isEmpty) {
@@ -528,6 +608,9 @@ class DatabaseService {
 
   Future<void> upsertVideo(VideoItem video, {String? profileId}) async {
     try {
+      // If a video is being explicitly added/upserted, unmark it from deleted tombstones
+      await unmarkDeletedVideo(video.id);
+
       final db = await database;
       final existing = await db.query('videos', where: 'id = ?', whereArgs: [video.id]);
 
@@ -571,6 +654,7 @@ class DatabaseService {
   Future<List<VideoItem>> getAllVideos({String? profileId}) async {
     try {
       final db = await database;
+      final deletedIds = await getDeletedVideoIds();
       List<Map<String, dynamic>> maps;
       if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
         maps = await db.query(
@@ -585,7 +669,7 @@ class DatabaseService {
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) {
+          if (v != null && !deletedIds.contains(v.id)) {
             if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
               if (isAssignedToProfile(v.profileId, profileId)) {
                 list.add(v);
@@ -605,6 +689,7 @@ class DatabaseService {
   Future<List<VideoItem>> getDownloadedVideos({String? profileId}) async {
     try {
       final db = await database;
+      final deletedIds = await getDeletedVideoIds();
       final maps = await db.query(
         'videos',
         where: 'download_status = ? AND local_file_path IS NOT NULL',
@@ -614,7 +699,7 @@ class DatabaseService {
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) {
+          if (v != null && !deletedIds.contains(v.id)) {
             if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
               if (isAssignedToProfile(v.profileId, profileId)) {
                 list.add(v);
@@ -634,6 +719,7 @@ class DatabaseService {
   Future<List<VideoItem>> getVideosByCategory(String categoryId, {String? profileId}) async {
     try {
       final db = await database;
+      final deletedIds = await getDeletedVideoIds();
       final maps = await db.query(
         'videos',
         where: 'category_id = ?',
@@ -643,7 +729,7 @@ class DatabaseService {
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) {
+          if (v != null && !deletedIds.contains(v.id)) {
             if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
               if (isAssignedToProfile(v.profileId, profileId)) {
                 list.add(v);
@@ -666,6 +752,7 @@ class DatabaseService {
       final q = query.trim().toLowerCase();
       if (q.isEmpty) return await getAllVideos(profileId: profileId);
 
+      final deletedIds = await getDeletedVideoIds();
       final maps = await db.query(
         'videos',
         where: 'LOWER(title) LIKE ? OR LOWER(channel_name) LIKE ?',
@@ -675,7 +762,7 @@ class DatabaseService {
       for (final m in maps) {
         try {
           final v = VideoItem.fromMap(m);
-          if (v != null) {
+          if (v != null && !deletedIds.contains(v.id)) {
             if (profileId != null && profileId.isNotEmpty && profileId != 'all' && profileId != 'kids_all') {
               if (isAssignedToProfile(v.profileId, profileId)) {
                 list.add(v);
@@ -722,10 +809,7 @@ class DatabaseService {
   }
 
   Future<void> deleteVideo(String videoId) async {
-    try {
-      final db = await database;
-      await db.delete('videos', where: 'id = ?', whereArgs: [videoId]);
-    } catch (_) {}
+    await deleteVideos([videoId]);
   }
 
   // --- Settings ---
@@ -1213,6 +1297,9 @@ class DatabaseService {
   Future<void> deleteVideos(List<String> videoIds) async {
     if (videoIds.isEmpty) return;
     try {
+      // 1. Permanently record tombstone so sync never restores these
+      await recordDeletedVideos(videoIds);
+
       final db = await database;
       for (final id in videoIds) {
         final existing = await db.query('videos', where: 'id = ?', whereArgs: [id]);

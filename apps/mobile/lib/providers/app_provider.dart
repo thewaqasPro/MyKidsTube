@@ -492,6 +492,7 @@ class AppProvider extends ChangeNotifier {
         final categoriesToSync = <CategoryItem>[];
         final videosToSync = <VideoItem>[];
         final seenVideoIds = <String>{};
+        final deletedIds = await _db.getDeletedVideoIds();
 
         for (final sec in sections) {
           final catJson = sec['category'];
@@ -510,7 +511,10 @@ class AppProvider extends ChangeNotifier {
               final video = VideoItem.fromApi(vJson, profileId: activePId);
               if (video != null && !seenVideoIds.contains(video.id)) {
                 seenVideoIds.add(video.id);
-                videosToSync.add(video);
+                // Exclude any video previously deleted by the user
+                if (!deletedIds.contains(video.id)) {
+                  videosToSync.add(video);
+                }
               }
             }
           }
@@ -523,7 +527,10 @@ class AppProvider extends ChangeNotifier {
               final video = VideoItem.fromApi(vJson, profileId: activePId);
               if (video != null && !seenVideoIds.contains(video.id)) {
                 seenVideoIds.add(video.id);
-                videosToSync.add(video);
+                // Exclude any video previously deleted by the user
+                if (!deletedIds.contains(video.id)) {
+                  videosToSync.add(video);
+                }
               }
             }
           }
@@ -533,7 +540,7 @@ class AppProvider extends ChangeNotifier {
             catalogData['catalog_cleared'] == true ||
             catalogData['allow_empty_catalog'] == true;
 
-        if (videosToSync.isEmpty && !isCatalogClearedExplicitly) {
+        if (seenVideoIds.isEmpty && !isCatalogClearedExplicitly) {
           // Ambiguous empty response: sections or videos was empty without an explicit server signal.
           // Keep local library intact. Do NOT prune or wipe!
           _hasRefreshFailedNotice = true;
@@ -541,7 +548,7 @@ class AppProvider extends ChangeNotifier {
           if (autoRetry) _scheduleCatalogRetry();
           // ignore: avoid_print
           print('syncCatalog: Ambiguous empty catalog response detected. Keeping local library intact.');
-        } else if (videosToSync.isEmpty && isCatalogClearedExplicitly) {
+        } else if (seenVideoIds.isEmpty && isCatalogClearedExplicitly) {
           // Explicit server signal that catalog was intentionally cleared
           final localVideos = await _db.getAllVideos(profileId: activePId);
           if (localVideos.isNotEmpty && !allowMassPrune) {
@@ -560,9 +567,10 @@ class AppProvider extends ChangeNotifier {
             _refreshNoticeMessage = null;
           }
         } else {
-          // Valid non-empty catalog: sync and prune appropriately
+          // Valid catalog delivered by server (seenVideoIds.isNotEmpty)
           _retryTimer?.cancel();
-          _allVideos = List.from(videosToSync);
+          _hasRefreshFailedNotice = false;
+          _refreshNoticeMessage = null;
           if (categoriesToSync.isNotEmpty) {
             _categories = List.from(categoriesToSync);
           }
@@ -573,7 +581,8 @@ class AppProvider extends ChangeNotifier {
           // Check removals against local SQLite videos for this profile
           final localVideos = await _db.getAllVideos(profileId: activePId);
           final validIds = videosToSync.map((v) => v.id).toSet();
-          final toDelete = localVideos.where((v) => !validIds.contains(v.id)).toList();
+          // Preserve parent-curated local videos (embed) and only evaluate server removals
+          final toDelete = localVideos.where((v) => !validIds.contains(v.id) && v.status != 'embed').toList();
 
           if (toDelete.isNotEmpty) {
             final pruneRatio = toDelete.length / localVideos.length;
@@ -807,6 +816,7 @@ class AppProvider extends ChangeNotifier {
 
   /// Adds a YouTube or local video directly to the standalone local SQLite library
   Future<void> addStandaloneVideo(VideoItem video) async {
+    await _db.unmarkDeletedVideo(video.id);
     await _db.upsertVideo(video, profileId: _activeProfile?.id);
     await _loadFromLocalDb();
     notifyListeners();
@@ -814,7 +824,7 @@ class AppProvider extends ChangeNotifier {
 
   /// Deletes a video directly from the local library
   Future<void> deleteStandaloneVideo(String videoId) async {
-    await _db.deleteVideo(videoId);
+    await _db.deleteVideos([videoId]);
     await _loadFromLocalDb();
     notifyListeners();
   }
@@ -880,23 +890,23 @@ class AppProvider extends ChangeNotifier {
       return {'success': true, 'synced_count': 0};
     }
 
-    // Prompt F11 — PII Sanitization & Schema Documentation:
-    // Drop profile_name and replace raw device_id with the pairing token.
+    // Prompt F8 & F11: Sanitize watch events before sending over network
+    // Device token resolution:
+    // 1) Read from flutter_secure_storage (device_auth_token)
+    // 2) Fallback to active ephemeral pairing code (_pairingCode)
+    // 3) Fallback to 'unpaired'
     //
-    // Exact outgoing payload schema per event in the 'events' JSON array:
+    // Final outbound JSON payload structure per event:
     // {
-    //   "id": String,               // Local event UUID (e.g. "ev_1728500000000_12345")
-    //   "video_id": String,         // Video ID (e.g. "vid_abc")
-    //   "video_title": String,      // Video title string
-    //   "category_id": String,      // Category identifier
-    //   "device_id": String,        // Pairing token (device auth token or pairing code, NEVER raw hardware/device name)
-    //   "profile_id": String,       // Profile bucket ID (e.g. "kid_1" or "no-profile", NEVER kid personal name)
-    //   "seconds_watched": int,     // Playback duration in seconds
-    //   "video_duration": int,      // Total video duration in seconds
-    //   "completion_rate": double,  // Completion percentage [0.0, 1.0]
-    //   "is_completed": int,        // 1 if completed >= 75%, 0 otherwise
-    //   "is_skipped": int,          // 1 if skipped (< 10s), 0 otherwise
-    //   "watched_at": int           // Timestamp in milliseconds epoch
+    //   "device_id": "<token-or-pairingCode-or-unpaired>",
+    //   "profile_id": "<profile_id>",
+    //   "video_id": "<video_id>",
+    //   "seconds_watched": <int>,
+    //   "video_duration": <int>,
+    //   "completion_rate": <double>,
+    //   "is_completed": <int>,
+    //   "is_skipped": <int>,
+    //   "watched_at": <int>
     // }
     //
     // Note: profile_name is explicitly STRIPPED to safeguard child PII.
@@ -934,7 +944,7 @@ class AppProvider extends ChangeNotifier {
       remoteSuccess = await _api.deleteVideos(_vpsUrl, videoIds);
     } catch (_) {}
 
-    // Always prune locally from SQLite and disk
+    // Always prune locally from SQLite and disk, and persist tombstone
     await _db.deleteVideos(videoIds);
     await _loadFromLocalDb();
 

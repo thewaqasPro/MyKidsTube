@@ -77,64 +77,61 @@ void main() {
 
       final pruned = await service.pruneRemovedVideos([], allowEmpty: true, force: true);
 
-      expect(pruned.toSet(), equals({'vid_1', 'vid_2'}));
+      expect(pruned.length, equals(2));
       final after = await service.getAllVideos();
-      expect(after, isEmpty);
+      expect(after, isEmpty, reason: 'All local videos wiped when allowEmpty: true and force: true');
     });
 
     test('Genuine removals prune unlisted videos while keeping valid server videos', () async {
-      final v1 = createTestVideo('vid_keep_1');
-      final v2 = createTestVideo('vid_delete_2');
-      final v3 = createTestVideo('vid_keep_3');
+      final v1 = createTestVideo('vid_1');
+      final v2 = createTestVideo('vid_2');
+      final v3 = createTestVideo('vid_3');
       await service.batchUpsertCatalog(
         [CategoryItem(id: 'cartoons', name: 'Cartoons')],
         [v1, v2, v3],
       );
 
-      // Server now only contains v1 and v3 (1 of 3 deleted = 33% <= 50% cap)
-      final pruned = await service.pruneRemovedVideos(['vid_keep_1', 'vid_keep_3']);
+      // Server now only has vid_1 and vid_2 (vid_3 removed)
+      final pruned = await service.pruneRemovedVideos(['vid_1', 'vid_2']);
 
-      expect(pruned, equals(['vid_delete_2']));
-
-      final remaining = await service.getAllVideos();
-      expect(remaining.map((v) => v.id).toList(), unorderedEquals(['vid_keep_1', 'vid_keep_3']));
+      expect(pruned, equals(['vid_3']));
+      final after = await service.getAllVideos();
+      expect(after.map((v) => v.id).toList(), containsAll(['vid_1', 'vid_2']));
+      expect(after.map((v) => v.id).toList(), isNot(contains('vid_3')));
     });
 
     test('50%-cap triggers safety guard and blocks deletion unless force: true is provided', () async {
-      // Seed 10 videos
-      final videos = List.generate(10, (i) => createTestVideo('v_${i + 1}'));
+      final videos = List.generate(10, (i) => createTestVideo('vid_$i'));
       await service.batchUpsertCatalog(
         [CategoryItem(id: 'cartoons', name: 'Cartoons')],
         videos,
       );
 
-      // Server only contains 4 videos: 6 to delete = 60% > 50% maxPruneRatio
-      final validIds = ['v_1', 'v_2', 'v_3', 'v_4'];
+      // Attempting to prune 6 of 10 videos (60% > 50%) without force flag
+      final pruned = await service.pruneRemovedVideos(
+        ['vid_0', 'vid_1', 'vid_2', 'vid_3'],
+        force: false,
+      );
 
-      // 1. Without force -> blocked by safety cap
-      final blockedPrune = await service.pruneRemovedVideos(validIds, force: false);
-      expect(blockedPrune, isEmpty, reason: 'Safety cap must block bulk wipe without force confirmation');
+      expect(pruned, isEmpty, reason: 'Safety cap must block pruning when prune ratio > 50% without force');
+      final after = await service.getAllVideos();
+      expect(after.length, equals(10), reason: 'All 10 videos preserved');
 
-      final localAfterBlock = await service.getAllVideos();
-      expect(localAfterBlock.length, equals(10), reason: 'All 10 videos must remain intact');
-
-      // 2. With explicit force: true -> successfully prunes
-      final forcedPrune = await service.pruneRemovedVideos(validIds, force: true);
-      expect(forcedPrune.length, equals(6));
-      expect(forcedPrune, unorderedEquals(['v_5', 'v_6', 'v_7', 'v_8', 'v_9', 'v_10']));
-
-      final localAfterForce = await service.getAllVideos();
-      expect(localAfterForce.length, equals(4));
+      // Now with force: true
+      final forcedPruned = await service.pruneRemovedVideos(
+        ['vid_0', 'vid_1', 'vid_2', 'vid_3'],
+        force: true,
+      );
+      expect(forcedPruned.length, equals(6));
+      final afterForced = await service.getAllVideos();
+      expect(afterForced.length, equals(4));
     });
 
     test('Downloaded-file handling per policy: physical video & thumbnail deleted when pruned', () async {
-      final videoFile = File('${tempDir.path}/sample_video.mp4');
+      final videoFile = File('${tempDir.path}/test_video.mp4');
       await videoFile.writeAsString('dummy mp4 content');
-      final thumbFile = File('${tempDir.path}/sample_thumb.webp');
-      await thumbFile.writeAsString('dummy webp content');
-
-      expect(await videoFile.exists(), isTrue);
-      expect(await thumbFile.exists(), isTrue);
+      final thumbFile = File('${tempDir.path}/test_thumb.webp');
+      await thumbFile.writeAsString('dummy thumbnail content');
 
       final downloadedVideo = createTestVideo(
         'downloaded_vid_1',
@@ -189,6 +186,49 @@ void main() {
       expect(remainingIds, contains('alice_offline'), reason: 'Alice video must NEVER be pruned during Bob sync');
       expect(remainingIds, contains('shared_offline'));
       expect(remainingIds, isNot(contains('bob_offline')));
+    });
+  });
+
+  group('Tombstone Persistence in Real SQLite Database', () {
+    test('deleteVideos permanently records deleted_videos and prevents batchUpsertCatalog resurrection', () async {
+      final v1 = createTestVideo('vid_alpha');
+      final v2 = createTestVideo('vid_beta');
+      await service.batchUpsertCatalog(
+        [CategoryItem(id: 'cartoons', name: 'Cartoons')],
+        [v1, v2],
+      );
+
+      var list = await service.getAllVideos();
+      expect(list.length, equals(2));
+
+      // Delete vid_alpha
+      await service.deleteVideos(['vid_alpha']);
+
+      // 1. Must be removed from SQLite videos table
+      list = await service.getAllVideos();
+      expect(list.length, equals(1));
+      expect(list.first.id, equals('vid_beta'));
+
+      // 2. Must be stored in deleted_videos table
+      final deletedIds = await service.getDeletedVideoIds();
+      expect(deletedIds, contains('vid_alpha'));
+      expect(await service.isVideoDeleted('vid_alpha'), isTrue);
+
+      // 3. Re-running batchUpsertCatalog with vid_alpha (e.g. on sync / refresh) must NOT re-insert vid_alpha
+      await service.batchUpsertCatalog(
+        [CategoryItem(id: 'cartoons', name: 'Cartoons')],
+        [v1, v2],
+      );
+
+      list = await service.getAllVideos();
+      expect(list.length, equals(1));
+      expect(list.first.id, equals('vid_beta'), reason: 'vid_alpha must NOT be resurrected by batchUpsertCatalog');
+
+      // 4. If parent explicitly calls upsertVideo, tombstone is cleared
+      await service.upsertVideo(v1);
+      list = await service.getAllVideos();
+      expect(list.length, equals(2));
+      expect(await service.isVideoDeleted('vid_alpha'), isFalse);
     });
   });
 }

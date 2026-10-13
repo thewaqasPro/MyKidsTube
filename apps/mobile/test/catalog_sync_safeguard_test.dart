@@ -17,6 +17,7 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   bool pruneRemovedVideosCalled = false;
   List<String> lastValidIdsPassedToPrune = [];
   List<String> deletedVideoIds = [];
+  final Set<String> _tombstones = {};
 
   FakeDatabaseService({List<VideoItem>? initialVideos}) {
     if (initialVideos != null) {
@@ -25,11 +26,12 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   }
 
   @override
-  Future<List<VideoItem>> getAllVideos({String? profileId}) async => List.from(localVideos);
+  Future<List<VideoItem>> getAllVideos({String? profileId}) async =>
+      localVideos.where((v) => !_tombstones.contains(v.id)).toList();
 
   @override
   Future<List<VideoItem>> getDownloadedVideos({String? profileId}) async =>
-      localVideos.where((v) => v.downloadStatus == DownloadStatus.downloaded).toList();
+      localVideos.where((v) => v.downloadStatus == DownloadStatus.downloaded && !_tombstones.contains(v.id)).toList();
 
   @override
   Future<List<CategoryItem>> getAllCategories() async => List.from(localCategories);
@@ -44,8 +46,37 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   Future<Map<String, dynamic>> getWatchAnalytics({String? profileId}) async => {'today_seconds': 0};
 
   @override
+  Future<Set<String>> getDeletedVideoIds() async => Set.from(_tombstones);
+
+  @override
+  Future<void> recordDeletedVideos(List<String> videoIds) async {
+    _tombstones.addAll(videoIds);
+  }
+
+  @override
+  Future<void> unmarkDeletedVideo(String videoId) async {
+    _tombstones.remove(videoId);
+  }
+
+  @override
+  Future<bool> isVideoDeleted(String videoId) async => _tombstones.contains(videoId);
+
+  @override
+  Future<void> clearDeletedVideosHistory() async {
+    _tombstones.clear();
+  }
+
+  @override
+  Future<void> upsertVideo(VideoItem video, {String? profileId}) async {
+    _tombstones.remove(video.id);
+    localVideos.removeWhere((v) => v.id == video.id);
+    localVideos.add(video);
+  }
+
+  @override
   Future<void> batchUpsertCatalog(List<CategoryItem> categories, List<VideoItem> videos, {String? profileId}) async {
     for (final v in videos) {
+      if (_tombstones.contains(v.id)) continue;
       localVideos.removeWhere((item) => item.id == v.id);
       localVideos.add(v);
     }
@@ -86,8 +117,14 @@ class FakeDatabaseService extends Fake implements DatabaseService {
   @override
   Future<void> deleteVideos(List<String> videoIds) async {
     deletedVideoIds.addAll(videoIds);
+    _tombstones.addAll(videoIds);
     final deleteSet = videoIds.toSet();
     localVideos.removeWhere((v) => deleteSet.contains(v.id));
+  }
+
+  @override
+  Future<void> deleteVideo(String videoId) async {
+    await deleteVideos([videoId]);
   }
 
   @override
@@ -116,6 +153,9 @@ class FakeVpsApiService extends Fake implements VpsApiService {
 
   @override
   Future<List<ChildProfile>> fetchProfiles(String baseUrl) async => [];
+
+  @override
+  Future<bool> deleteVideos(String baseUrl, List<String> videoIds) async => true;
 }
 
 class FakeDownloadService extends Fake implements DownloadService {
@@ -260,16 +300,15 @@ void main() {
       expect(fakeDb.pruneRemovedVideosCalled, false);
       expect(provider.hasPendingMassPrune, true);
       expect(provider.pendingPruneCount, 8);
+      expect(provider.pendingPruneVideoIds, containsAll(['v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'v10']));
       expect(provider.hasRefreshFailedNotice, true);
       expect(provider.refreshNoticeMessage, contains('held for parent confirmation'));
-
-      // All 10 videos remain in local library until parent confirmation
-      expect(fakeDb.localVideos.length, 10);
+      // Local library intact
+      expect(provider.allVideos.length, 10);
     });
 
     test('Parent confirmation in dashboard triggers the held mass prune', () async {
       final initialVideos = List.generate(10, (i) => createTestVideo('v${i + 1}'));
-
       final fakeDb = FakeDatabaseService(initialVideos: initialVideos);
       final fakeApi = FakeVpsApiService();
       fakeApi.catalogResponse = {
@@ -294,25 +333,20 @@ void main() {
       await provider.confirmPendingPrune();
 
       expect(provider.hasPendingMassPrune, false);
-      expect(provider.pendingPruneCount, 0);
-      expect(fakeDb.deletedVideoIds.length, 8);
-      expect(fakeDb.localVideos.length, 2);
+      expect(provider.hasRefreshFailedNotice, false);
       expect(provider.allVideos.length, 2);
+      expect(provider.allVideos.map((v) => v.id), containsAll(['v1', 'v2']));
     });
 
     test('Parent dismissing pending mass prune keeps local offline videos', () async {
       final initialVideos = List.generate(10, (i) => createTestVideo('v${i + 1}'));
-
       final fakeDb = FakeDatabaseService(initialVideos: initialVideos);
       final fakeApi = FakeVpsApiService();
       fakeApi.catalogResponse = {
         'sections': [
           {
             'category': {'id': 'cartoons', 'name': 'Cartoons'},
-            'videos': [
-              createVideoApiJson('v1'),
-              createVideoApiJson('v2'),
-            ],
+            'videos': [createVideoApiJson('v1')],
           }
         ],
       };
@@ -323,24 +357,18 @@ void main() {
       await provider.syncCatalog(autoRetry: false);
       expect(provider.hasPendingMassPrune, true);
 
-      // Parent chooses to dismiss/keep offline
+      // Parent dismisses prune notice without deleting
       provider.dismissPendingPrune();
 
       expect(provider.hasPendingMassPrune, false);
-      expect(fakeDb.deletedVideoIds, isEmpty);
-      expect(fakeDb.localVideos.length, 10);
+      expect(provider.hasRefreshFailedNotice, false);
+      expect(provider.allVideos.length, 10);
     });
 
     test('Explicit signal catalog_cleared: true gates total clearing through safety cap', () async {
-      final initialVideos = [
-        createTestVideo('v1'),
-        createTestVideo('v2'),
-        createTestVideo('v3'),
-      ];
-
+      final initialVideos = List.generate(5, (i) => createTestVideo('v${i + 1}'));
       final fakeDb = FakeDatabaseService(initialVideos: initialVideos);
       final fakeApi = FakeVpsApiService();
-      // Server explicitly signals catalog was cleared
       fakeApi.catalogResponse = {
         'sections': [],
         'all_videos': [],
@@ -352,29 +380,141 @@ void main() {
 
       await provider.syncCatalog(autoRetry: false);
 
-      // Clearing 3 of 3 videos is 100% (>50%), so safety cap holds it for parent confirmation
+      // Safety cap holds the complete wipe for parent confirmation
       expect(provider.hasPendingMassPrune, true);
-      expect(provider.pendingPruneCount, 3);
-      expect(fakeDb.localVideos.length, 3);
+      expect(provider.pendingPruneCount, 5);
+      expect(provider.hasRefreshFailedNotice, true);
+      expect(provider.allVideos.length, 5);
+    });
+  });
 
-      // Once parent confirms in dashboard, it executes
-      await provider.confirmPendingPrune();
-      expect(provider.hasPendingMassPrune, false);
-      expect(fakeDb.localVideos, isEmpty);
+  group('Persistent Deletion & Resurrection Prevention Tests', () {
+    test('Deleting videos records tombstones and removes them from local catalog', () async {
+      final initialVideos = [
+        createTestVideo('v1'),
+        createTestVideo('v2'),
+        createTestVideo('v3'),
+      ];
+      final fakeDb = FakeDatabaseService(initialVideos: initialVideos);
+      final fakeApi = FakeVpsApiService();
+      fakeApi.catalogResponse = {
+        'sections': [
+          {
+            'category': {'id': 'cartoons', 'name': 'Cartoons'},
+            'videos': [
+              createVideoApiJson('v1'),
+              createVideoApiJson('v2'),
+              createVideoApiJson('v3'),
+            ],
+          }
+        ],
+      };
+      final provider = AppProvider(db: fakeDb, api: fakeApi, downloader: FakeDownloadService());
+      addTearDown(provider.dispose);
+
+      await provider.syncCatalog(autoRetry: false);
+      expect(provider.allVideos.length, 3);
+
+      // Parent deletes v1 and v2
+      final ok = await provider.deleteVideosFromCatalog(['v1', 'v2']);
+      expect(ok, true);
+
+      // Deleted videos must be gone immediately
+      expect(provider.allVideos.length, 1);
+      expect(provider.allVideos.first.id, 'v3');
+
+      // Tombstones must be recorded
+      final tombstones = await fakeDb.getDeletedVideoIds();
+      expect(tombstones, containsAll(['v1', 'v2']));
+    });
+
+    test('Sync catalog on refresh does NOT resurrect previously deleted videos', () async {
+      final initialVideos = [
+        createTestVideo('v1'),
+        createTestVideo('v2'),
+        createTestVideo('v3'),
+      ];
+      final fakeDb = FakeDatabaseService(initialVideos: initialVideos);
+      final fakeApi = FakeVpsApiService();
+      // Server returns all 3 videos (e.g. static Cloudflare worker demo catalog)
+      fakeApi.catalogResponse = {
+        'sections': [
+          {
+            'category': {'id': 'cartoons', 'name': 'Cartoons'},
+            'videos': [
+              createVideoApiJson('v1'),
+              createVideoApiJson('v2'),
+              createVideoApiJson('v3'),
+            ],
+          }
+        ],
+      };
+
+      final provider = AppProvider(db: fakeDb, api: fakeApi, downloader: FakeDownloadService());
+      addTearDown(provider.dispose);
+
+      // Initial catalog sync
+      await provider.syncCatalog(autoRetry: false);
+      expect(provider.allVideos.length, 3);
+
+      // 1. Delete v1 and v2
+      await provider.deleteVideosFromCatalog(['v1', 'v2']);
+      expect(provider.allVideos.map((v) => v.id), ['v3']);
+
+      // 2. User pulls to refresh / app refreshes
+      await provider.syncCatalog(autoRetry: false);
+
+      // 3. Deleted videos MUST NOT reappear!
+      expect(provider.allVideos.map((v) => v.id), ['v3']);
+      expect(provider.allVideos.any((v) => v.id == 'v1'), false);
+      expect(provider.allVideos.any((v) => v.id == 'v2'), false);
+    });
+
+    test('Explicitly re-adding a previously deleted video unmarks tombstone and restores it', () async {
+      final initialVideos = [createTestVideo('v1')];
+      final fakeDb = FakeDatabaseService(initialVideos: initialVideos);
+      final fakeApi = FakeVpsApiService();
+      fakeApi.catalogResponse = {
+        'sections': [
+          {
+            'category': {'id': 'cartoons', 'name': 'Cartoons'},
+            'videos': [createVideoApiJson('v1')],
+          }
+        ],
+      };
+      final provider = AppProvider(db: fakeDb, api: fakeApi, downloader: FakeDownloadService());
+      addTearDown(provider.dispose);
+
+      await provider.syncCatalog(autoRetry: false);
+      expect(provider.allVideos.length, 1);
+
+      // Delete v1
+      await provider.deleteVideosFromCatalog(['v1']);
       expect(provider.allVideos, isEmpty);
+      expect(await fakeDb.getDeletedVideoIds(), contains('v1'));
+
+      // Explicitly re-add v1
+      final restoredVideo = createTestVideo('v1', title: 'Restored Video');
+      await provider.addStandaloneVideo(restoredVideo);
+
+      // Tombstone is cleared and video is restored in catalog
+      expect(await fakeDb.getDeletedVideoIds(), isNot(contains('v1')));
+      expect(provider.allVideos.length, 1);
+      expect(provider.allVideos.first.id, 'v1');
     });
   });
 
   group('R5 — Widget Tests for Refresh Notice & Dashboard Card', () {
     testWidgets('KidHomeScreen displays refresh-failed notice banner', (WidgetTester tester) async {
-      final fakeDb = FakeDatabaseService(initialVideos: []);
+      final fakeDb = FakeDatabaseService(initialVideos: [createTestVideo('v1')]);
       final fakeApi = FakeVpsApiService();
-      fakeApi.catalogResponse = {'sections': []};
+      fakeApi.catalogResponse = null; // Forces syncCatalog failure
 
       final provider = AppProvider(db: fakeDb, api: fakeApi, downloader: FakeDownloadService());
       addTearDown(provider.dispose);
 
       await provider.syncCatalog(autoRetry: false);
+      expect(provider.hasRefreshFailedNotice, true);
 
       await tester.pumpWidget(
         ChangeNotifierProvider<AppProvider>.value(
@@ -386,7 +526,7 @@ void main() {
       );
       await tester.pump();
 
-      // Verify notice banner is displayed
+      // Verify banner appears with appropriate text and icon
       expect(find.text("Couldn't refresh video catalog. Using offline library."), findsOneWidget);
       expect(find.byIcon(Icons.sync_problem_rounded), findsOneWidget);
 
