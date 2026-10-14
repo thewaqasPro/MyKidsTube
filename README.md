@@ -88,6 +88,9 @@ flowchart TD
 - **Persistent Tombstone Deletion:** Deleted videos are recorded in persistent SQLite tombstones and never resurrected during app refresh or background catalog sync.
 
 ### 🛡️ Parental Control & Command Center
+- **In-App YouTube Channel & Keyword Discovery:** Zero-API-key search engine. Search by channel handle (e.g. `@peppapig`, `@CoComelon`, `Ms Rachel`) or keyword. Features 1-tap instant add and multi-select batch import.
+- **Standard Android Material 3 Multi-Tab Dashboard:** Clean, intuitive bottom navigation with 4 dedicated tabs (*Overview*, *Search YouTube*, *Screen Time*, *Settings & Device*). High-legibility dark surfaces (`#121212`, `#1E1E1E`) replacing harsh red dominance.
+- **Clean Distraction-Free Kid Home Feed:** Removed confusing offline download arrows from video cards so children only see clean titles and high-res video thumbnails.
 - **Salted SHA-256 PIN Security:** Master parent PIN protected by cryptographic salting stored in encrypted OS keychain (`FlutterSecureStorage`).
 - **Direct YouTube URL Ingestion:** Paste any YouTube video, short, or playlist link to immediately fetch metadata via oEmbed and add it to the child's feed.
 - **Autoplay & Session Limits:** Set maximum daily viewing or session limits (15, 30, 45, 60 min) with gentle bedtime stop screens.
@@ -112,7 +115,7 @@ MyKidsTube/
 │   │   ├── android/               # Native Android runner, manifest, and Gradle configs
 │   │   ├── ios/                   # Native iOS runner and Xcode workspace
 │   │   ├── lib/                   # Flutter source (models, providers, screens, services, widgets)
-│   │   ├── test/                  # 124 unit, widget & integration tests
+│   │   ├── test/                  # 128 unit, widget & integration tests
 │   │   ├── README.md              # Comprehensive mobile app guide
 │   │   └── pubspec.yaml           # Flutter dependencies and asset registrations
 │   │
@@ -176,7 +179,7 @@ make server
 # Run the Flutter mobile app in debug mode
 make mobile
 
-# Run all unit and widget tests (124 tests)
+# Run all unit and widget tests (128 tests)
 make test
 
 # Build release Android APKs
@@ -196,11 +199,11 @@ flutter pub get
 # Run on connected phone or emulator
 flutter run
 
-# Run full test suite (124 unit & widget tests)
+# Run full test suite (128 unit & widget tests)
 flutter test
 ```
 
-#### Pre-Built Android APK Downloads (v1.2.0)
+#### Pre-Built Android APK Downloads (v1.3.0)
 You can download pre-compiled release APKs directly from the [GitHub Releases](https://github.com/thewaqasPro/MyKidsTube/releases) page:
 - **`app-arm64-v8a-release.apk` (20.3 MB)** — Optimized for modern 64-bit ARM smartphones and tablets. *(Recommended)*
 - **`app-armeabi-v7a-release.apk` (17.8 MB)** — Optimized for older 32-bit ARM Android devices.
