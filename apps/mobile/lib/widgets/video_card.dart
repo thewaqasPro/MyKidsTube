@@ -84,8 +84,6 @@ class VideoCard extends StatelessWidget {
                   ),
                 ),
 
-                // Download Action Button
-                if (onDownloadTap != null) _buildDownloadAction(),
               ],
             ),
           ),
@@ -469,27 +467,5 @@ class VideoCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDownloadAction() {
-    if (downloadProgress != null && downloadProgress! > 0 && downloadProgress! < 1.0) {
-      return const Padding(
-        padding: EdgeInsets.only(left: 6, top: 2),
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: KidColors.primary),
-        ),
-      );
-    }
 
-    if (video.downloadStatus == DownloadStatus.downloaded) {
-      return const SizedBox.shrink();
-    }
-
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      icon: const Icon(Icons.arrow_downward_rounded, color: KidColors.textMuted, size: 20),
-      tooltip: 'Save Offline',
-      onPressed: onDownloadTap,
-    );
-  }
 }

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import '../utils/constants.dart';
 import '../utils/format_utils.dart';
-import '../widgets/kid_stat_card.dart';
 import 'parent_security_screen.dart';
 import 'parent_server_screen.dart';
 import 'parent_storage_screen.dart';
 import 'parent_media_library_screen.dart';
 import 'parent_analytics_screen.dart';
+import 'parent_youtube_search_screen.dart';
 import '../widgets/add_video_sheet.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
@@ -24,6 +23,7 @@ class ParentDashboardScreen extends StatefulWidget {
 }
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
+  int _currentTabIndex = 0;
   bool _isUsingDefaultPin = false;
 
   @override
@@ -49,20 +49,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
-        final totalVideos = provider.allVideos.length;
-        final downloadedCount = provider.downloadedVideos.length;
-        final cachedMb = (provider.cachedBytes / (1024 * 1024)).toStringAsFixed(1);
-        final isOnline = provider.isServerOnline;
-        final todayTimeStr = _formatWatchTime(provider.todayWatchSeconds);
-
         return Scaffold(
-          backgroundColor: KidColors.bgDark,
+          backgroundColor: const Color(0xFF121212),
           appBar: AppBar(
             title: const Text(
               'Parent Command Center',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
             ),
-            backgroundColor: KidColors.bgDark,
+            backgroundColor: const Color(0xFF1A1A1A),
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
@@ -70,21 +64,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               onPressed: () => Navigator.of(context).pop(),
             ),
             actions: [
-              if (provider.activeProfile != null) ...[
+              if (provider.activeProfile != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: KidColors.cardDark,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: KidColors.borderDark),
+                        color: const Color(0xFF262626),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white12),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.face_rounded, size: 16, color: KidColors.accent),
+                          const Icon(Icons.face_rounded, size: 16, color: Colors.lightBlueAccent),
                           const SizedBox(width: 6),
                           Text(
                             provider.activeProfile!.name,
@@ -99,465 +93,660 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                   ),
                 ),
-              ],
             ],
           ),
           body: _isUsingDefaultPin
-              ? Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(28.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(22),
-                          decoration: BoxDecoration(
-                            color: KidColors.red.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: KidColors.red.withValues(alpha: 0.4), width: 1.5),
-                          ),
-                          child: const Icon(Icons.lock_rounded, color: KidColors.red, size: 56),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Parent Dashboard Locked',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'For child safety, the default PIN (1234) must be changed before accessing parental controls and dashboard settings.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
-                        ),
-                        const SizedBox(height: 28),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context)
-                                .push(MaterialPageRoute(
-                                  builder: (_) => const ParentSecurityScreen(isForceChange: true),
-                                ))
-                                .then((_) => _checkDefaultPin());
-                          },
-                          icon: const Icon(Icons.key_rounded, size: 20),
-                          label: const Text(
-                            'Set New PIN to Unlock',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: KidColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-
-                // Executive Quick Stats (Clean 2-card Primary Row)
-                Row(
+              ? _buildLockedScreen()
+              : IndexedStack(
+                  index: _currentTabIndex,
                   children: [
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: 'Catalog Size',
-                        value: '$totalVideos Videos',
-                        subtitle: '${provider.categories.length} Categories',
-                        icon: Icons.video_library_rounded,
-                        color: KidColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: "Today's Watch",
-                        value: todayTimeStr,
-                        subtitle: 'Local tracking',
-                        icon: Icons.timer_rounded,
-                        color: KidColors.accent,
-                      ),
-                    ),
+                    _buildOverviewTab(context, provider),
+                    const ParentYouTubeSearchScreen(),
+                    _buildScreenTimeTab(context, provider),
+                    _buildSettingsTab(context, provider),
                   ],
                 ),
-
-                const SizedBox(height: 16),
-
-                // Primary Action: Add YouTube Video
-                _buildNavTile(
-                  context: context,
-                  title: 'Add YouTube Video',
-                  subtitle: 'Paste YouTube video, short, or playlist to add to kids feed',
-                  icon: Icons.add_circle_outline_rounded,
-                  accentColor: KidColors.primary,
-                  badgeText: 'Instant',
-                  badgeColor: KidColors.primary,
-                  onTap: () => AddVideoSheet.show(context),
-                ),
-                const SizedBox(height: 14),
-
-                const Text(
-                  'Content & Safety',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
+          bottomNavigationBar: _isUsingDefaultPin
+              ? null
+              : NavigationBarTheme(
+                  data: NavigationBarThemeData(
+                    indicatorColor: Colors.redAccent.withValues(alpha: 0.25),
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        );
+                      }
+                      return const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      );
+                    }),
+                    iconTheme: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const IconThemeData(color: Colors.redAccent, size: 24);
+                      }
+                      return const IconThemeData(color: Colors.white54, size: 22);
+                    }),
+                  ),
+                  child: NavigationBar(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    selectedIndex: _currentTabIndex,
+                    onDestinationSelected: (idx) {
+                      setState(() => _currentTabIndex = idx);
+                    },
+                    destinations: const [
+                      NavigationDestination(
+                        icon: Icon(Icons.dashboard_outlined),
+                        selectedIcon: Icon(Icons.dashboard_rounded),
+                        label: 'Overview',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.youtube_searched_for_outlined),
+                        selectedIcon: Icon(Icons.youtube_searched_for_rounded),
+                        label: 'Search YouTube',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.timer_outlined),
+                        selectedIcon: Icon(Icons.timer_rounded),
+                        label: 'Screen Time',
+                      ),
+                      NavigationDestination(
+                        icon: Icon(Icons.settings_outlined),
+                        selectedIcon: Icon(Icons.settings_rounded),
+                        label: 'Settings',
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 1: Media Library
-                _buildNavTile(
-                  context: context,
-                  title: 'Media Library',
-                  subtitle: 'Browse, search, and delete curated videos',
-                  icon: Icons.movie_creation_outlined,
-                  accentColor: KidColors.primary,
-                  badgeText: '$totalVideos items',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentMediaLibraryScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 2: Local Watch Time & Analytics
-                _buildNavTile(
-                  context: context,
-                  title: 'Watch Time & Analytics',
-                  subtitle: 'Screen time stats, top videos, and watch history',
-                  icon: Icons.insights_rounded,
-                  accentColor: KidColors.accent,
-                  badgeText: 'Local-First',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentAnalyticsScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 3: PIN & Security Settings
-                _buildNavTile(
-                  context: context,
-                  title: 'PIN & Security Settings',
-                  subtitle: 'Configure parent PIN, protect gate challenge, and locks',
-                  icon: Icons.lock_outline_rounded,
-                  accentColor: _isUsingDefaultPin ? KidColors.yellow : KidColors.primary,
-                  badgeText: _isUsingDefaultPin ? 'Default 1234' : 'Protected',
-                  badgeColor: _isUsingDefaultPin ? KidColors.yellow : KidColors.green,
-                  onTap: () {
-                    Navigator.of(context)
-                        .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
-                        .then((_) => _checkDefaultPin());
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 4: Curated Starter Pack
-                _buildNavTile(
-                  context: context,
-                  title: 'Curated Starter Pack',
-                  subtitle: 'Load or restore 60 initial kid-safe videos (30 videos & 30 shorts)',
-                  icon: Icons.auto_awesome_rounded,
-                  accentColor: KidColors.coral,
-                  badgeText: '60 Videos',
-                  badgeColor: KidColors.coral,
-                  onTap: () => _showStarterPackDialog(context, provider),
-                ),
-
-                const SizedBox(height: 20),
-
-                const Text(
-                  'Autoplay & Viewing Limits',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                _buildAutoplaySettingsCard(context, provider),
-                const SizedBox(height: 20),
-
-                const Text(
-                  'Advanced Options (Optional)',
-                  style: TextStyle(
-                    color: KidColors.textMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 4: VPS Server Connection (Moved to Advanced)
-                _buildNavTile(
-                  context: context,
-                  title: 'VPS Server Connection',
-                  subtitle: 'Optional: connect a private self-hosted Nginx or Cloudflare backend',
-                  icon: Icons.dns_outlined,
-                  accentColor: isOnline ? KidColors.green : KidColors.textMuted,
-                  badgeText: isOnline ? 'Online' : 'Optional',
-                  badgeColor: isOnline ? KidColors.green : KidColors.cardElevated,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentServerScreen()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Navigation Tile 5: Device Storage & Media (Moved to Advanced)
-                _buildNavTile(
-                  context: context,
-                  title: 'Device Storage & Media',
-                  subtitle: 'Manage downloaded offline cache ($downloadedCount files) and free up disk space',
-                  icon: Icons.folder_special_outlined,
-                  accentColor: KidColors.green,
-                  badgeText: '$cachedMb MB',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ParentStorageScreen()),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // Safety Cap Pending Mass Prune Confirmation Alert
-                if (provider.hasPendingMassPrune) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF332014),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.orange.shade700, width: 1.2),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
-                            SizedBox(width: 8),
-                            Text(
-                              'Mass Removal Blocked (Safety Cap)',
-                              style: TextStyle(
-                                fontFamily: 'Roboto',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'The server requested deleting ${provider.pendingPruneCount} video(s) (>50% of the local library). This was held to protect offline downloads.',
-                          style: TextStyle(
-                            fontFamily: 'Roboto',
-                            color: Colors.orange.shade100,
-                            fontSize: 12.5,
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red.shade800,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () async {
-                                  await provider.confirmPendingPrune();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Removed pending videos from local library')),
-                                    );
-                                  }
-                                },
-                                child: const Text('Confirm Deletion', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: Colors.orange.shade300),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () => provider.dismissPendingPrune(),
-                                child: const Text('Keep Offline', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Return to Kids Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: KidColors.surfaceDark,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.child_care_rounded, size: 20, color: KidColors.yellow),
-                    label: const Text('Return to Kids', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
         );
       },
     );
   }
 
-  Widget _buildSummaryCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-  }) {
-    return KidStatCard(
-      title: title,
-      value: value,
-      subtitle: subtitle,
-      icon: icon,
-      color: color,
-    );
-  }
+  // -------------------------------------------------------------
+  // TAB 0: Clean Android Standard Overview & Controls
+  // -------------------------------------------------------------
+  Widget _buildOverviewTab(BuildContext context, AppProvider provider) {
+    final totalVideos = provider.allVideos.length;
+    final downloadedCount = provider.downloadedVideos.length;
+    final cachedMb = (provider.cachedBytes / (1024 * 1024)).toStringAsFixed(1);
+    final isOnline = provider.isServerOnline;
+    final todayTimeStr = _formatWatchTime(provider.todayWatchSeconds);
 
-  Widget _buildNavTile({
-    required BuildContext context,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color accentColor,
-    required String badgeText,
-    Color? badgeColor,
-    required VoidCallback onTap,
-  }) {
-    final effectiveBadgeColor = badgeColor ?? accentColor;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Safety Cap Mass Removal Alert (if pending prune)
+          if (provider.hasPendingMassPrune) ...[
+            _buildMassPruneCard(context, provider),
+            const SizedBox(height: 14),
+          ],
 
-    return Container(
-      decoration: BoxDecoration(
-        color: KidColors.cardDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KidColors.borderDark, width: 0.8),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                // Icon avatar
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Icon(icon, color: accentColor, size: 20),
-                  ),
+          // Executive Summary Stats (Clean Android Cards)
+          Row(
+            children: [
+              Expanded(
+                child: _buildMetricTile(
+                  label: '${provider.categories.length} Categories',
+                  value: '$totalVideos Videos',
+                  title: 'Catalog Size',
+                  icon: Icons.video_library_rounded,
+                  color: Colors.redAccent,
                 ),
-                const SizedBox(width: 12),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildMetricTile(
+                  label: 'Local tracking',
+                  value: todayTimeStr,
+                  title: "Today's Watch",
+                  icon: Icons.timer_rounded,
+                  color: Colors.lightBlueAccent,
+                ),
+              ),
+            ],
+          ),
 
-                // Title & Subtitle
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+          const SizedBox(height: 16),
+
+          // HERO ACTION: Search YouTube & Channel Videos (Switches to Tab 1)
+          Card(
+            color: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                setState(() => _currentTabIndex = 1);
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.youtube_searched_for_rounded, color: Colors.redAccent, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            child: Text(
-                              title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
+                          Row(
+                            children: [
+                              Text(
+                                'Search YouTube & Channels',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                              SizedBox(width: 8),
+                              Badge(
+                                label: Text('New', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: effectiveBadgeColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(color: effectiveBadgeColor.withValues(alpha: 0.4), width: 0.8),
-                            ),
-                            child: Text(
-                              badgeText,
-                              style: TextStyle(
-                                color: effectiveBadgeColor,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Search by channel name (e.g. @peppapig) or topic. 1-tap add videos to child catalog.',
+                            style: TextStyle(color: Colors.white60, fontSize: 12.5, height: 1.3),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(color: KidColors.textMuted, fontSize: 11.5),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.white38),
+                  ],
                 ),
-                const SizedBox(width: 8),
+              ),
+            ),
+          ),
 
-                // Trailing Chevron
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: KidColors.textMuted,
-                  size: 13,
+          const SizedBox(height: 12),
+
+          // Primary Direct Action: Add YouTube Video (Paste URL)
+          _buildSettingsCard(
+            title: 'Add YouTube Video',
+            subtitle: 'Paste YouTube video, short, or playlist to add to kids feed',
+            icon: Icons.add_circle_outline_rounded,
+            iconColor: Colors.redAccent,
+            badge: 'Instant',
+            onTap: () => AddVideoSheet.show(context),
+          ),
+
+          const SizedBox(height: 18),
+
+          const Text(
+            'Content & Safety',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Media Library
+          _buildSettingsCard(
+            title: 'Media Library',
+            subtitle: 'Browse, search, and delete curated videos',
+            icon: Icons.movie_creation_outlined,
+            iconColor: Colors.redAccent,
+            badge: '$totalVideos items',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentMediaLibraryScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // Watch Time & Analytics
+          _buildSettingsCard(
+            title: 'Watch Time & Analytics',
+            subtitle: 'Screen time stats, top videos, and watch history',
+            icon: Icons.insights_rounded,
+            iconColor: Colors.lightBlueAccent,
+            badge: 'Local-First',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentAnalyticsScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // PIN & Security Settings
+          _buildSettingsCard(
+            title: 'PIN & Security Settings',
+            subtitle: 'Configure parent PIN, protect gate challenge, and locks',
+            icon: Icons.lock_outline_rounded,
+            iconColor: _isUsingDefaultPin ? Colors.amberAccent : Colors.greenAccent,
+            badge: _isUsingDefaultPin ? 'Default 1234' : 'Protected',
+            onTap: () {
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
+                  .then((_) => _checkDefaultPin());
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // Curated Starter Pack
+          _buildSettingsCard(
+            title: 'Curated Starter Pack',
+            subtitle: 'Load or restore 60 initial kid-safe videos (30 videos & 30 shorts)',
+            icon: Icons.auto_awesome_rounded,
+            iconColor: Colors.amberAccent,
+            badge: '60 Videos',
+            onTap: () => _showStarterPackDialog(context, provider),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Autoplay & Viewing Limits Header
+          const Text(
+            'Autoplay & Viewing Limits',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Autoplay settings card with exact test labels
+          _buildAutoplaySettingsCard(context, provider),
+
+          const SizedBox(height: 20),
+
+          const Text(
+            'Advanced Options (Optional)',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // VPS Server Connection
+          _buildSettingsCard(
+            title: 'VPS Server Connection',
+            subtitle: 'Optional: connect a private self-hosted Nginx or Cloudflare backend',
+            icon: Icons.dns_outlined,
+            iconColor: isOnline ? Colors.greenAccent : Colors.white38,
+            badge: isOnline ? 'Online' : 'Optional',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentServerScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          // Device Storage & Media
+          _buildSettingsCard(
+            title: 'Device Storage & Media',
+            subtitle: 'Manage downloaded offline cache ($downloadedCount files) and free up disk space',
+            icon: Icons.folder_special_outlined,
+            iconColor: Colors.tealAccent,
+            badge: '$cachedMb MB',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentStorageScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          // Return to Kids Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF222222),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.white10),
+                ),
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.child_care_rounded, size: 20, color: Colors.amberAccent),
+              label: const Text('Return to Kids', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // TAB 2: Screen Time & Limits
+  // -------------------------------------------------------------
+  Widget _buildScreenTimeTab(BuildContext context, AppProvider provider) {
+    final todayWatchStr = _formatWatchTime(provider.todayWatchSeconds);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Hero Today's Watch Time Card
+          Card(
+            color: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Colors.white10),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.access_time_filled_rounded, color: Colors.blueAccent, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Today's Screen Time",
+                          style: TextStyle(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          todayWatchStr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.lightBlueAccent,
+                      side: const BorderSide(color: Colors.lightBlueAccent),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ParentAnalyticsScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.insights_rounded, size: 16),
+                    label: const Text('Analytics', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          _buildAutoplaySettingsCard(context, provider),
+
+          const SizedBox(height: 16),
+
+          _buildSettingsCard(
+            title: 'Detailed Watch Analytics',
+            subtitle: 'Inspect daily charts, most-watched videos, and session history',
+            icon: Icons.bar_chart_rounded,
+            iconColor: Colors.purpleAccent,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentAnalyticsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // TAB 3: Settings & Device
+  // -------------------------------------------------------------
+  Widget _buildSettingsTab(BuildContext context, AppProvider provider) {
+    final cachedMb = (provider.cachedBytes / (1024 * 1024)).toStringAsFixed(1);
+    final isOnline = provider.isServerOnline;
+    final downloadedCount = provider.downloadedVideos.length;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Security PIN Settings
+          _buildSettingsCard(
+            title: 'PIN & Security Settings',
+            subtitle: 'Change 4-digit PIN, protect gate challenge, and locks',
+            icon: Icons.lock_outline_rounded,
+            iconColor: _isUsingDefaultPin ? Colors.amberAccent : Colors.greenAccent,
+            badge: _isUsingDefaultPin ? 'Default 1234' : 'Protected',
+            onTap: () {
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => const ParentSecurityScreen()))
+                  .then((_) => _checkDefaultPin());
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // Device Storage & Media
+          _buildSettingsCard(
+            title: 'Device Storage & Media',
+            subtitle: 'Manage downloaded offline cache ($downloadedCount files) and free up disk space',
+            icon: Icons.folder_special_outlined,
+            iconColor: Colors.tealAccent,
+            badge: '$cachedMb MB',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentStorageScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // VPS Server Connection
+          _buildSettingsCard(
+            title: 'VPS Server Connection',
+            subtitle: 'Optional: connect a private self-hosted Nginx backend',
+            icon: Icons.dns_outlined,
+            iconColor: isOnline ? Colors.greenAccent : Colors.white38,
+            badge: isOnline ? 'Online' : 'Optional',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ParentServerScreen()),
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // About MyKidsTube Footer
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.child_care_rounded, color: Colors.white54, size: 28),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'MyKidsTube v1.3.0',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Distraction-free, zero-ad open-source player\nLicensed under the MIT License',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.3),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // REUSABLE CARDS & TILES
+  // -------------------------------------------------------------
+  Widget _buildMetricTile({
+    required String title,
+    required String value,
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    String? badge,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      color: const Color(0xFF1E1E1E),
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Colors.white10),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              if (badge != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C2C2C),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    badge,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
+              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white38),
+            ],
           ),
         ),
       ),
@@ -565,84 +754,53 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildAutoplaySettingsCard(BuildContext context, AppProvider provider) {
-    return Material(
-      color: KidColors.cardDark,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: KidColors.borderDark),
-        ),
+    return Card(
+      color: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Colors.white10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
         child: Column(
           children: [
-          SwitchListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            secondary: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: KidColors.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: Colors.redAccent,
+              title: const Text(
+                'Autoplay Next Video',
+                style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              child: const Icon(Icons.playlist_play_rounded, color: KidColors.primary, size: 22),
-            ),
-            title: const Text(
-              'Autoplay Next Video',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              subtitle: const Text(
+                'Automatically play the next video when playback ends',
+                style: TextStyle(color: Colors.white54, fontSize: 12),
               ),
+              value: provider.autoplayEnabled,
+              onChanged: (val) => provider.setAutoplayEnabled(val),
             ),
-            subtitle: const Text(
-              'Automatically play the next video when playback ends',
-              style: TextStyle(color: KidColors.textMuted, fontSize: 11.5),
-            ),
-            value: provider.autoplayEnabled,
-            activeThumbColor: KidColors.primary,
-            onChanged: (val) async {
-              await provider.setAutoplayEnabled(val);
-            },
-          ),
-          const Divider(color: KidColors.borderDark, height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
+            const Divider(color: Colors.white10, height: 16),
+            Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: KidColors.accent.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.timer_outlined, color: KidColors.accent, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Session Watch Limit',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
+                      SizedBox(height: 2),
+                      Text(
                         'Stop playback when session limit is reached',
-                        style: TextStyle(color: KidColors.textMuted, fontSize: 11.5),
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
                 DropdownButton<int>(
                   value: provider.autoplaySessionLimitMinutes,
-                  dropdownColor: KidColors.cardDark,
-                  borderRadius: BorderRadius.circular(12),
+                  dropdownColor: const Color(0xFF262626),
+                  borderRadius: BorderRadius.circular(10),
                   underline: const SizedBox.shrink(),
                   icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white70),
                   style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
@@ -663,12 +821,130 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMassPruneCard(BuildContext context, AppProvider provider) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF332014),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.shade700, width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent, size: 22),
+              SizedBox(width: 8),
+              Text(
+                'Mass Removal Blocked (Safety Cap)',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'The server requested deleting ${provider.pendingPruneCount} video(s). This was held to protect offline downloads.',
+            style: TextStyle(color: Colors.orange.shade100, fontSize: 12.5),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade800,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () async {
+                    await provider.confirmPendingPrune();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Removed pending videos from local library')),
+                      );
+                    }
+                  },
+                  child: const Text('Confirm Deletion', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.orange.shade300),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => provider.dismissPendingPrune(),
+                  child: const Text('Keep Offline', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
+
+  Widget _buildLockedScreen() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4), width: 1.5),
+              ),
+              child: const Icon(Icons.lock_rounded, color: Colors.redAccent, size: 56),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Parent Dashboard Locked',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'For child safety, the default PIN (1234) must be changed before accessing parental controls and dashboard settings.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 28),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context)
+                    .push(MaterialPageRoute(
+                      builder: (_) => const ParentSecurityScreen(isForceChange: true),
+                    ))
+                    .then((_) => _checkDefaultPin());
+              },
+              icon: const Icon(Icons.key_rounded, size: 20),
+              label: const Text('Set New PIN to Unlock', style: TextStyle(fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showStarterPackDialog(BuildContext context, AppProvider provider) {
     bool restoreDeleted = false;
@@ -678,23 +954,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: KidColors.cardDark,
+              backgroundColor: const Color(0xFF1E1E1E),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: KidColors.borderDark),
+                side: const BorderSide(color: Colors.white12),
               ),
               title: const Row(
                 children: [
-                  Icon(Icons.auto_awesome_rounded, color: KidColors.coral, size: 24),
+                  Icon(Icons.auto_awesome_rounded, color: Colors.amberAccent, size: 24),
                   SizedBox(width: 10),
                   Text(
                     'Curated Starter Pack',
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                      color: Colors.white,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Colors.white),
                   ),
                 ],
               ),
@@ -705,27 +976,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   children: [
                     const Text(
                       'Load 60 curated kid-safe videos & shorts into your library:',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        color: Colors.white70,
-                        fontSize: 13.5,
-                        height: 1.4,
-                      ),
+                      style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
                     ),
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: KidColors.bgDark,
+                        color: const Color(0xFF141414),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: KidColors.borderDark),
+                        border: Border.all(color: Colors.white10),
                       ),
                       child: const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.check_circle_rounded, size: 16, color: KidColors.mint),
+                              Icon(Icons.check_circle_rounded, size: 16, color: Colors.greenAccent),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text('30 Long-Form Videos (Cartoons, Songs, Learning)', style: TextStyle(color: Colors.white, fontSize: 12.5)),
@@ -735,7 +1001,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(Icons.check_circle_rounded, size: 16, color: KidColors.mint),
+                              Icon(Icons.check_circle_rounded, size: 16, color: Colors.greenAccent),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text('30 Authentic 9:16 Vertical Shorts & Reels', style: TextStyle(color: Colors.white, fontSize: 12.5)),
@@ -745,7 +1011,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(Icons.check_circle_rounded, size: 16, color: KidColors.mint),
+                              Icon(Icons.check_circle_rounded, size: 16, color: Colors.greenAccent),
                               SizedBox(width: 8),
                               Expanded(
                                 child: Text('Preserves existing custom videos', style: TextStyle(color: Colors.white, fontSize: 12.5)),
@@ -758,14 +1024,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     const SizedBox(height: 12),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
-                      activeColor: KidColors.primary,
+                      activeColor: Colors.redAccent,
                       title: const Text(
                         'Restore previously deleted starter videos',
-                        style: TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 13),
+                        style: TextStyle(color: Colors.white, fontSize: 13),
                       ),
                       subtitle: const Text(
                         'Unmarks videos you may have removed earlier',
-                        style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 11.5),
+                        style: TextStyle(color: Colors.white54, fontSize: 11.5),
                       ),
                       value: restoreDeleted,
                       onChanged: (val) {
@@ -784,7 +1050,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: KidColors.primary,
+                    backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -795,7 +1061,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Successfully loaded $count starter videos!'),
-                          backgroundColor: KidColors.mint,
+                          backgroundColor: Colors.green,
                           behavior: SnackBarBehavior.floating,
                         ),
                       );

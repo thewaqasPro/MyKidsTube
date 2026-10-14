@@ -822,6 +822,16 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Bulk adds multiple YouTube videos directly to local library in a single transaction
+  Future<void> addStandaloneVideos(List<VideoItem> videos) async {
+    for (final video in videos) {
+      await _db.unmarkDeletedVideo(video.id);
+      await _db.upsertVideo(video, profileId: _activeProfile?.id);
+    }
+    await _loadFromLocalDb();
+    notifyListeners();
+  }
+
   /// Deletes a video directly from the local library
   Future<void> deleteStandaloneVideo(String videoId) async {
     await _db.deleteVideos([videoId]);

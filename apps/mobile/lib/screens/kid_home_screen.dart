@@ -428,18 +428,6 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 video: video,
                 downloadProgress: provider.downloadProgress[video.id],
                 onTap: () => _openPlayer(context, video, videos),
-                onDownloadTap: () async {
-                  final err = await provider.startDownload(video);
-                  if (err != null && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(err),
-                        backgroundColor: KidColors.red,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                },
               );
             },
           );
@@ -464,18 +452,6 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                 video: video,
                 downloadProgress: provider.downloadProgress[video.id],
                 onTap: () => _openPlayer(context, video, videos),
-                onDownloadTap: () async {
-                  final err = await provider.startDownload(video);
-                  if (err != null && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(err),
-                        backgroundColor: KidColors.red,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                },
               ),
             );
           },
