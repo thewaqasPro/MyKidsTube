@@ -27,6 +27,24 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndPromptStarterPack();
+    });
+  }
+
+  Future<void> _checkAndPromptStarterPack() async {
+    if (!mounted) return;
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    if (provider.allVideos.isEmpty && !await provider.isStarterPackPrompted()) {
+      if (mounted) {
+        _showStarterPackPromptDialog(context, provider);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -745,6 +763,34 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
                   },
                 ),
 
+                // 3b. Load Starter Pack
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.auto_awesome_rounded, color: KidColors.coral, size: 24),
+                  title: const Text(
+                    'Load Starter Pack (60 Videos)',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textLight, fontSize: 14.5, fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: const Text(
+                    '30 long videos & 30 shorts for toddlers & kids',
+                    style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 12),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: KidColors.textMuted),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final count = await provider.loadStarterCatalog();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Loaded $count starter videos!'),
+                          backgroundColor: KidColors.mint,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                ),
+
                 // 4. Refresh Catalog
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -803,6 +849,80 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context, AppProvider provider) {
+    if (_selectedFilter == 'all' && _searchQuery.isEmpty && provider.allVideos.isEmpty) {
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(28.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.play_circle_outline_rounded, size: 64, color: KidColors.borderDark),
+              const SizedBox(height: 16),
+              const Text(
+                'No Videos Found',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Get started immediately with 60 hand-picked kid-safe videos & shorts, or paste any YouTube link.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: KidColors.textMuted,
+                  fontSize: 13.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final count = await provider.loadStarterCatalog();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Loaded $count starter videos!'),
+                        backgroundColor: KidColors.mint,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                label: const Text('Load Starter Pack (60 Videos)', style: TextStyle(fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: KidColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final allowed = await ParentGateDialog.showChallenge(context);
+                  if (allowed && context.mounted) {
+                    AddVideoSheet.show(context);
+                  }
+                },
+                icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white70),
+                label: const Text('Add YouTube Video', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: KidColors.borderDark),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -826,6 +946,123 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showStarterPackPromptDialog(BuildContext context, AppProvider provider) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: KidColors.cardDark,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: KidColors.borderDark),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: KidColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.auto_awesome_rounded, color: KidColors.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Welcome to MyKidsTube! 🎉',
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Would you like to load a starter pack of 60 fun, safe videos & shorts for kids? (You can add your own anytime or remove videos whenever you want).',
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: Colors.white70,
+                  fontSize: 13.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: KidColors.bgDark,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: KidColors.borderDark),
+                ),
+                child: const Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.video_library_rounded, size: 16, color: KidColors.primary),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text('30 Long-Form Videos (Cartoons, Rhymes, Learning)', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.bolt_rounded, size: 16, color: KidColors.coral),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text('30 Vertical Shorts & Reels', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                await provider.markStarterPackPrompted();
+              },
+              child: const Text('Start Empty', style: TextStyle(color: Colors.white60)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: KidColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                final count = await provider.loadStarterCatalog();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Loaded $count starter videos!'),
+                      backgroundColor: KidColors.mint,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Load 60 Videos', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        );
+      },
     );
   }
 }

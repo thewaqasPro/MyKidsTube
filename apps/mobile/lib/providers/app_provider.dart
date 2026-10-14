@@ -829,6 +829,98 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Checks whether the starter catalog dialog has been prompted to the user.
+  Future<bool> isStarterPackPrompted() async {
+    try {
+      final val = await _db.getSetting('starter_pack_prompted');
+      return val == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Marks the starter pack prompt as shown.
+  Future<void> markStarterPackPrompted() async {
+    try {
+      await _db.setSetting('starter_pack_prompted', 'true');
+    } catch (_) {}
+  }
+
+  /// Checks whether the starter catalog has been loaded.
+  Future<bool> isStarterPackLoaded() async {
+    try {
+      final val = await _db.getSetting('starter_pack_loaded');
+      return val == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Loads the curated offline starter pack (30 long videos + 30 shorts) into the local catalog.
+  /// If [resetTombstones] is true, also restores previously deleted starter videos.
+  Future<int> loadStarterCatalog({
+    bool resetTombstones = false,
+    String? rawJsonOverride,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      String jsonStr;
+      if (rawJsonOverride != null && rawJsonOverride.isNotEmpty) {
+        jsonStr = rawJsonOverride;
+      } else {
+        jsonStr = await rootBundle.loadString('assets/starter_catalog.json');
+      }
+
+      final data = json.decode(jsonStr) as Map<String, dynamic>;
+      final rawCategories = data['categories'] as List? ?? [];
+      final categoriesToSync = <CategoryItem>[];
+      for (final c in rawCategories) {
+        if (c is Map<String, dynamic>) {
+          categoriesToSync.add(CategoryItem(
+            id: c['id'].toString(),
+            name: (c['name'] ?? 'Category').toString(),
+            icon: (c['icon'] ?? 'category').toString(),
+            displayOrder: (c['display_order'] as num?)?.toInt() ?? 0,
+          ));
+        }
+      }
+
+      final rawVideos = data['videos'] as List? ?? [];
+      final videosToSync = <VideoItem>[];
+      final activePId = _activeProfile?.id;
+      for (final v in rawVideos) {
+        if (v is Map<String, dynamic>) {
+          final video = VideoItem.fromApi(v, profileId: activePId);
+          if (video != null) {
+            videosToSync.add(video);
+          }
+        }
+      }
+
+      if (resetTombstones && videosToSync.isNotEmpty) {
+        final videoIds = videosToSync.map((v) => v.id).toList();
+        await _db.unmarkDeletedVideos(videoIds);
+      }
+
+      await _db.batchUpsertCatalog(categoriesToSync, videosToSync, profileId: activePId);
+      await _db.setSetting('starter_pack_loaded', 'true');
+      await _db.setSetting('starter_pack_prompted', 'true');
+
+      await _loadFromLocalDb();
+      _isLoading = false;
+      notifyListeners();
+      return videosToSync.length;
+    } catch (e) {
+      // ignore: avoid_print
+      print('loadStarterCatalog error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return 0;
+    }
+  }
+
   Future<void> setVpsUrl(String newUrl) async {
     _vpsUrl = newUrl;
     await _db.setSetting('vps_url', newUrl);

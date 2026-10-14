@@ -378,6 +378,15 @@ class DatabaseService {
     } catch (_) {}
   }
 
+  Future<void> unmarkDeletedVideos(List<String> videoIds) async {
+    if (videoIds.isEmpty) return;
+    try {
+      final db = await database;
+      final placeholders = List.filled(videoIds.length, '?').join(',');
+      await db.delete('deleted_videos', where: 'video_id IN ($placeholders)', whereArgs: videoIds);
+    } catch (_) {}
+  }
+
   Future<void> clearDeletedVideosHistory() async {
     try {
       final db = await database;

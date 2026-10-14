@@ -265,6 +265,19 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         .then((_) => _checkDefaultPin());
                   },
                 ),
+                const SizedBox(height: 10),
+
+                // Navigation Tile 4: Curated Starter Pack
+                _buildNavTile(
+                  context: context,
+                  title: 'Curated Starter Pack',
+                  subtitle: 'Load or restore 60 initial kid-safe videos (30 videos & 30 shorts)',
+                  icon: Icons.auto_awesome_rounded,
+                  accentColor: KidColors.coral,
+                  badgeText: '60 Videos',
+                  badgeColor: KidColors.coral,
+                  onTap: () => _showStarterPackDialog(context, provider),
+                ),
 
                 const SizedBox(height: 20),
 
@@ -656,4 +669,145 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     ),
   );
 }
+
+  void _showStarterPackDialog(BuildContext context, AppProvider provider) {
+    bool restoreDeleted = false;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: KidColors.cardDark,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: KidColors.borderDark),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.auto_awesome_rounded, color: KidColors.coral, size: 24),
+                  SizedBox(width: 10),
+                  Text(
+                    'Curated Starter Pack',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Load 60 curated kid-safe videos & shorts into your library:',
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        color: Colors.white70,
+                        fontSize: 13.5,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: KidColors.bgDark,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: KidColors.borderDark),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle_rounded, size: 16, color: KidColors.mint),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text('30 Long-Form Videos (Cartoons, Songs, Learning)', style: TextStyle(color: Colors.white, fontSize: 12.5)),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle_rounded, size: 16, color: KidColors.mint),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text('30 Authentic 9:16 Vertical Shorts & Reels', style: TextStyle(color: Colors.white, fontSize: 12.5)),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle_rounded, size: 16, color: KidColors.mint),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text('Preserves existing custom videos', style: TextStyle(color: Colors.white, fontSize: 12.5)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: KidColors.primary,
+                      title: const Text(
+                        'Restore previously deleted starter videos',
+                        style: TextStyle(fontFamily: 'Roboto', color: Colors.white, fontSize: 13),
+                      ),
+                      subtitle: const Text(
+                        'Unmarks videos you may have removed earlier',
+                        style: TextStyle(fontFamily: 'Roboto', color: KidColors.textMuted, fontSize: 11.5),
+                      ),
+                      value: restoreDeleted,
+                      onChanged: (val) {
+                        setDialogState(() {
+                          restoreDeleted = val ?? false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: KidColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () async {
+                    Navigator.of(dialogCtx).pop();
+                    final count = await provider.loadStarterCatalog(resetTombstones: restoreDeleted);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Successfully loaded $count starter videos!'),
+                          backgroundColor: KidColors.mint,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Load Starter Pack', style: TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }

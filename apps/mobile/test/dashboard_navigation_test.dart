@@ -31,6 +31,7 @@ void main() {
     expect(find.text('Media Library'), findsOneWidget);
     expect(find.text('Watch Time & Analytics'), findsOneWidget);
     expect(find.text('PIN & Security Settings'), findsOneWidget);
+    expect(find.text('Curated Starter Pack'), findsOneWidget);
 
     // Verify Advanced Section Tiles
     expect(find.text('VPS Server Connection'), findsOneWidget);
