@@ -76,5 +76,22 @@ void main() {
       }
       expect(queue.length, greaterThan(4));
     });
+
+    test('guarantees all pool items are played before repeating when pool has 100 videos', () {
+      final pool = List.generate(100, (i) => _makeVideo('vid_$i', cat: i < 50 ? 'cartoons' : 'learning'));
+      final queue = InfiniteVideoQueue(pool: pool, random: Random(42));
+
+      // Simulate playback scrolling across 100 items
+      for (int i = 0; i < 100; i++) {
+        queue.ensureCapacity(i, threshold: 5, batchSize: 15);
+      }
+
+      // Check the first 100 items generated
+      final first100 = queue.items.take(100).map((v) => v.id).toList();
+      final uniqueCount = first100.toSet().length;
+
+      // All 100 items must be unique in the first cycle
+      expect(uniqueCount, equals(100));
+    });
   });
 }

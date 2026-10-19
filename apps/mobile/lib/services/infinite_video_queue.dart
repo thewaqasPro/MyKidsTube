@@ -3,13 +3,14 @@ import '../models/video_item.dart';
 
 /// Manages an infinite, non-repeating, category-balanced round-robin video queue.
 ///
-/// Prevents repetitive playback for kids by enforcing a FIFO history avoidance
-/// buffer, cycling across diverse categories, and dynamically appending batches
-/// as the user scrolls.
+/// Prevents repetitive playback for kids by enforcing a cycle deck (exhaustion deck)
+/// where all pool items are played before repeating, category balancing across draws,
+/// and a dynamic FIFO history avoidance buffer across cycle boundaries.
 class InfiniteVideoQueue {
   final List<VideoItem> _pool;
   final List<VideoItem> _queue = [];
   final List<String> _historyBuffer = [];
+  final List<VideoItem> _cycleDeck = [];
   final Random _random;
 
   InfiniteVideoQueue({
@@ -36,23 +37,33 @@ class InfiniteVideoQueue {
   /// Retrieves the video item at the specified index.
   VideoItem operator [](int index) => _queue[index];
 
-  /// Buffer capacity: min 1, up to 10 or half the pool size.
+  /// Buffer capacity: scales dynamically with pool size to avoid recent repeats.
   int get _historyCapacity {
     if (_pool.length <= 1) return 0;
     if (_pool.length <= 3) return 1;
-    final half = (_pool.length / 2).floor();
-    return half.clamp(2, 10);
+    // Scale up to 40% of pool size (min 2, max 50)
+    final cap = (_pool.length * 0.4).floor();
+    return cap.clamp(2, 50);
   }
 
   void _initialize(VideoItem? initialVideo) {
     if (_pool.isEmpty && initialVideo == null) return;
 
+    _replenishCycleDeck();
+
     if (initialVideo != null) {
       _queue.add(initialVideo);
       _recordHistory(initialVideo.id);
+      _cycleDeck.removeWhere((v) => v.id == initialVideo.id);
     }
 
     _generateBatch(batchSize: 15);
+  }
+
+  void _replenishCycleDeck() {
+    _cycleDeck.clear();
+    _cycleDeck.addAll(_pool);
+    _cycleDeck.shuffle(_random);
   }
 
   /// Appends more videos if the current index is close to the queue tail.
@@ -69,6 +80,14 @@ class InfiniteVideoQueue {
 
     // Retain history up to current index
     _queue.removeRange(currentIndex + 1, _queue.length);
+    _replenishCycleDeck();
+
+    // Remove any items that are in the immediate recent history buffer
+    _cycleDeck.removeWhere((v) => _historyBuffer.contains(v.id));
+    if (_cycleDeck.isEmpty) {
+      _replenishCycleDeck();
+    }
+
     _generateBatch(batchSize: 15);
   }
 
@@ -91,52 +110,48 @@ class InfiniteVideoQueue {
       return;
     }
 
-    // Group available pool by category
-    final Map<String, List<VideoItem>> byCategory = {};
-    for (final v in _pool) {
-      final cat = (v.categoryId.isEmpty ? 'default' : v.categoryId);
-      byCategory.putIfAbsent(cat, () => []).add(v);
-    }
-
-    final categories = byCategory.keys.toList()..shuffle(_random);
-    int catIndex = 0;
-
     for (int i = 0; i < batchSize; i++) {
+      if (_cycleDeck.isEmpty) {
+        _replenishCycleDeck();
+      }
+
+      // Group available deck items by category
+      final Map<String, List<VideoItem>> byCategory = {};
+      for (final v in _cycleDeck) {
+        final cat = (v.categoryId.isEmpty ? 'default' : v.categoryId);
+        byCategory.putIfAbsent(cat, () => []).add(v);
+      }
+
+      final categories = byCategory.keys.toList()..shuffle(_random);
       VideoItem? chosen;
 
-      // Try category-balanced pick first
-      for (int attempt = 0; attempt < categories.length; attempt++) {
-        final currentCat = categories[(catIndex + attempt) % categories.length];
-        final candidatesInCat = byCategory[currentCat]!
+      // 1. Try category-balanced pick from cycle deck avoiding recent history
+      for (final cat in categories) {
+        final candidates = byCategory[cat]!
             .where((v) => !_historyBuffer.contains(v.id))
             .toList();
-
-        if (candidatesInCat.isNotEmpty) {
-          chosen = candidatesInCat[_random.nextInt(candidatesInCat.length)];
-          catIndex = (catIndex + attempt + 1) % categories.length;
+        if (candidates.isNotEmpty) {
+          chosen = candidates[_random.nextInt(candidates.length)];
           break;
         }
       }
 
-      // Fallback: Pick from any item in the pool not in recent history
-      if (chosen == null) {
-        final anyCandidates = _pool.where((v) => !_historyBuffer.contains(v.id)).toList();
-        if (anyCandidates.isNotEmpty) {
-          chosen = anyCandidates[_random.nextInt(anyCandidates.length)];
+      // 2. If all deck items in each category are in history, pick any deck item
+      if (chosen == null && _cycleDeck.isNotEmpty) {
+        final candidates = _cycleDeck.where((v) => !_historyBuffer.contains(v.id)).toList();
+        if (candidates.isNotEmpty) {
+          chosen = candidates[_random.nextInt(candidates.length)];
+        } else {
+          chosen = _cycleDeck[_random.nextInt(_cycleDeck.length)];
         }
       }
 
-      // If still null because history buffer holds all pool items, pop oldest history
-      if (chosen == null) {
-        if (_historyBuffer.isNotEmpty) {
-          _historyBuffer.removeAt(0);
-        }
-        final relaxed = _pool.where((v) => !_historyBuffer.contains(v.id)).toList();
-        chosen = relaxed.isNotEmpty ? relaxed[_random.nextInt(relaxed.length)] : _pool[_random.nextInt(_pool.length)];
-      }
+      // 3. Fallback (safety guard)
+      chosen ??= _pool[_random.nextInt(_pool.length)];
 
       _queue.add(chosen);
       _recordHistory(chosen.id);
+      _cycleDeck.removeWhere((v) => v.id == chosen!.id);
     }
   }
 }
