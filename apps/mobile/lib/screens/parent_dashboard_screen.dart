@@ -25,8 +25,16 @@ class ParentDashboardScreen extends StatefulWidget {
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int _currentTabIndex = 0;
+  final List<int> _tabHistory = [];
   bool _isUsingDefaultPin = false;
   bool _isSyncingFreshVideos = false;
+
+  final List<String> _tabTitles = const [
+    'Parent Command Center',
+    'Search & Add YouTube Videos',
+    'Screen Time & Limits',
+    'Parent Settings',
+  ];
 
   @override
   void initState() {
@@ -45,125 +53,159 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     if (mounted) setState(() => _isUsingDefaultPin = isDefault);
   }
 
+  void _onSelectTab(int index) {
+    if (_currentTabIndex == index) return;
+    setState(() {
+      _tabHistory.add(_currentTabIndex);
+      _currentTabIndex = index;
+    });
+  }
+
+  void _handleBack() {
+    if (_isUsingDefaultPin) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (_tabHistory.isNotEmpty) {
+      setState(() {
+        _currentTabIndex = _tabHistory.removeLast();
+      });
+    } else if (_currentTabIndex != 0) {
+      setState(() {
+        _currentTabIndex = 0;
+      });
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   String _formatWatchTime(int seconds) => FormatUtils.formatWatchTime(seconds);
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
-        return Scaffold(
-          backgroundColor: const Color(0xFF121212),
-          appBar: AppBar(
-            title: const Text(
-              'Parent Command Center',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-            ),
-            backgroundColor: const Color(0xFF1A1A1A),
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            actions: [
-              if (provider.activeProfile != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF262626),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.face_rounded, size: 16, color: Colors.lightBlueAccent),
-                          const SizedBox(width: 6),
-                          Text(
-                            provider.activeProfile!.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+        return PopScope(
+          canPop: _isUsingDefaultPin || (_currentTabIndex == 0 && _tabHistory.isEmpty),
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            _handleBack();
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFF121212),
+            appBar: AppBar(
+              title: Text(
+                _tabTitles[_currentTabIndex],
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+              backgroundColor: const Color(0xFF1A1A1A),
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: _handleBack,
+              ),
+              actions: [
+                if (provider.activeProfile != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF262626),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.face_rounded, size: 16, color: Colors.lightBlueAccent),
+                            const SizedBox(width: 6),
+                            Text(
+                              provider.activeProfile!.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          body: _isUsingDefaultPin
-              ? _buildLockedScreen()
-              : IndexedStack(
-                  index: _currentTabIndex,
-                  children: [
-                    _buildOverviewTab(context, provider),
-                    const ParentYouTubeSearchScreen(),
-                    _buildScreenTimeTab(context, provider),
-                    _buildSettingsTab(context, provider),
-                  ],
-                ),
-          bottomNavigationBar: _isUsingDefaultPin
-              ? null
-              : NavigationBarTheme(
-                  data: NavigationBarThemeData(
-                    indicatorColor: Colors.redAccent.withValues(alpha: 0.25),
-                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        );
-                      }
-                      return const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      );
-                    }),
-                    iconTheme: WidgetStateProperty.resolveWith((states) {
-                      if (states.contains(WidgetState.selected)) {
-                        return const IconThemeData(color: Colors.redAccent, size: 24);
-                      }
-                      return const IconThemeData(color: Colors.white54, size: 22);
-                    }),
-                  ),
-                  child: NavigationBar(
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    selectedIndex: _currentTabIndex,
-                    onDestinationSelected: (idx) {
-                      setState(() => _currentTabIndex = idx);
-                    },
-                    destinations: const [
-                      NavigationDestination(
-                        icon: Icon(Icons.dashboard_outlined),
-                        selectedIcon: Icon(Icons.dashboard_rounded),
-                        label: 'Overview',
+              ],
+            ),
+            body: _isUsingDefaultPin
+                ? _buildLockedScreen()
+                : IndexedStack(
+                    index: _currentTabIndex,
+                    children: [
+                      _buildOverviewTab(context, provider),
+                      ParentYouTubeSearchScreen(
+                        isEmbedded: true,
+                        onBack: _handleBack,
                       ),
-                      NavigationDestination(
-                        icon: Icon(Icons.youtube_searched_for_outlined),
-                        selectedIcon: Icon(Icons.youtube_searched_for_rounded),
-                        label: 'Search YouTube',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.timer_outlined),
-                        selectedIcon: Icon(Icons.timer_rounded),
-                        label: 'Screen Time',
-                      ),
-                      NavigationDestination(
-                        icon: Icon(Icons.settings_outlined),
-                        selectedIcon: Icon(Icons.settings_rounded),
-                        label: 'Settings',
-                      ),
+                      _buildScreenTimeTab(context, provider),
+                      _buildSettingsTab(context, provider),
                     ],
                   ),
-                ),
+            bottomNavigationBar: _isUsingDefaultPin
+                ? null
+                : NavigationBarTheme(
+                    data: NavigationBarThemeData(
+                      indicatorColor: Colors.redAccent.withValues(alpha: 0.25),
+                      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          );
+                        }
+                        return const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        );
+                      }),
+                      iconTheme: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.selected)) {
+                          return const IconThemeData(color: Colors.redAccent, size: 24);
+                        }
+                        return const IconThemeData(color: Colors.white54, size: 22);
+                      }),
+                    ),
+                    child: NavigationBar(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      selectedIndex: _currentTabIndex,
+                      onDestinationSelected: _onSelectTab,
+                      destinations: const [
+                        NavigationDestination(
+                          icon: Icon(Icons.dashboard_outlined),
+                          selectedIcon: Icon(Icons.dashboard_rounded),
+                          label: 'Overview',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.youtube_searched_for_outlined),
+                          selectedIcon: Icon(Icons.youtube_searched_for_rounded),
+                          label: 'Search YouTube',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.timer_outlined),
+                          selectedIcon: Icon(Icons.timer_rounded),
+                          label: 'Screen Time',
+                        ),
+                        NavigationDestination(
+                          icon: Icon(Icons.settings_outlined),
+                          selectedIcon: Icon(Icons.settings_rounded),
+                          label: 'Settings',
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
         );
       },
     );
@@ -360,7 +402,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () {
-                setState(() => _currentTabIndex = 1);
+                _onSelectTab(1);
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),

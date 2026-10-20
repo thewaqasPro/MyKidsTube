@@ -13,11 +13,15 @@ enum SearchMode {
 class ParentYouTubeSearchScreen extends StatefulWidget {
   final String? initialQuery;
   final SearchMode? initialMode;
+  final bool isEmbedded;
+  final VoidCallback? onBack;
 
   const ParentYouTubeSearchScreen({
     super.key,
     this.initialQuery,
     this.initialMode,
+    this.isEmbedded = false,
+    this.onBack,
   });
 
   @override
@@ -214,6 +218,21 @@ class _ParentYouTubeSearchScreenState extends State<ParentYouTubeSearchScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
+        final content = Column(
+          children: [
+            _buildSearchBar(),
+            _buildControlsBar(provider),
+            Expanded(
+              child: _buildBody(provider),
+            ),
+            if (_selectedVideoIds.isNotEmpty) _buildBottomBatchBar(),
+          ],
+        );
+
+        if (widget.isEmbedded) {
+          return content;
+        }
+
         return Scaffold(
           backgroundColor: const Color(0xFF121212),
           appBar: AppBar(
@@ -225,19 +244,16 @@ class _ParentYouTubeSearchScreenState extends State<ParentYouTubeSearchScreen> {
             ),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                if (widget.onBack != null) {
+                  widget.onBack!();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
             ),
           ),
-          body: Column(
-            children: [
-              _buildSearchBar(),
-              _buildControlsBar(provider),
-              Expanded(
-                child: _buildBody(provider),
-              ),
-              if (_selectedVideoIds.isNotEmpty) _buildBottomBatchBar(),
-            ],
-          ),
+          body: content,
         );
       },
     );
