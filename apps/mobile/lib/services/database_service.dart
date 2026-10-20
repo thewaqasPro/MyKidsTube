@@ -905,6 +905,37 @@ class DatabaseService {
     await setSetting('autoplay_session_limit_minutes', minutes.toString());
   }
 
+  // --- Intro & Branding Skip Settings ---
+  Future<bool> getSkipIntroLongVideosEnabled() async {
+    final val = await getSetting('skip_intro_long_videos');
+    if (val == null) return true; // Default enabled for long videos
+    return val == 'true';
+  }
+
+  Future<void> setSkipIntroLongVideosEnabled(bool enabled) async {
+    await setSetting('skip_intro_long_videos', enabled ? 'true' : 'false');
+  }
+
+  Future<bool> getSkipIntroShortsEnabled() async {
+    final val = await getSetting('skip_intro_shorts');
+    if (val == null) return false; // Default disabled for shorts
+    return val == 'true';
+  }
+
+  Future<void> setSkipIntroShortsEnabled(bool enabled) async {
+    await setSetting('skip_intro_shorts', enabled ? 'true' : 'false');
+  }
+
+  Future<int> getSkipIntroSeconds() async {
+    final val = await getSetting('skip_intro_seconds');
+    if (val == null) return 5; // Default 5 seconds
+    return int.tryParse(val) ?? 5;
+  }
+
+  Future<void> setSkipIntroSeconds(int seconds) async {
+    await setSetting('skip_intro_seconds', seconds.toString());
+  }
+
   // --- Favorites (Per-Profile) ---
   Future<void> toggleFavorite(String videoId, {String? profileId}) async {
     try {

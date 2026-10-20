@@ -223,6 +223,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       _controller = ctrl;
       ctrl.addListener(_playerListener);
       ctrl.setVolume(_isMuted ? 0.0 : 1.0);
+      try {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        final startSec = provider.getStartSecondsFor(video);
+        if (startSec > 0) {
+          await ctrl.seekTo(Duration(seconds: startSec));
+        }
+      } catch (_) {}
       ctrl.play();
 
       if (mounted && _controllerGeneration == gen) {
@@ -1138,6 +1145,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                         autoPlay: true,
                         isMuted: _isMuted,
                         scale: 1.14,
+                        startSeconds: Provider.of<AppProvider>(context, listen: false).getStartSecondsFor(_currentVideo),
                         onEnded: _handleEmbedEnded,
                         onVideoChanged: _handleEmbedVideoChanged,
                         onUnknownVideoDetected: _handleEmbedVideoChanged,

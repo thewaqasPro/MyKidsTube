@@ -77,6 +77,11 @@ class AppProvider extends ChangeNotifier {
   DateTime _sessionStartTime = DateTime.now();
   bool _limitFiredThisSession = false;
 
+  // Intro & Branding Skip State
+  bool _skipIntroLongVideos = true;
+  bool _skipIntroShorts = false;
+  int _skipIntroSeconds = 5;
+
   // Recommendation Engine State
   Map<String, VideoWatchMetric> _watchMetrics = {};
   int _sessionSeed = DateTime.now().millisecondsSinceEpoch;
@@ -103,6 +108,20 @@ class AppProvider extends ChangeNotifier {
   int get autoplaySessionLimitMinutes => _autoplaySessionLimitMinutes;
   DateTime get sessionStartTime => _sessionStartTime;
   bool get limitFiredThisSession => _limitFiredThisSession;
+
+  bool get skipIntroLongVideos => _skipIntroLongVideos;
+  bool get skipIntroShorts => _skipIntroShorts;
+  int get skipIntroSeconds => _skipIntroSeconds;
+
+  int getStartSecondsFor(VideoItem video) {
+    final shouldSkip = video.isShort ? _skipIntroShorts : _skipIntroLongVideos;
+    if (!shouldSkip) return 0;
+    if (_skipIntroSeconds <= 0) return 0;
+    if (video.duration > 0 && video.duration <= _skipIntroSeconds + 2) {
+      return 0;
+    }
+    return _skipIntroSeconds;
+  }
 
   bool get isAutoplaySessionLimitReached {
     if (!_autoplayEnabled) return false;
@@ -261,6 +280,30 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _db.setAutoplaySessionLimitMinutes(minutes);
+    } catch (_) {}
+  }
+
+  Future<void> setSkipIntroLongVideos(bool enabled) async {
+    _skipIntroLongVideos = enabled;
+    notifyListeners();
+    try {
+      await _db.setSkipIntroLongVideosEnabled(enabled);
+    } catch (_) {}
+  }
+
+  Future<void> setSkipIntroShorts(bool enabled) async {
+    _skipIntroShorts = enabled;
+    notifyListeners();
+    try {
+      await _db.setSkipIntroShortsEnabled(enabled);
+    } catch (_) {}
+  }
+
+  Future<void> setSkipIntroSeconds(int seconds) async {
+    _skipIntroSeconds = seconds;
+    notifyListeners();
+    try {
+      await _db.setSkipIntroSeconds(seconds);
     } catch (_) {}
   }
 
@@ -437,6 +480,13 @@ class AppProvider extends ChangeNotifier {
         _autoplayEnabled = await _db.getAutoplayEnabled();
         _autoplaySessionLimitMinutes = await _db.getAutoplaySessionLimitMinutes();
       } catch (_) {}
+
+      // 4d. Restore saved intro skip settings
+      try {
+        _skipIntroLongVideos = await _db.getSkipIntroLongVideosEnabled();
+        _skipIntroShorts = await _db.getSkipIntroShortsEnabled();
+        _skipIntroSeconds = await _db.getSkipIntroSeconds();
+      } catch (_) {}
     } catch (_) {
       // Graceful error recovery: avoid black screen
     } finally {
@@ -469,6 +519,11 @@ class AppProvider extends ChangeNotifier {
       _followedChannels = await _db.getFollowedChannels();
       final autoRotate = await _db.getSetting('auto_rotate_catalog');
       _autoRotateCatalog = autoRotate != 'false';
+      try {
+        _skipIntroLongVideos = await _db.getSkipIntroLongVideosEnabled();
+        _skipIntroShorts = await _db.getSkipIntroShortsEnabled();
+        _skipIntroSeconds = await _db.getSkipIntroSeconds();
+      } catch (_) {}
       if (_activeProfile == null && _availableProfiles.isNotEmpty) {
         _activeProfile = _availableProfiles.first;
         await _db.setSetting('current_profile_id', _activeProfile!.id);

@@ -555,6 +555,21 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
           const SizedBox(height: 20),
 
+          // Intro & Promotion Skipping Header
+          const Text(
+            'Intro & Promotion Skipping',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildIntroSkipSettingsCard(context, provider),
+
+          const SizedBox(height: 20),
+
           const Text(
             'Advanced Options (Optional)',
             style: TextStyle(
@@ -699,6 +714,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
           const SizedBox(height: 16),
 
+          _buildIntroSkipSettingsCard(context, provider),
+
+          const SizedBox(height: 16),
+
           _buildSettingsCard(
             title: 'Detailed Watch Analytics',
             subtitle: 'Inspect daily charts, most-watched videos, and session history',
@@ -728,6 +747,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Intro & Promotion Skipping Settings Card
+          _buildIntroSkipSettingsCard(context, provider),
+
+          const SizedBox(height: 12),
+
           // Security PIN Settings
           _buildSettingsCard(
             title: 'PIN & Security Settings',
@@ -993,6 +1017,126 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   onChanged: (val) async {
                     if (val != null) {
                       await provider.setAutoplaySessionLimitMinutes(val);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIntroSkipSettingsCard(BuildContext context, AppProvider provider) {
+    return Card(
+      color: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Colors.white10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amberAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.fast_forward_rounded, color: Colors.amberAccent, size: 20),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Skip Channel & Branding Intros',
+                        style: TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w700),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Skip repetitive opening promotions and brand jingles',
+                        style: TextStyle(color: Colors.white54, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(color: Colors.white10, height: 1),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: Colors.amberAccent,
+              title: const Text(
+                'Skip Intro on Long Videos',
+                style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Skip opening seconds on standard horizontal videos (Enabled by default)',
+                style: TextStyle(color: Colors.white54, fontSize: 11.5),
+              ),
+              value: provider.skipIntroLongVideos,
+              onChanged: (val) => provider.setSkipIntroLongVideos(val),
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: Colors.amberAccent,
+              title: const Text(
+                'Skip Intro on Shorts',
+                style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Skip opening seconds on vertical shorts (Disabled by default)',
+                style: TextStyle(color: Colors.white54, fontSize: 11.5),
+              ),
+              value: provider.skipIntroShorts,
+              onChanged: (val) => provider.setSkipIntroShorts(val),
+            ),
+            const Divider(color: Colors.white10, height: 1),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Intro Skip Duration',
+                        style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Number of seconds to skip at start of each video',
+                        style: TextStyle(color: Colors.white54, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+                DropdownButton<int>(
+                  value: provider.skipIntroSeconds,
+                  dropdownColor: const Color(0xFF262626),
+                  borderRadius: BorderRadius.circular(10),
+                  underline: const SizedBox.shrink(),
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Colors.white70),
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  items: const [
+                    DropdownMenuItem(value: 3, child: Text('3 seconds')),
+                    DropdownMenuItem(value: 5, child: Text('5 seconds (Default)')),
+                    DropdownMenuItem(value: 6, child: Text('6 seconds')),
+                    DropdownMenuItem(value: 8, child: Text('8 seconds')),
+                    DropdownMenuItem(value: 10, child: Text('10 seconds')),
+                  ],
+                  onChanged: (val) async {
+                    if (val != null) {
+                      await provider.setSkipIntroSeconds(val);
                     }
                   },
                 ),

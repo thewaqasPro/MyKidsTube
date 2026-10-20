@@ -341,6 +341,14 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       ctrl.setLooping(false);
       ctrl.setVolume(_isMuted ? 0.0 : 1.0);
 
+      try {
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        final startSec = provider.getStartSecondsFor(video);
+        if (startSec > 0) {
+          ctrl.seekTo(Duration(seconds: startSec));
+        }
+      } catch (_) {}
+
       ctrl.addListener(() {
         if (!mounted) return;
         final val = ctrl.value;
@@ -800,6 +808,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                         autoPlay: isCurrent,
                         isMuted: _isMuted,
                         scale: 1.14,
+                        startSeconds: Provider.of<AppProvider>(context, listen: false).getStartSecondsFor(video),
                         shieldColor: KidColors.canvasDark,
                         onEnded: () => _onVideoFinished(index),
                         onVideoChanged: (newId) {

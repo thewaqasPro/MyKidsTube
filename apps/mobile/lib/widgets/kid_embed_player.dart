@@ -19,6 +19,7 @@ class KidEmbedPlayer extends StatefulWidget {
   final Color shieldColor;
   final double? topShieldHeight;
   final double? bottomShieldHeight;
+  final int startSeconds;
   final VoidCallback? onEnded;
   final ValueChanged<String>? onVideoChanged;
   final ValueChanged<String>? onUnknownVideoDetected;
@@ -33,6 +34,7 @@ class KidEmbedPlayer extends StatefulWidget {
     this.shieldColor = KidColors.canvasDark,
     this.topShieldHeight,
     this.bottomShieldHeight,
+    this.startSeconds = 0,
     this.onEnded,
     this.onVideoChanged,
     this.onUnknownVideoDetected,
@@ -51,7 +53,7 @@ class KidEmbedPlayer extends StatefulWidget {
     final id = youtubeId;
     final autoPlayFlag = autoPlay ? 1 : 0;
     final muteFlag = isMuted ? 1 : 0;
-    final startParam = currentPlaybackSeconds > 2 ? '&start=${currentPlaybackSeconds.toInt()}' : '';
+    final startParam = currentPlaybackSeconds > 0 ? '&start=${currentPlaybackSeconds.toInt()}' : '';
     return '''
 <!DOCTYPE html>
 <html>
@@ -180,6 +182,7 @@ class KidEmbedPlayer extends StatefulWidget {
         events: {
           'onReady': function(event) {
             ${isMuted ? "try { event.target.mute(); } catch(e) {}" : ""}
+            ${currentPlaybackSeconds > 0 ? "try { if (event.target.getCurrentTime() < ${currentPlaybackSeconds.toInt()}) { event.target.seekTo(${currentPlaybackSeconds.toInt()}, true); } } catch(e) {}" : ""}
             ${autoPlay ? "try { event.target.playVideo(); } catch(e) {}" : ""}
           },
           'onStateChange': onPlayerStateChange
@@ -466,12 +469,16 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
     }
     _scheduleShieldDismiss();
 
+    final startSec = _currentPlaybackSeconds > 0
+        ? _currentPlaybackSeconds
+        : widget.startSeconds.toDouble();
+
     final html = KidEmbedPlayer.buildEmbedHtml(
       youtubeId: id,
       autoPlay: widget.autoPlay,
       isMuted: widget.isMuted,
       scale: widget.scale,
-      currentPlaybackSeconds: _currentPlaybackSeconds,
+      currentPlaybackSeconds: startSec,
     );
     _currentHtml = html;
     _controller.loadHtmlString(html, baseUrl: 'https://www.youtube-nocookie.com');
