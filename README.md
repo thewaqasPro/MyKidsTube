@@ -203,12 +203,16 @@ flutter run
 flutter test
 ```
 
-#### Pre-Built Android APK Downloads (v1.3.0)
-You can download pre-compiled release APKs directly from the [GitHub Releases](https://github.com/thewaqasPro/MyKidsTube/releases) page:
-- **`app-arm64-v8a-release.apk` (20.3 MB)** — Optimized for modern 64-bit ARM smartphones and tablets. *(Recommended)*
-- **`app-armeabi-v7a-release.apk` (17.8 MB)** — Optimized for older 32-bit ARM Android devices.
-- **`app-x86_64-release.apk` (21.8 MB)** — For Chromebooks, Intel/AMD tablets, and Android emulators.
-- **`app-release.apk` (57.1 MB)** — Universal build supporting all architectures.
+#### Pre-Built Android APK Downloads (v1.4.0)
+You can download pre-compiled release APKs directly from the [GitHub Releases](https://github.com/thewaqasPro/MyKidsTube/releases) page or via the in-app **Check for Updates** button in Parent Dashboard:
+- **`app-arm64-v8a-release.apk`** — Optimized for modern 64-bit ARM smartphones and tablets. *(Recommended)*
+- **`app-armeabi-v7a-release.apk`** — Optimized for older 32-bit ARM Android devices.
+- **`app-x86_64-release.apk`** — For Chromebooks, Intel/AMD tablets, and Android emulators.
+- **`app-release.apk`** — Universal build supporting all architectures.
+
+> **What's New in v1.4.0**:
+> - **Intro & Promotion Skip**: Automatically skip channel branding jingles (first 5 seconds by default) on long videos with customizable duration and parental toggles for long videos and Shorts.
+> - **In-App GitHub Update Engine**: Parent Dashboard directly checks `version.json` and GitHub Releases, displays changelog notes, and triggers single-tap APK downloads.
 
 ---
 

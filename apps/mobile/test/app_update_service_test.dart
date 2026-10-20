@@ -1,6 +1,4 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:safe_tube/models/app_update_info.dart';
 import 'package:safe_tube/services/app_update_service.dart';
 
 void main() {

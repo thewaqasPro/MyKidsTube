@@ -1,7 +1,7 @@
 name: safe_tube
 description: A dedicated, distraction-free kids video player with VPS sync and offline storage.
 publish_to: 'none'
-version: 1.3.0+3
+version: 1.4.0+4
 
 environment:
   sdk: ^3.6.1
