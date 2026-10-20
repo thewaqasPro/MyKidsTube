@@ -104,8 +104,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
       initialVideo: initialVideo,
     );
 
-    _currentIndex = 0;
-    _pageController = PageController(initialPage: 0);
+    _currentIndex = InfiniteVideoQueue.kInitialPageIndex;
+    _pageController = PageController(initialPage: InfiniteVideoQueue.kInitialPageIndex);
 
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -137,8 +137,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _flushWatchSession({bool isAtVideoEnd = false}) {
-    if (_accumulatedSessionSeconds > 0 && _currentIndex >= 0 && _currentIndex < _queue.length) {
-      final currentVideo = _queue[_currentIndex];
+    if (_accumulatedSessionSeconds > 0 && _queue.pool.isNotEmpty) {
+      final currentVideo = _queue.videoAt(_currentIndex);
       final secs = _accumulatedSessionSeconds;
       _accumulatedSessionSeconds = 0;
       final duration = currentVideo.duration;
@@ -197,7 +197,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     setState(() {
       _currentIndex = index;
     });
-    _queue.ensureCapacity(index);
     _initControllersForWindow(index);
   }
 
@@ -227,7 +226,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _goToNextShort() {
-    if (_pageController.hasClients && _currentIndex < _queue.length - 1) {
+    if (_pageController.hasClients) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -292,7 +291,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
     // Initialize needed controllers
     for (final idx in neededIndices) {
-      if (idx >= 0 && idx < _queue.length && !_controllers.containsKey(idx)) {
+      if (idx >= 0 && !_controllers.containsKey(idx)) {
         _createController(idx, autoPlay: idx == centerIndex);
       }
     }
@@ -306,8 +305,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   void _createController(int index, {bool autoPlay = false}) {
-    if (index < 0 || index >= _queue.length) return;
-    final video = _queue[index];
+    if (index < 0) return;
+    final video = _queue.videoAt(index);
 
     final hasLocal = video.localFilePath != null && File(video.localFilePath!).existsSync();
     // If video needs embed and has no local file, skip native controller
@@ -432,7 +431,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                 physics: (_isLocked || _isTimeUp || _isRightDrawerOpen)
                     ? const NeverScrollableScrollPhysics()
                     : const BouncingScrollPhysics(),
-                itemCount: _queue.length,
+                itemCount: null,
                 onPageChanged: _onPageChanged,
                 itemBuilder: (context, index) {
                   return _buildVideoPage(index);
@@ -496,13 +495,22 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
               PlayerSuggestionDrawer(
                 isOpen: _isRightDrawerOpen,
                 onClose: () => setState(() => _isRightDrawerOpen = false),
-                videos: _queue.items,
-                currentIndex: _currentIndex,
-                onSelectVideo: (idx) {
+                videos: _queue.pool,
+                currentIndex: _queue.getPoolIndex(_currentIndex),
+                onSelectVideo: (poolIdx) {
                   setState(() => _isRightDrawerOpen = false);
                   if (_pageController.hasClients) {
+                    final currentPoolIdx = _queue.getPoolIndex(_currentIndex);
+                    int delta = poolIdx - currentPoolIdx;
+                    final poolLen = _queue.pool.length;
+                    if (delta > poolLen ~/ 2) {
+                      delta -= poolLen;
+                    } else if (delta < -poolLen ~/ 2) {
+                      delta += poolLen;
+                    }
+                    final targetPage = _currentIndex + delta;
                     _pageController.animateToPage(
-                      idx,
+                      targetPage,
                       duration: const Duration(milliseconds: 320),
                       curve: Curves.easeInOutCubic,
                     );
@@ -510,7 +518,8 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                 },
                 onShuffle: () {
                   setState(() {
-                    _queue.shuffleUpcoming(_currentIndex);
+                    _queue.shufflePool(currentVirtualIndex: _currentIndex);
+                    _initControllersForWindow(_currentIndex);
                   });
                 },
               ),
@@ -710,7 +719,7 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
   }
 
   Widget _buildVideoPage(int index) {
-    final video = _queue[index];
+    final video = _queue.videoAt(index);
     final ctrl = _controllers[index];
     final isInitialized = ctrl != null && ctrl.value.isInitialized;
     final isInitializing = ctrl != null && !ctrl.value.isInitialized;

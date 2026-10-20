@@ -3,15 +3,23 @@ import '../models/video_item.dart';
 
 /// Manages an infinite, non-repeating, category-balanced round-robin video queue.
 ///
-/// Prevents repetitive playback for kids by enforcing a cycle deck (exhaustion deck)
-/// where all pool items are played before repeating, category balancing across draws,
-/// and a dynamic FIFO history avoidance buffer across cycle boundaries.
+/// Supports both:
+/// 1. Classic sequential batch generation for tests and legacy callers.
+/// 2. Bidirectional infinite rotation across the full video pool, allowing kids
+///    to scroll both UP and DOWN seamlessly through all available videos.
 class InfiniteVideoQueue {
+  /// Base virtual page index used by PageView to allow infinite scrolling in both directions.
+  static const int kInitialPageIndex = 10000;
+
   final List<VideoItem> _pool;
   final List<VideoItem> _queue = [];
   final List<String> _historyBuffer = [];
   final List<VideoItem> _cycleDeck = [];
   final Random _random;
+
+  late List<VideoItem> _poolList;
+  late int _startIndex;
+  int _baseVirtualIndex = kInitialPageIndex;
 
   InfiniteVideoQueue({
     required List<VideoItem> pool,
@@ -20,22 +28,91 @@ class InfiniteVideoQueue {
   })  : _pool = List.unmodifiable(pool),
         _random = random ?? Random() {
     _initialize(initialVideo);
+    _initRotation(initialVideo);
   }
 
-  /// Current queue of videos available to the PageView.
+  void _initRotation(VideoItem? initialVideo) {
+    if (_pool.isNotEmpty) {
+      if (initialVideo != null) {
+        final idx = _pool.indexWhere((v) => v.id == initialVideo.id);
+        if (idx >= 0) {
+          _poolList = List<VideoItem>.from(_pool);
+          _startIndex = idx;
+        } else {
+          _poolList = [initialVideo, ..._pool];
+          _startIndex = 0;
+        }
+      } else {
+        _poolList = List<VideoItem>.from(_pool);
+        _startIndex = 0;
+      }
+    } else if (initialVideo != null) {
+      _poolList = [initialVideo];
+      _startIndex = 0;
+    } else {
+      _poolList = [];
+      _startIndex = 0;
+    }
+    _baseVirtualIndex = kInitialPageIndex;
+  }
+
+  /// The unique video pool in rotational order.
+  List<VideoItem> get pool => List.unmodifiable(_poolList);
+
+  /// Current queue of videos available to legacy PageView / tests.
   List<VideoItem> get items => List.unmodifiable(_queue);
 
-  /// Total number of items currently materialized in the queue.
+  /// Total number of items currently materialized in the legacy queue.
   int get length => _queue.length;
 
   /// Whether the queue contains no items.
-  bool get isEmpty => _queue.isEmpty;
+  bool get isEmpty => _poolList.isEmpty && _queue.isEmpty;
 
   /// Whether the queue contains at least one item.
-  bool get isNotEmpty => _queue.isNotEmpty;
+  bool get isNotEmpty => _poolList.isNotEmpty || _queue.isNotEmpty;
+
+  /// Converts any virtual page index into a valid index within [_poolList].
+  int getPoolIndex(int virtualIndex) {
+    if (_poolList.isEmpty) return 0;
+    final offset = virtualIndex - _baseVirtualIndex;
+    final raw = (_startIndex + offset) % _poolList.length;
+    return raw >= 0 ? raw : raw + _poolList.length;
+  }
+
+  /// Retrieves the video corresponding to [virtualIndex] in bidirectional rotation.
+  VideoItem videoAt(int virtualIndex) {
+    if (_poolList.isEmpty) {
+      if (_queue.isNotEmpty) return _queue.first;
+      throw StateError('InfiniteVideoQueue pool is empty');
+    }
+    return _poolList[getPoolIndex(virtualIndex)];
+  }
+
+  /// Shuffles the rotational order while anchoring the video at [currentVirtualIndex].
+  void shufflePool({int? currentVirtualIndex}) {
+    if (_poolList.length <= 1) return;
+    if (currentVirtualIndex != null) {
+      final current = videoAt(currentVirtualIndex);
+      final others = _poolList.where((v) => v.id != current.id).toList()..shuffle(_random);
+      _poolList = [current, ...others];
+      _startIndex = 0;
+      _baseVirtualIndex = currentVirtualIndex;
+    } else {
+      _poolList.shuffle(_random);
+      _startIndex = 0;
+    }
+  }
 
   /// Retrieves the video item at the specified index.
-  VideoItem operator [](int index) => _queue[index];
+  VideoItem operator [](int index) {
+    if (index >= kInitialPageIndex ~/ 2) {
+      return videoAt(index);
+    }
+    if (index >= 0 && index < _queue.length) {
+      return _queue[index];
+    }
+    return videoAt(index);
+  }
 
   /// Buffer capacity: scales dynamically with pool size to avoid recent repeats.
   int get _historyCapacity {

@@ -99,7 +99,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       return;
     }
 
-    _pageController = PageController(initialPage: 0);
+    _pageController = PageController(initialPage: InfiniteVideoQueue.kInitialPageIndex);
 
     WakelockPlus.enable();
     _startWatchTracker();
@@ -117,8 +117,8 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       pool: pool.isNotEmpty ? pool : [widget.video],
       initialVideo: widget.video,
     );
-    _currentIndex = 0;
-    _currentVideo = _queue[0];
+    _currentIndex = InfiniteVideoQueue.kInitialPageIndex;
+    _currentVideo = _queue.videoAt(_currentIndex);
     _initControllerForVideo(_currentVideo);
   }
 
@@ -320,12 +320,11 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     _flushWatchSession();
     setState(() {
       _currentIndex = index;
-      _currentVideo = _queue[index];
+      _currentVideo = _queue.videoAt(index);
       _isTimeUp = false;
       _isAutoAdvancing = false;
     });
 
-    _queue.ensureCapacity(index);
     _initControllerForVideo(_currentVideo);
   }
 
@@ -345,7 +344,7 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
       }
     }
 
-    if (_pageController.hasClients && _currentIndex < _queue.length - 1) {
+    if (_pageController.hasClients) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeInOutCubic,
@@ -363,11 +362,20 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
     }
   }
 
-  void _jumpToVideo(int index) {
-    if (index < 0 || index >= _queue.length) return;
+  void _jumpToVideo(int poolIndex) {
+    if (_queue.pool.isEmpty) return;
+    final currentPoolIdx = _queue.getPoolIndex(_currentIndex);
+    int delta = poolIndex - currentPoolIdx;
+    final poolLen = _queue.pool.length;
+    if (delta > poolLen ~/ 2) {
+      delta -= poolLen;
+    } else if (delta < -poolLen ~/ 2) {
+      delta += poolLen;
+    }
+    final targetPage = _currentIndex + delta;
     if (_pageController.hasClients) {
       _pageController.animateToPage(
-        index,
+        targetPage,
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeInOutCubic,
       );
@@ -625,13 +633,13 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   physics: (_isLocked || _isRightDrawerOpen)
                       ? const NeverScrollableScrollPhysics()
                       : const PageScrollPhysics(),
-                  itemCount: _queue.length,
+                  itemCount: null,
                   onPageChanged: _onPageChanged,
                   itemBuilder: (context, index) {
                     if (index == _currentIndex) {
                       return _buildPlayerSurface();
                     }
-                    final video = _queue[index];
+                    final video = _queue.videoAt(index);
                     return Container(
                       color: Colors.black,
                       child: Center(
@@ -713,15 +721,15 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
               PlayerSuggestionDrawer(
                 isOpen: _isRightDrawerOpen,
                 onClose: () => setState(() => _isRightDrawerOpen = false),
-                videos: _queue.items,
-                currentIndex: _currentIndex,
+                videos: _queue.pool,
+                currentIndex: _queue.getPoolIndex(_currentIndex),
                 onSelectVideo: (idx) {
                   setState(() => _isRightDrawerOpen = false);
                   _jumpToVideo(idx);
                 },
                 onShuffle: () {
                   setState(() {
-                    _queue.shuffleUpcoming(_currentIndex);
+                    _queue.shufflePool(currentVirtualIndex: _currentIndex);
                   });
                 },
               ),

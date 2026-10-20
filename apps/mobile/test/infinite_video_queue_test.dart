@@ -93,5 +93,41 @@ void main() {
       // All 100 items must be unique in the first cycle
       expect(uniqueCount, equals(100));
     });
+
+    test('bidirectional rotation allows infinite scrolling both UP and DOWN', () {
+      final pool = List.generate(5, (i) => _makeVideo('v$i'));
+      final queue = InfiniteVideoQueue(pool: pool, initialVideo: pool[2]); // starts at v2
+
+      // Base index 10000 -> v2
+      expect(queue.videoAt(10000).id, equals('v2'));
+
+      // Scrolling DOWN (forward)
+      expect(queue.videoAt(10001).id, equals('v3'));
+      expect(queue.videoAt(10002).id, equals('v4'));
+      expect(queue.videoAt(10003).id, equals('v0')); // wraps
+      expect(queue.videoAt(10004).id, equals('v1'));
+      expect(queue.videoAt(10005).id, equals('v2')); // full cycle
+
+      // Scrolling UP (backward)
+      expect(queue.videoAt(9999).id, equals('v1'));
+      expect(queue.videoAt(9998).id, equals('v0'));
+      expect(queue.videoAt(9997).id, equals('v4')); // wraps backward
+      expect(queue.videoAt(9996).id, equals('v3'));
+      expect(queue.videoAt(9995).id, equals('v2')); // full cycle
+    });
+
+    test('shufflePool randomizes remaining items while anchoring current virtual video', () {
+      final pool = List.generate(10, (i) => _makeVideo('v$i'));
+      final queue = InfiniteVideoQueue(pool: pool, initialVideo: pool[3], random: Random(99));
+
+      expect(queue.videoAt(10000).id, equals('v3'));
+
+      queue.shufflePool(currentVirtualIndex: 10000);
+
+      // Current virtual index remains identical
+      expect(queue.videoAt(10000).id, equals('v3'));
+      // All 10 videos are still present in pool
+      expect(queue.pool.map((v) => v.id).toSet(), equals(pool.map((v) => v.id).toSet()));
+    });
   });
 }
