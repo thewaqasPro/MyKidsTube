@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import '../models/video_item.dart';
 import '../models/category_item.dart';
 import '../models/child_profile.dart';
+import '../models/followed_channel.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -50,6 +51,16 @@ class DatabaseService {
         );
       ''');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_deleted_videos_id ON deleted_videos (video_id);');
+      await db.execute('''        CREATE TABLE IF NOT EXISTS followed_channels (
+          channel_id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          handle TEXT NOT NULL,
+          logo_url TEXT,
+          auto_sync INTEGER DEFAULT 1,
+          last_synced_at INTEGER DEFAULT 0,
+          added_at INTEGER DEFAULT 0
+        );
+''');
     } catch (_) {}
     return DatabaseService.withDatabase(db);
   }
@@ -244,6 +255,16 @@ class DatabaseService {
         ''');
         try {
           await db.execute('CREATE INDEX IF NOT EXISTS idx_deleted_videos_id ON deleted_videos (video_id);');
+      await db.execute('''        CREATE TABLE IF NOT EXISTS followed_channels (
+          channel_id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          handle TEXT NOT NULL,
+          logo_url TEXT,
+          auto_sync INTEGER DEFAULT 1,
+          last_synced_at INTEGER DEFAULT 0,
+          added_at INTEGER DEFAULT 0
+        );
+''');
         } catch (_) {}
       },
     );
@@ -305,6 +326,28 @@ class DatabaseService {
       );
     ''');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_deleted_videos_id ON deleted_videos (video_id);');
+      await db.execute('''        CREATE TABLE IF NOT EXISTS followed_channels (
+          channel_id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          handle TEXT NOT NULL,
+          logo_url TEXT,
+          auto_sync INTEGER DEFAULT 1,
+          last_synced_at INTEGER DEFAULT 0,
+          added_at INTEGER DEFAULT 0
+        );
+''');
+
+        await db.execute('''
+      CREATE TABLE IF NOT EXISTS followed_channels (
+        channel_id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        handle TEXT NOT NULL,
+        logo_url TEXT,
+        auto_sync INTEGER DEFAULT 1,
+        last_synced_at INTEGER DEFAULT 0,
+        added_at INTEGER DEFAULT 0
+      );
+    ''');
 
     // Default settings (Note: parent PIN is salted & hashed in secure storage, NOT plaintext in settings)
     await db.insert('settings', {'key': 'vps_url', 'value': 'https://mykidstube.kidstube.workers.dev'},
@@ -1330,6 +1373,94 @@ class DatabaseService {
         }
         await db.delete('videos', where: 'id = ?', whereArgs: [id]);
         await db.delete('favorites', where: 'video_id = ?', whereArgs: [id]);
+      }
+    } catch (_) {}
+  }
+
+  // --- Followed Channels CRUD ---
+  Future<List<FollowedChannel>> getFollowedChannels() async {
+    try {
+      final db = await database;
+      final maps = await db.query('followed_channels', orderBy: 'added_at DESC');
+      return maps.map((m) => FollowedChannel.fromMap(m)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveFollowedChannel(FollowedChannel channel) async {
+    try {
+      final db = await database;
+      await db.insert(
+        'followed_channels',
+        channel.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> removeFollowedChannel(String channelId) async {
+    try {
+      final db = await database;
+      await db.delete(
+        'followed_channels',
+        where: 'channel_id = ?',
+        whereArgs: [channelId],
+      );
+    } catch (_) {}
+  }
+
+  Future<void> updateChannelLastSynced(String channelId, int epochMs) async {
+    try {
+      final db = await database;
+      await db.update(
+        'followed_channels',
+        {'last_synced_at': epochMs},
+        where: 'channel_id = ?',
+        whereArgs: [channelId],
+      );
+    } catch (_) {}
+  }
+
+  Future<void> seedDefaultChannelsIfEmpty() async {
+    try {
+      final db = await database;
+      final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM followed_channels')) ?? 0;
+      if (count == 0) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final defaults = [
+          FollowedChannel(
+            channelId: 'UCbCmjCuTUZos6247mxUqyew',
+            title: 'Peppa Pig - Official Channel',
+            handle: '@peppapig',
+            logoUrl: 'https://yt3.googleusercontent.com/y_V2G9l9u-UaLh5t1t6Yx6n9_1P6vN8qX0=s176-c-k-c0x00ffffff-no-rj',
+            addedAt: now,
+          ),
+          FollowedChannel(
+            channelId: 'UCHkym7gTz7P0bQo7eD2c9wA',
+            title: 'CoComelon - Nursery Rhymes',
+            handle: '@CoComelon',
+            logoUrl: 'https://yt3.googleusercontent.com/ytc/AIdro_k6aK=s176-c-k-c0x00ffffff-no-rj',
+            addedAt: now,
+          ),
+          FollowedChannel(
+            channelId: 'UCqYhI0e0gZp4_1sK6-wX4xA',
+            title: 'Ms Rachel - Toddler Learning Videos',
+            handle: '@msrachel',
+            logoUrl: 'https://yt3.googleusercontent.com/ytc/AIdro_m4r=s176-c-k-c0x00ffffff-no-rj',
+            addedAt: now,
+          ),
+          FollowedChannel(
+            channelId: 'UC4NAZ7G1i9rM5S2eT8_w4wg',
+            title: 'Super Simple Songs - Kids Songs',
+            handle: '@supersimplesongs',
+            logoUrl: 'https://yt3.googleusercontent.com/ytc/AIdro_s4s=s176-c-k-c0x00ffffff-no-rj',
+            addedAt: now,
+          ),
+        ];
+        for (final ch in defaults) {
+          await db.insert('followed_channels', ch.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
       }
     } catch (_) {}
   }
