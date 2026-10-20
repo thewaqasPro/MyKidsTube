@@ -12,6 +12,15 @@ import '../services/database_service.dart';
 import '../services/vps_api_service.dart';
 import '../services/download_service.dart';
 import '../services/recommendation_service.dart';
+import '../models/followed_channel.dart';
+import '../services/engagement_score_service.dart';
+import '../services/catalog_rotator_service.dart';
+
+class RotationSummary {
+  final int addedCount;
+  final int prunedCount;
+  const RotationSummary({this.addedCount = 0, this.prunedCount = 0});
+}
 
 enum AppOrientationMode {
   auto,
@@ -23,6 +32,10 @@ class AppProvider extends ChangeNotifier {
   final DatabaseService _db;
   final VpsApiService _api;
   final DownloadService _downloader;
+  int _catalogLimit = 200;
+  bool _autoRotateCatalog = true;
+  List<FollowedChannel> _followedChannels = [];
+  bool _isRotatingCatalog = false;
   final FlutterSecureStorage _secureStorage;
 
   AppProvider({
@@ -99,6 +112,12 @@ class AppProvider extends ChangeNotifier {
     return elapsedMinutes >= _autoplaySessionLimitMinutes;
   }
 
+  int get catalogLimit => _catalogLimit;
+  bool get autoRotateCatalog => _autoRotateCatalog;
+  bool get isCatalogNearLimit => allVideos.length >= 180;
+  bool get isCatalogAtLimit => allVideos.length >= _catalogLimit;
+  List<FollowedChannel> get followedChannels => _followedChannels;
+  bool get isRotatingCatalog => _isRotatingCatalog;
   List<CategoryItem> get categories => _categories;
   List<VideoItem> get allVideos => _isOfflineOnly ? _downloadedVideos : _allVideos;
   List<VideoItem> get downloadedVideos => _downloadedVideos;
@@ -447,6 +466,9 @@ class AppProvider extends ChangeNotifier {
       _favoriteVideoIds = await _db.getFavoriteIds(profileId: currentProfileId);
       _cachedBytes = await _downloader.getTotalCachedBytes();
       _availableProfiles = await _db.getAllLocalProfiles();
+      _followedChannels = await _db.getFollowedChannels();
+      final autoRotate = await _db.getSetting('auto_rotate_catalog');
+      _autoRotateCatalog = autoRotate != 'false';
       if (_activeProfile == null && _availableProfiles.isNotEmpty) {
         _activeProfile = _availableProfiles.first;
         await _db.setSetting('current_profile_id', _activeProfile!.id);
@@ -816,6 +838,7 @@ class AppProvider extends ChangeNotifier {
 
   /// Adds a YouTube or local video directly to the standalone local SQLite library
   Future<void> addStandaloneVideo(VideoItem video) async {
+    await _pruneForCapIfExceeded(1);
     await _db.unmarkDeletedVideo(video.id);
     await _db.upsertVideo(video, profileId: _activeProfile?.id);
     await _loadFromLocalDb();
@@ -824,6 +847,7 @@ class AppProvider extends ChangeNotifier {
 
   /// Bulk adds multiple YouTube videos directly to local library in a single transaction
   Future<void> addStandaloneVideos(List<VideoItem> videos) async {
+    await _pruneForCapIfExceeded(videos.length);
     for (final video in videos) {
       await _db.unmarkDeletedVideo(video.id);
       await _db.upsertVideo(video, profileId: _activeProfile?.id);
@@ -831,6 +855,106 @@ class AppProvider extends ChangeNotifier {
     await _loadFromLocalDb();
     notifyListeners();
   }
+
+  // --- Catalog Cap & Auto-Rotation API ---
+  Future<void> loadFollowedChannels() async {
+    try {
+      await _db.seedDefaultChannelsIfEmpty();
+      _followedChannels = await _db.getFollowedChannels();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> followChannel(FollowedChannel channel) async {
+    await _db.saveFollowedChannel(channel);
+    await loadFollowedChannels();
+  }
+
+  Future<void> unfollowChannel(String channelId) async {
+    await _db.removeFollowedChannel(channelId);
+    await loadFollowedChannels();
+  }
+
+  Future<void> setAutoRotateCatalog(bool enabled) async {
+    _autoRotateCatalog = enabled;
+    await _db.setSetting('auto_rotate_catalog', enabled ? 'true' : 'false');
+    notifyListeners();
+  }
+
+  List<VideoItem> getPruningSuggestions({int limit = 15}) {
+    final downloadedIds = _downloadedVideos.map((v) => v.id).toSet();
+    return EngagementScoreService.rankVideosForPruning(
+      catalog: allVideos,
+      metrics: _watchMetrics,
+      favoriteIds: _favoriteVideoIds,
+      downloadedIds: downloadedIds,
+      limit: limit,
+    );
+  }
+
+  Future<void> pruneStaleVideos(List<String> videoIds) async {
+    if (videoIds.isEmpty) return;
+    await _db.deleteVideos(videoIds);
+    await _loadFromLocalDb();
+    notifyListeners();
+  }
+
+  Future<int> _pruneForCapIfExceeded(int incomingCount) async {
+    if (!_autoRotateCatalog) return 0;
+    final total = allVideos.length + incomingCount;
+    if (total <= _catalogLimit) return 0;
+
+    final overflow = total - _catalogLimit;
+    final downloadedIds = _downloadedVideos.map((v) => v.id).toSet();
+    final candidates = EngagementScoreService.rankVideosForPruning(
+      catalog: allVideos,
+      metrics: _watchMetrics,
+      favoriteIds: _favoriteVideoIds,
+      downloadedIds: downloadedIds,
+      limit: overflow,
+    );
+
+    if (candidates.isNotEmpty) {
+      final idsToPrune = candidates.map((c) => c.id).toList();
+      await _db.deleteVideos(idsToPrune);
+      return idsToPrune.length;
+    }
+    return 0;
+  }
+
+  Future<RotationSummary> syncAndRotateCatalog({bool forceManual = false, int maxPerChannel = 5}) async {
+    _isRotatingCatalog = true;
+    notifyListeners();
+
+    int added = 0;
+    int pruned = 0;
+
+    try {
+      final rotator = CatalogRotatorService(db: _db);
+      final freshVideos = await rotator.fetchFreshChannelVideos(
+        maxPerChannel: maxPerChannel,
+        profileId: _activeProfile?.id ?? 'kids_all',
+      );
+
+      if (freshVideos.isNotEmpty) {
+        pruned = await _pruneForCapIfExceeded(freshVideos.length);
+        for (final video in freshVideos) {
+          await _db.unmarkDeletedVideo(video.id);
+          await _db.upsertVideo(video, profileId: _activeProfile?.id);
+        }
+        added = freshVideos.length;
+        await _loadFromLocalDb();
+      }
+    } catch (_) {
+      // Graceful error recovery: don't crash on network or YouTube rate limit
+    } finally {
+      _isRotatingCatalog = false;
+      notifyListeners();
+    }
+
+    return RotationSummary(addedCount: added, prunedCount: pruned);
+  }
+
 
   /// Deletes a video directly from the local library
   Future<void> deleteStandaloneVideo(String videoId) async {
