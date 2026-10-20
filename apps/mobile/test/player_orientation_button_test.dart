@@ -10,6 +10,7 @@ import 'package:safe_tube/models/category_item.dart';
 import 'package:safe_tube/models/child_profile.dart';
 import 'package:safe_tube/providers/app_provider.dart';
 import 'package:safe_tube/screens/kid_player_screen.dart';
+import 'package:safe_tube/widgets/player_suggestion_drawer.dart';
 import 'package:safe_tube/services/database_service.dart';
 import 'package:safe_tube/services/download_service.dart';
 import 'package:safe_tube/services/vps_api_service.dart';
@@ -263,5 +264,126 @@ void main() {
       expect(shortsContent.contains('topShieldHeight: 68.0'), isFalse,
           reason: 'No oversized top shield creating dark gap');
     });
+    testWidgets('In landscape mode, floating action buttons are arranged in Row with TextDirection.rtl at top corner', (tester) async {
+      tester.view.physicalSize = const Size(900, 500);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final db = TestFakeDatabaseService();
+      final provider = AppProvider(db: db, api: FakeVpsApiService(), downloader: FakeDownloadService());
+      await provider.setOrientationMode(AppOrientationMode.landscape);
+
+      final video = createTestVideo();
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(900, 500)));
+      await tester.pump();
+
+      // Find the RTL Row of action buttons
+      final rowFinder = find.byWidgetPredicate((widget) =>
+          widget is Row &&
+          widget.textDirection == TextDirection.rtl &&
+          widget.mainAxisSize == MainAxisSize.min);
+      expect(rowFinder, findsOneWidget);
+
+      final exitOffset = tester.getTopRight(find.byIcon(Icons.arrow_back_rounded));
+      final orientOffset = tester.getTopRight(find.byIcon(Icons.stay_current_portrait_rounded));
+      final upNextOffset = tester.getTopRight(find.byWidgetPredicate((w) => w is Icon && w.icon == Icons.playlist_play_rounded && w.size == 21.0));
+
+      // In RTL from right to left: Exit is at far right corner, then Orientation, then Up Next is to the left
+      expect(exitOffset.dx, greaterThan(orientOffset.dx));
+      expect(orientOffset.dx, greaterThan(upNextOffset.dx));
+      // All positioned along the top
+      expect((exitOffset.dy - orientOffset.dy).abs(), lessThan(5));
+    });
+
+    testWidgets('In portrait mode, floating action buttons are arranged in Column from top to bottom', (tester) async {
+      tester.view.physicalSize = const Size(500, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final db = TestFakeDatabaseService();
+      final provider = AppProvider(db: db, api: FakeVpsApiService(), downloader: FakeDownloadService());
+      await provider.setOrientationMode(AppOrientationMode.portrait);
+
+      final video = createTestVideo();
+      await tester.pumpWidget(buildTestApp(provider: provider, video: video, screenSize: const Size(500, 900)));
+      await tester.pump();
+
+      final exitOffset = tester.getTopLeft(find.byIcon(Icons.arrow_back_rounded));
+      final orientOffset = tester.getTopLeft(find.byIcon(Icons.stay_current_landscape_rounded));
+      final upNextOffset = tester.getTopLeft(find.byWidgetPredicate((w) => w is Icon && w.icon == Icons.playlist_play_rounded && w.size == 21.0));
+
+      // In portrait: top to bottom
+      expect(exitOffset.dy, lessThan(orientOffset.dy));
+      expect(orientOffset.dy, lessThan(upNextOffset.dy));
+      // All aligned vertically along right edge
+      expect((exitOffset.dx - orientOffset.dx).abs(), lessThan(5));
+    });
+
+    testWidgets('PlayerSuggestionDrawer renders narrower width for shorts than regular videos', (tester) async {
+      final shortItem = VideoItem(
+        id: 'short1',
+        title: 'Fun Short',
+        categoryId: 'learning',
+        sourceUrl: 'https://youtube.com/shorts/short1',
+        duration: 35,
+        streamUrl: 'https://example.com/s1.mp4',
+        thumbnailUrl: 'https://example.com/s1.jpg',
+        status: 'ready',
+              );
+
+      final regularItem = createTestVideo(id: 'reg1');
+
+      // 1. Shorts drawer
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(size: Size(400, 800)),
+            child: Scaffold(
+              body: PlayerSuggestionDrawer(
+                isOpen: true,
+                onClose: () {},
+                videos: [shortItem],
+                currentIndex: 0,
+                onSelectVideo: (_) {},
+                onShuffle: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final shortsPosFinder = find.byType(AnimatedPositioned);
+      expect(shortsPosFinder, findsOneWidget);
+      final shortsPos = tester.widget<AnimatedPositioned>(shortsPosFinder);
+      expect(shortsPos.width, lessThanOrEqualTo(195.0));
+      expect(shortsPos.width, greaterThanOrEqualTo(165.0));
+
+      // 2. Regular videos drawer
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(size: Size(400, 800)),
+            child: Scaffold(
+              body: PlayerSuggestionDrawer(
+                isOpen: true,
+                onClose: () {},
+                videos: [regularItem],
+                currentIndex: 0,
+                onSelectVideo: (_) {},
+                onShuffle: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final regPos = tester.widget<AnimatedPositioned>(shortsPosFinder);
+      expect(regPos.width, greaterThanOrEqualTo(240.0));
+    });
   });
 }
+

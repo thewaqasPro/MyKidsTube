@@ -48,11 +48,16 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
 
   AppOrientationMode _savedOrientationMode = AppOrientationMode.auto;
 
+  bool _didInitOrientation = false;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final provider = Provider.of<AppProvider>(context, listen: false);
     _savedOrientationMode = provider.orientationMode;
+    if (!_didInitOrientation) {
+      _didInitOrientation = true;
+      provider.applyCurrentOrientationMode();
+    }
   }
 
   bool _showPlayPauseIcon = false;
@@ -107,9 +112,6 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     _currentIndex = InfiniteVideoQueue.kInitialPageIndex;
     _pageController = PageController(initialPage: InfiniteVideoQueue.kInitialPageIndex);
 
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     WakelockPlus.enable();
@@ -394,6 +396,9 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
     }
 
     final provider = context.watch<AppProvider>();
+    final mediaQuery = MediaQuery.of(context);
+    final isLandscape = mediaQuery.orientation == Orientation.landscape;
+    final padding = mediaQuery.padding;
 
     return PopScope(
       canPop: !_isLocked && !_isRightDrawerOpen,
@@ -459,36 +464,61 @@ class _KidShortsFeedScreenState extends State<KidShortsFeedScreen> with TickerPr
                   ),
                 ),
 
-              // 3. Right Floating Action Column (All controls placed on right side as circular icons)
+              // 3. Floating Action Buttons (Column in portrait, Row RTL at top in landscape)
               if (!_isLocked && !_isRightDrawerOpen)
                 Positioned(
-                  right: 12,
-                  top: MediaQuery.of(context).padding.top + 10,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildActionIcon(
-                        icon: Icons.arrow_back_rounded,
-                        tooltip: 'Exit',
-                        onTap: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildAvatarActionIcon(provider),
-                      const SizedBox(height: 10),
-
-                      _buildActionIcon(
-                        icon: Icons.lock_outline_rounded,
-                        tooltip: 'Lock screen',
-                        onTap: () => setState(() => _isLocked = true),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildActionIcon(
-                        icon: Icons.playlist_play_rounded,
-                        tooltip: 'Up Next',
-                        onTap: () => setState(() => _isRightDrawerOpen = true),
-                      ),
-                    ],
-                  ),
+                  right: padding.right + 12,
+                  top: padding.top + (isLandscape ? 8 : 10),
+                  child: isLandscape
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          textDirection: TextDirection.rtl,
+                          children: [
+                            _buildActionIcon(
+                              icon: Icons.arrow_back_rounded,
+                              tooltip: 'Exit',
+                              onTap: () => Navigator.of(context).pop(),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildAvatarActionIcon(provider),
+                            const SizedBox(width: 10),
+                            _buildActionIcon(
+                              icon: Icons.lock_outline_rounded,
+                              tooltip: 'Lock screen',
+                              onTap: () => setState(() => _isLocked = true),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildActionIcon(
+                              icon: Icons.playlist_play_rounded,
+                              tooltip: 'Up Next',
+                              onTap: () => setState(() => _isRightDrawerOpen = true),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildActionIcon(
+                              icon: Icons.arrow_back_rounded,
+                              tooltip: 'Exit',
+                              onTap: () => Navigator.of(context).pop(),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildAvatarActionIcon(provider),
+                            const SizedBox(height: 10),
+                            _buildActionIcon(
+                              icon: Icons.lock_outline_rounded,
+                              tooltip: 'Lock screen',
+                              onTap: () => setState(() => _isLocked = true),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildActionIcon(
+                              icon: Icons.playlist_play_rounded,
+                              tooltip: 'Up Next',
+                              onTap: () => setState(() => _isRightDrawerOpen = true),
+                            ),
+                          ],
+                        ),
                 ),
 
               // 4. Right Suggestion Drawer (Overlay)

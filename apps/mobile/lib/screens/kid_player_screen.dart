@@ -665,54 +665,95 @@ class _KidPlayerScreenState extends State<KidPlayerScreen> {
                   ),
                 ),
 
-              // Right-side Floating Action Column (all controls placed on the right as circular icons)
+              // Floating Action Buttons (Column in portrait, Row RTL at top in landscape)
               if (_showControls && !_isLocked && !_isRightDrawerOpen)
                 Positioned(
                   right: padding.right + 12,
-                  top: padding.top + 14,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildActionIcon(
-                        icon: Icons.arrow_back_rounded,
-                        tooltip: 'Exit',
-                        onTap: () {
-                          if (_isImmersiveLandscape) {
-                            _exitFullscreen();
-                          }
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      _buildAvatarActionIcon(provider),
-                      const SizedBox(height: 10),
-                      _buildActionIcon(
-                        icon: isLandscape
-                            ? Icons.stay_current_portrait_rounded
-                            : Icons.stay_current_landscape_rounded,
-                        tooltip: isLandscape ? 'Switch to Portrait' : 'Switch to Landscape',
-                        onTap: () {
-                          _toggleOrientation(toLandscape: !isLandscape);
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      _buildActionIcon(
-                        icon: Icons.lock_outline_rounded,
-                        tooltip: 'Lock screen',
-                        onTap: () => setState(() {
-                          _isLocked = true;
-                          _showControls = false;
-                          _isRightDrawerOpen = false;
-                        }),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildActionIcon(
-                        icon: Icons.playlist_play_rounded,
-                        tooltip: 'Up Next',
-                        onTap: () => setState(() => _isRightDrawerOpen = true),
-                      ),
-                    ],
-                  ),
+                  top: padding.top + (isLandscape ? 8 : 14),
+                  child: isLandscape
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          textDirection: TextDirection.rtl,
+                          children: [
+                            _buildActionIcon(
+                              icon: Icons.arrow_back_rounded,
+                              tooltip: 'Exit',
+                              onTap: () {
+                                if (_isImmersiveLandscape) {
+                                  _exitFullscreen();
+                                }
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            _buildAvatarActionIcon(provider),
+                            const SizedBox(width: 10),
+                            _buildActionIcon(
+                              icon: Icons.stay_current_portrait_rounded,
+                              tooltip: 'Switch to Portrait',
+                              onTap: () {
+                                _toggleOrientation(toLandscape: false);
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            _buildActionIcon(
+                              icon: Icons.lock_outline_rounded,
+                              tooltip: 'Lock screen',
+                              onTap: () => setState(() {
+                                _isLocked = true;
+                                _showControls = false;
+                                _isRightDrawerOpen = false;
+                              }),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildActionIcon(
+                              icon: Icons.playlist_play_rounded,
+                              tooltip: 'Up Next',
+                              onTap: () => setState(() => _isRightDrawerOpen = true),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildActionIcon(
+                              icon: Icons.arrow_back_rounded,
+                              tooltip: 'Exit',
+                              onTap: () {
+                                if (_isImmersiveLandscape) {
+                                  _exitFullscreen();
+                                }
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            _buildAvatarActionIcon(provider),
+                            const SizedBox(height: 10),
+                            _buildActionIcon(
+                              icon: Icons.stay_current_landscape_rounded,
+                              tooltip: 'Switch to Landscape',
+                              onTap: () {
+                                _toggleOrientation(toLandscape: true);
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                            _buildActionIcon(
+                              icon: Icons.lock_outline_rounded,
+                              tooltip: 'Lock screen',
+                              onTap: () => setState(() {
+                                _isLocked = true;
+                                _showControls = false;
+                                _isRightDrawerOpen = false;
+                              }),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildActionIcon(
+                              icon: Icons.playlist_play_rounded,
+                              tooltip: 'Up Next',
+                              onTap: () => setState(() => _isRightDrawerOpen = true),
+                            ),
+                          ],
+                        ),
                 ),
 
               // ==========================================

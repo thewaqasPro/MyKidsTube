@@ -25,7 +25,10 @@ class PlayerSuggestionDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final drawerWidth = (mediaQuery.size.width * 0.75).clamp(240.0, 320.0);
+    final isShortsList = videos.any((v) => v.isShort);
+    final drawerWidth = isShortsList
+        ? (mediaQuery.size.width * 0.45).clamp(165.0, 195.0)
+        : (mediaQuery.size.width * 0.75).clamp(240.0, 320.0);
 
     return IgnorePointer(
       ignoring: !isOpen,
@@ -70,18 +73,27 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                     children: [
                       // Header
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isShortsList ? 10 : 14,
+                          vertical: isShortsList ? 10 : 12,
+                        ),
                         child: Row(
                           children: [
-                            const Icon(Icons.playlist_play_rounded, color: KidColors.primary, size: 24),
-                            const SizedBox(width: 8),
-                            const Expanded(
+                            Icon(
+                              Icons.playlist_play_rounded,
+                              color: KidColors.primary,
+                              size: isShortsList ? 20 : 24,
+                            ),
+                            SizedBox(width: isShortsList ? 6 : 8),
+                            Expanded(
                               child: Text(
                                 'Up Next',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontFamily: 'Roboto',
                                   color: Colors.white,
-                                  fontSize: 16,
+                                  fontSize: isShortsList ? 14 : 16,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -89,14 +101,30 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                             // Shuffle Button
                             IconButton(
                               visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.shuffle_rounded, color: KidColors.primary, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: isShortsList
+                                  ? const BoxConstraints(minWidth: 30, minHeight: 30)
+                                  : null,
+                              icon: Icon(
+                                Icons.shuffle_rounded,
+                                color: KidColors.primary,
+                                size: isShortsList ? 18 : 20,
+                              ),
                               tooltip: 'Shuffle Upcoming',
                               onPressed: onShuffle,
                             ),
                             // Close Button
                             IconButton(
                               visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: isShortsList
+                                  ? const BoxConstraints(minWidth: 30, minHeight: 30)
+                                  : null,
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color: Colors.white70,
+                                size: isShortsList ? 20 : 22,
+                              ),
                               tooltip: 'Close',
                               onPressed: onClose,
                             ),
@@ -119,9 +147,12 @@ class PlayerSuggestionDrawer extends StatelessWidget {
                                 ),
                               )
                             : ListView.separated(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isShortsList ? 8 : 12,
+                                  vertical: 10,
+                                ),
                                 itemCount: videos.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                separatorBuilder: (_, __) => SizedBox(height: isShortsList ? 8 : 12),
                                 itemBuilder: (context, index) {
                                   final item = videos[index];
                                   final isCurrent = index == currentIndex;
@@ -143,81 +174,96 @@ class PlayerSuggestionDrawer extends StatelessWidget {
 
   Widget _buildDrawerVideoCard(VideoItem item, int index, bool isCurrent) {
     if (item.isShort) {
-      // 1. YouTube Shorts: Vertical 9:16 card with NO title (kids recognize thumbnails)
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () {
-            onClose();
-            onSelectVideo(index);
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: isCurrent ? KidColors.primary.withValues(alpha: 0.15) : KidColors.surfaceDark,
+      // 1. YouTube Shorts: Compact, sleek vertical 9:14 card with rounded corners and badge
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: 160,
+            maxHeight: 200,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isCurrent ? KidColors.primary : KidColors.borderDark,
-                width: isCurrent ? 2.0 : 0.8,
-              ),
-            ),
-            child: AspectRatio(
-              aspectRatio: 9 / 16,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(11),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedNetworkImage(
-                      imageUrl: item.thumbnailUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => Container(color: Colors.black38),
+              onTap: () {
+                onClose();
+                onSelectVideo(index);
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isCurrent ? KidColors.primary.withValues(alpha: 0.15) : KidColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isCurrent ? KidColors.primary : KidColors.borderDark,
+                    width: isCurrent ? 2.0 : 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                    // Small Short Badge at Top-Left
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: KidColors.durationBadgeBg,
-                          borderRadius: BorderRadius.circular(6),
+                  ],
+                ),
+                child: AspectRatio(
+                  aspectRatio: 9 / 14,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: item.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(color: Colors.black38),
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.bolt_rounded, color: Colors.white, size: 12),
-                            SizedBox(width: 3),
-                            Text(
-                              'Short',
-                              style: TextStyle(
+                        // Small Short Badge at Top-Left
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: KidColors.durationBadgeBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bolt_rounded, color: Colors.white, size: 11),
+                                SizedBox(width: 2.5),
+                                Text(
+                                  'Short',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (isCurrent)
+                          Positioned(
+                            bottom: 6,
+                            right: 6,
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: const BoxDecoration(
+                                color: KidColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
                                 color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
+                                size: 18,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
-                    if (isCurrent)
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: KidColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
