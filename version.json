@@ -1,0 +1,8 @@
+{
+  "version": "1.4.0",
+  "versionCode": 4,
+  "releaseTitle": "MyKidsTube v1.4.0 — Intro Skipping & Update Engine",
+  "releaseNotes": "- Intro & Branding Skip: Auto-skips channel promotions/branding on long videos and shorts with full parental controls.\n- In-App Update Engine: Check and install updates directly from GitHub.\n- Performance and playback stability improvements.",
+  "apkDownloadUrl": "https://github.com/thewaqasPro/MyKidsTube/releases/download/v1.4.0/app-arm64-v8a-release.apk",
+  "downloadPageUrl": "https://github.com/thewaqasPro/MyKidsTube/releases/latest"
+}
