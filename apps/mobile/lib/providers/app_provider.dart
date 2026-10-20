@@ -15,6 +15,8 @@ import '../services/recommendation_service.dart';
 import '../models/followed_channel.dart';
 import '../services/engagement_score_service.dart';
 import '../services/catalog_rotator_service.dart';
+import '../models/app_update_info.dart';
+import '../services/app_update_service.dart';
 
 class RotationSummary {
   final int addedCount;
@@ -109,9 +111,16 @@ class AppProvider extends ChangeNotifier {
   DateTime get sessionStartTime => _sessionStartTime;
   bool get limitFiredThisSession => _limitFiredThisSession;
 
+  // App Update State
+  AppUpdateService _updateService = AppUpdateService();
+  AppUpdateInfo? _availableUpdate;
+  bool _isCheckingForUpdate = false;
+
   bool get skipIntroLongVideos => _skipIntroLongVideos;
   bool get skipIntroShorts => _skipIntroShorts;
   int get skipIntroSeconds => _skipIntroSeconds;
+  AppUpdateInfo? get availableUpdate => _availableUpdate;
+  bool get isCheckingForUpdate => _isCheckingForUpdate;
 
   int getStartSecondsFor(VideoItem video) {
     final shouldSkip = video.isShort ? _skipIntroShorts : _skipIntroLongVideos;
@@ -305,6 +314,36 @@ class AppProvider extends ChangeNotifier {
     try {
       await _db.setSkipIntroSeconds(seconds);
     } catch (_) {}
+  }
+
+  @visibleForTesting
+  void setUpdateServiceForTesting(AppUpdateService service) {
+    _updateService = service;
+  }
+
+  Future<AppUpdateInfo?> checkForUpdate({
+    bool manual = false,
+    String? currentVersionOverride,
+  }) async {
+    _isCheckingForUpdate = true;
+    notifyListeners();
+
+    try {
+      final info = await _updateService.checkForUpdate(
+        currentVersionOverride: currentVersionOverride,
+      );
+      _availableUpdate = info;
+      return info;
+    } catch (e) {
+      _availableUpdate = AppUpdateInfo.error(
+        currentVersion: currentVersionOverride ?? '1.3.0',
+        message: 'Unable to check for updates: $e',
+      );
+      return _availableUpdate;
+    } finally {
+      _isCheckingForUpdate = false;
+      notifyListeners();
+    }
   }
 
   void markAutoplaySessionLimitFired() {
