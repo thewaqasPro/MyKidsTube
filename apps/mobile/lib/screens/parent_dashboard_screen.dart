@@ -10,6 +10,7 @@ import 'parent_analytics_screen.dart';
 import 'parent_youtube_search_screen.dart';
 import '../widgets/add_video_sheet.dart';
 import '../widgets/smart_cleanup_sheet.dart';
+import '../widgets/app_update_dialog.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   final bool? isUsingDefaultPinOverride;
@@ -611,6 +612,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             },
           ),
 
+          const SizedBox(height: 10),
+
+          // App Updates & Version Card
+          _buildAppUpdateCard(context, provider),
+
           const SizedBox(height: 20),
 
           // Return to Kids Button
@@ -1145,6 +1151,49 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAppUpdateCard(BuildContext context, AppProvider provider) {
+    final update = provider.availableUpdate;
+    final isChecking = provider.isCheckingForUpdate;
+    final hasUpdate = update?.hasUpdate ?? false;
+
+    String badgeText;
+    if (isChecking) {
+      badgeText = 'Checking...';
+    } else if (hasUpdate) {
+      badgeText = 'v${update!.latestVersion} Available!';
+    } else {
+      badgeText = 'Check Updates';
+    }
+
+    return _buildSettingsCard(
+      title: 'Check for App Updates',
+      subtitle: hasUpdate
+          ? 'New version v${update!.latestVersion} is ready to download and install'
+          : 'Verify against GitHub releases and install the latest update',
+      icon: Icons.system_update_rounded,
+      iconColor: hasUpdate ? Colors.amberAccent : Colors.tealAccent,
+      badge: badgeText,
+      onTap: () async {
+        final info = await provider.checkForUpdate(manual: true);
+        if (!context.mounted) return;
+        if (info != null) {
+          if (info.hasUpdate) {
+            AppUpdateDialog.show(context, info: info);
+          } else if (info.hasError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(info.errorMessage ?? 'Failed to check for updates'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          } else {
+            AppUpdateDialog.show(context, info: info);
+          }
+        }
+      },
     );
   }
 
