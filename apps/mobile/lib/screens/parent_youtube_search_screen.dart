@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/app_provider.dart';
 import '../services/youtube_explorer_service.dart';
+import '../models/followed_channel.dart';
 
 enum SearchMode {
   channel,
@@ -711,13 +712,19 @@ class _ParentYouTubeSearchScreenState extends State<ParentYouTubeSearchScreen> {
   }
 
   Widget _buildChannelHeaderCard(YouTubeChannelInfo ch) {
+    final provider = Provider.of<AppProvider>(context);
+    final isFollowed = provider.isChannelFollowed(ch.id);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(
+          color: isFollowed ? Colors.amber.withValues(alpha: 0.5) : Colors.white12,
+          width: isFollowed ? 1.5 : 1.0,
+        ),
       ),
       child: Row(
         children: [
@@ -751,6 +758,45 @@ class _ParentYouTubeSearchScreenState extends State<ParentYouTubeSearchScreen> {
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () async {
+              if (isFollowed) {
+                await provider.unfollowChannel(ch.id);
+              } else {
+                await provider.followChannel(
+                  FollowedChannel(
+                    channelId: ch.id,
+                    title: ch.title,
+                    handle: ch.title,
+                    logoUrl: ch.logoUrl,
+                    addedAt: DateTime.now().millisecondsSinceEpoch,
+                  ),
+                );
+              }
+            },
+            icon: Icon(
+              isFollowed ? Icons.check_circle_rounded : Icons.bookmark_add_outlined,
+              size: 15,
+              color: isFollowed ? Colors.greenAccent : Colors.white70,
+            ),
+            label: Text(
+              isFollowed ? 'Following' : 'Follow',
+              style: TextStyle(
+                fontSize: 12,
+                color: isFollowed ? Colors.greenAccent : Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              side: BorderSide(
+                color: isFollowed ? Colors.greenAccent : Colors.white24,
+              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             ),
           ),
         ],

@@ -32,7 +32,7 @@ class AppProvider extends ChangeNotifier {
   final DatabaseService _db;
   final VpsApiService _api;
   final DownloadService _downloader;
-  int _catalogLimit = 200;
+  final int _catalogLimit = 200;
   bool _autoRotateCatalog = true;
   List<FollowedChannel> _followedChannels = [];
   bool _isRotatingCatalog = false;
@@ -874,6 +874,8 @@ class AppProvider extends ChangeNotifier {
     await _db.removeFollowedChannel(channelId);
     await loadFollowedChannels();
   }
+
+  bool isChannelFollowed(String channelId) => _followedChannels.any((c) => c.channelId == channelId);
 
   Future<void> setAutoRotateCatalog(bool enabled) async {
     _autoRotateCatalog = enabled;

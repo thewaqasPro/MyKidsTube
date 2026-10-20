@@ -9,6 +9,7 @@ import 'parent_media_library_screen.dart';
 import 'parent_analytics_screen.dart';
 import 'parent_youtube_search_screen.dart';
 import '../widgets/add_video_sheet.dart';
+import '../widgets/smart_cleanup_sheet.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   final bool? isUsingDefaultPinOverride;
@@ -25,6 +26,7 @@ class ParentDashboardScreen extends StatefulWidget {
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int _currentTabIndex = 0;
   bool _isUsingDefaultPin = false;
+  bool _isSyncingFreshVideos = false;
 
   @override
   void initState() {
@@ -194,7 +196,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               Expanded(
                 child: _buildMetricTile(
                   label: '${provider.categories.length} Categories',
-                  value: '$totalVideos Videos',
+                  value: '$totalVideos / ${provider.catalogLimit}',
                   title: 'Catalog Size',
                   icon: Icons.video_library_rounded,
                   color: Colors.redAccent,
@@ -211,6 +213,139 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
               ),
             ],
+          ),
+
+          // Near-limit warning banner (at >= 180 of 200 videos)
+          if (provider.isCatalogNearLimit) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Catalog near capacity (${provider.allVideos.length}/${provider.catalogLimit}). Auto-rotation will recycle least-watched videos or run Smart Cleanup below.',
+                      style: const TextStyle(color: Colors.amber, fontSize: 12, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          // Fresh Video Rotation Card
+          Card(
+            color: const Color(0xFF1E1E1E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Colors.white12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.autorenew_rounded, color: Colors.cyanAccent, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Fresh Video Rotation',
+                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${provider.followedChannels.length} followed channels',
+                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Rotates new kid videos from followed channels and retires unwatched videos under the 200-video cap.',
+                    style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.3),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isSyncingFreshVideos
+                              ? null
+                              : () async {
+                                  setState(() => _isSyncingFreshVideos = true);
+                                  try {
+                                    final summary = await provider.syncAndRotateCatalog();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            summary.addedCount > 0
+                                                ? 'Added ${summary.addedCount} fresh videos from followed channels!'
+                                                : 'Catalog is already fresh and up to date.',
+                                          ),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isSyncingFreshVideos = false);
+                                  }
+                                },
+                          icon: _isSyncingFreshVideos
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text('Get Fresh Videos', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2C2C2C),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => const SmartCleanupSheet(),
+                            );
+                          },
+                          icon: const Icon(Icons.cleaning_services_rounded, size: 16, color: Colors.amber),
+                          label: const Text('Smart Cleanup', style: TextStyle(fontSize: 12, color: Colors.amber)),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.amber.withValues(alpha: 0.4)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
 
           const SizedBox(height: 16),

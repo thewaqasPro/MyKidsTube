@@ -1,5 +1,4 @@
 import '../models/video_item.dart';
-import '../models/followed_channel.dart';
 import 'database_service.dart';
 import 'youtube_explorer_service.dart';
 

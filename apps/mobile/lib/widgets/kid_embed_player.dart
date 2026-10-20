@@ -67,11 +67,15 @@ class KidEmbedPlayer extends StatefulWidget {
       display: flex;
       align-items: center;
       justify-content: center;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
     }
     iframe {
       width: 100%;
       height: 100%;
       border: 0;
+      touch-action: manipulation;
       ${scale != 1.0 ? 'transform: scale($scale); transform-origin: center center;' : ''}
     }
   </style>
@@ -262,6 +266,11 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
     super.dispose();
   }
 
+  void seekRelative(int seconds) {
+    final js = 'try { if (window.player && typeof window.player.getCurrentTime === "function" && typeof window.player.seekTo === "function") { var curr = window.player.getCurrentTime(); var target = Math.max(0, curr + ($seconds)); window.player.seekTo(target, true); } } catch(e) {}';
+    _controller.runJavaScript(js);
+  }
+
   void setMuted(bool muted) {
     final js = muted ? 'muteVideo();' : 'unMuteVideo();';
     _controller.runJavaScript(js);
@@ -339,6 +348,9 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
           final t = double.tryParse(raw);
           if (t != null && t > 0) {
             _currentPlaybackSeconds = t;
+            if (_hasError) {
+              if (mounted) setState(() => _hasError = false);
+            }
           }
         },
       )
@@ -365,6 +377,22 @@ class KidEmbedPlayerState extends State<KidEmbedPlayer> {
             }
           },
           onWebResourceError: (WebResourceError error) {
+            // Ignore subresource failures (analytics, ad trackers, beacons, thumbnails)
+            if (error.isForMainFrame == false) {
+              return;
+            }
+
+            // Ignore aborted requests caused by rapid taps, blocked links, or touch cancellations
+            final desc = error.description.toUpperCase();
+            if (desc.contains("ABORTED") || error.errorCode == -3 || error.errorCode == -999) {
+              return;
+            }
+
+            // If the video is already streaming/playing, never interrupt playback with an error overlay
+            if (_currentPlaybackSeconds > 0) {
+              return;
+            }
+
             if (mounted) {
               setState(() {
                 _isLoading = false;
